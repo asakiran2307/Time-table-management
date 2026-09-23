@@ -1,0 +1,17 @@
+{
+  "name": "UniSchedule — University Timetable Management",
+  "short_name": "UniSchedule",
+  "description": "University timetable planning, conflict checking and export workspace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f5f8",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
