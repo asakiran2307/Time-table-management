@@ -77,8 +77,15 @@ create table if not exists public.rooms (
   active boolean not null default true
 );
 
-alter table public.classes add constraint classes_room_fk foreign key (room_id) references public.rooms(id) on delete set null;
-alter table public.classes add constraint classes_incharge_fk foreign key (incharge_id) references public.faculty(id) on delete set null;
+do $
+begin
+  if not exists (select 1 from pg_constraint where conname='classes_room_fk') then
+    alter table public.classes add constraint classes_room_fk foreign key (room_id) references public.rooms(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='classes_incharge_fk') then
+    alter table public.classes add constraint classes_incharge_fk foreign key (incharge_id) references public.faculty(id) on delete set null;
+  end if;
+end $;
 
 create table if not exists public.courses (
   id uuid primary key default gen_random_uuid(),
@@ -176,6 +183,41 @@ create table if not exists public.notifications (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.attendance_records (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  class_id uuid references public.classes(id) on delete set null,
+  course_id uuid references public.courses(id) on delete set null,
+  faculty_id uuid references public.faculty(id) on delete set null,
+  attendance_date date not null,
+  period integer not null,
+  present integer not null default 0 check (present >= 0),
+  total integer not null default 0 check (total >= 0 and present <= total),
+  created_at timestamptz not null default now(),
+  unique (organization_id,class_id,course_id,attendance_date,period)
+);
+
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  title text not null,
+  message text not null,
+  audience text not null default 'Everyone',
+  published_by uuid references auth.users(id) on delete set null,
+  published_at timestamptz not null default now(),
+  archived_at timestamptz
+);
+
+create table if not exists public.timetable_versions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  note text,
+  snapshot jsonb not null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_members_user on public.organization_members(user_id);
 create index if not exists idx_classes_org on public.classes(organization_id);
 create index if not exists idx_faculty_org on public.faculty(organization_id);
@@ -183,6 +225,9 @@ create index if not exists idx_courses_org on public.courses(organization_id);
 create index if not exists idx_rooms_org on public.rooms(organization_id);
 create index if not exists idx_schedule_org on public.schedule_entries(organization_id);
 create index if not exists idx_audit_org on public.audit_logs(organization_id,created_at desc);
+create index if not exists idx_attendance_org on public.attendance_records(organization_id,attendance_date desc);
+create index if not exists idx_announcements_org on public.announcements(organization_id,published_at desc);
+create index if not exists idx_versions_org on public.timetable_versions(organization_id,created_at desc);
 
 create or replace function public.is_org_member(target_org uuid)
 returns boolean language sql stable security definer set search_path=public as $$
@@ -216,6 +261,9 @@ alter table public.room_bookings enable row level security;
 alter table public.substitutions enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.notifications enable row level security;
+alter table public.attendance_records enable row level security;
+alter table public.announcements enable row level security;
+alter table public.timetable_versions enable row level security;
 
 create policy "org members can read organizations" on public.organizations for select to authenticated using (public.is_org_member(id));
 create policy "users manage own profile" on public.profiles for all to authenticated using (id=auth.uid()) with check (id=auth.uid());
@@ -247,3 +295,10 @@ create policy "org data read audit" on public.audit_logs for select to authentic
 create policy "org data insert audit" on public.audit_logs for insert to authenticated with check (public.is_org_member(organization_id) and actor_id=auth.uid());
 create policy "users read own notifications" on public.notifications for select to authenticated using (user_id=auth.uid() and public.is_org_member(organization_id));
 create policy "users update own notifications" on public.notifications for update to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
+
+create policy "org data read attendance" on public.attendance_records for select to authenticated using (public.is_org_member(organization_id));
+create policy "org data write attendance" on public.attendance_records for all to authenticated using (public.has_org_role(organization_id,array['owner','admin','scheduler','faculty']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','scheduler','faculty']::public.member_role[]));
+create policy "org data read announcements" on public.announcements for select to authenticated using (public.is_org_member(organization_id));
+create policy "org data write announcements" on public.announcements for all to authenticated using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "org data read versions" on public.timetable_versions for select to authenticated using (public.is_org_member(organization_id));
+create policy "org data write versions" on public.timetable_versions for all to authenticated using (public.has_org_role(organization_id,array['owner','admin','scheduler']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','scheduler']::public.member_role[]));
