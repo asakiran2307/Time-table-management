@@ -163,3 +163,51 @@ q("activityTable").innerHTML=h+"</tbody></table>"
 }
 function renderAll(){renderCore();availability();bookings();substitutions();users();activity()}
 function bind(){bindCore();if(q("addAvailability"))q("addAvailability").onclick=function(){show("availability")};if(q("addBooking"))q("addBooking").onclick=addBooking;if(q("addSubstitution"))q("addSubstitution").onclick=addSubstitution;if(q("addUser"))q("addUser").onclick=addUser;if(q("clearActivity"))q("clearActivity").onclick=function(){if(confirm("Clear activity log?")){db.activity=[];save()}}}
+
+function masterEntity(type){
+var map={department:"masterDept",section:"masterSection",class:"masterClass",faculty:"masterFaculty",course:"masterCourse"},id=q(map[type]).value;
+if(!id)return null;
+if(type==="department")return db.departments.find(function(x){return x.id===id});
+if(type==="section")return db.sections.find(function(x){return x.id===id});
+if(type==="class")return db.classes.find(function(x){return x.id===id});
+if(type==="faculty")return db.faculty.find(function(x){return x.id===id});
+return db.courses.find(function(x){return x.id===id})
+}
+function editMaster(type){
+var x=masterEntity(type);if(!x)return;
+var html="";
+if(type==="department")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Code<input name='code' required value='"+esc(x.code)+"'></label>";
+if(type==="section")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Code<input name='code' required value='"+esc(x.code)+"'></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label>";
+if(type==="faculty")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label>";
+if(type==="class")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Section<select name='section'>"+options(db.sections,"code","name")+"</select></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><label>In-charge<input name='incharge' value='"+esc(x.incharge)+"'></label>";
+if(type==="course")html="<label>Code<input name='code' required value='"+esc(x.code)+"'></label><label>Subject<input name='name' required value='"+esc(x.name)+"'></label><div class='formgrid'><label>L<input name='l' type='number' value='"+(x.l||0)+"'></label><label>T<input name='t' type='number' value='"+(x.t||0)+"'></label><label>P<input name='p' type='number' value='"+(x.p||0)+"'></label><label>Credits<input name='credits' type='number' value='"+(x.credits||0)+"'></label></div><label>Faculty<select name='faculty'>"+options(db.faculty,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label>";
+openModal("Edit "+type,html+"<div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save Changes</button></div>");
+var f=q("modalForm");q("cancelModal").onclick=closeModal;
+if(f.department)f.department.value=x.department||"";
+if(f.section)f.section.value=x.section||x.code||"";
+if(f.room)f.room.value=x.room||"";
+if(f.faculty)f.faculty.value=x.faculty||x.default_faculty_id||"";
+f.onsubmit=function(e){e.preventDefault();var d=new FormData(f);
+if(type==="department"){x.name=d.get("name");x.code=d.get("code").toUpperCase()}
+if(type==="section"){x.name=d.get("name");x.code=d.get("code").toUpperCase();x.department=d.get("department")}
+if(type==="faculty"){x.name=d.get("name");x.department=d.get("department")}
+if(type==="class"){x.name=d.get("name");x.section=d.get("section");x.department=d.get("department");x.room=d.get("room");x.incharge=d.get("incharge")}
+if(type==="course"){x.code=d.get("code");x.id=x.id; x.name=d.get("name");x.l=+d.get("l");x.t=+d.get("t");x.p=+d.get("p");x.credits=+d.get("credits");x.faculty=d.get("faculty");x.room=d.get("room")}
+logActivity(type+" updated",x.name||x.code);closeModal();save()}
+}
+function deleteMaster(type){
+var x=masterEntity(type);if(!x)return;
+if(!confirm("Delete this "+type+"?"))return;
+if(type==="department"&& (db.classes.some(function(c){return c.department===x.id})||db.faculty.some(function(f){return f.department===x.id})||db.sections.some(function(s){return s.department===x.id})))return alert("This department is still in use.");
+if(type==="section"&&db.classes.some(function(c){return c.section===x.code}))return alert("This section is still assigned to a class.");
+if(type==="faculty"&&db.courses.some(function(c){return c.faculty===x.id}) )return alert("This faculty member is assigned to a course.");
+if(type==="course"&&db.schedule.some(function(s){return s[2]===x.id}))return alert("This course exists in the timetable.");
+var key={department:"departments",section:"sections",class:"classes",faculty:"faculty",course:"courses"}[type];
+db[key]=db[key].filter(function(y){return y.id!==x.id});logActivity(type+" deleted",x.name||x.code);save()
+}
+function bindMasterControls(){
+document.querySelectorAll("[data-master-edit]").forEach(function(b){b.onclick=function(){editMaster(b.dataset.masterEdit)}});
+document.querySelectorAll("[data-master-delete]").forEach(function(b){b.onclick=function(){deleteMaster(b.dataset.masterDelete)}});
+}
+const oldRenderAll=renderAll;
+function renderAll(){oldRenderAll();bindMasterControls()}
