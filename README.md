@@ -111,3 +111,43 @@ For a real multi-university SaaS deployment:
 7. Add Vercel deployment environment variables.
 
 Supabase's current Next.js guidance uses cookie-based Auth, Postgres and RLS; exposed tables should remain protected by RLS. Vercel's current SaaS starter pattern also demonstrates authentication, RBAC, subscriptions and activity logging.
+
+### Enterprise modules now included
+
+The browser application now also includes:
+- Analytics and workload dashboards
+- Faculty availability controls used by the generator
+- Room booking with timetable collision checks
+- Substitution planning with substitute conflict checks
+- Users and workspace roles
+- Activity/audit log
+- Attendance register
+- Announcements/notifications workspace
+- Timetable release/version snapshots with restore
+- JSON backup restore
+- Full integrity validation
+- Master-data edit/delete with dependency protection
+- Break/lunch-aware calendar configuration
+
+These features intentionally work in the browser demo so the project can be tested without a backend.
+
+### Production SaaS target architecture
+
+For a shared university product, the recommended production stack is Next.js App Router + Supabase Auth/Postgres/RLS + Vercel. Supabase's current Next.js guidance uses cookie-based authentication with `@supabase/ssr`, while RLS provides row-level authorization; Vercel's SaaS starter demonstrates authentication, RBAC, activity logging and billing patterns.
+
+The current repository includes the Supabase schema foundation, but the browser demo is still LocalStorage-backed until a Supabase project and application integration are configured. Do not put a Supabase secret/service key in browser code.
+
+### Recommended production rollout
+
+1. Create the Supabase project and run `supabase/schema.sql`.
+2. Configure email/password or institutional SSO in Supabase Auth.
+3. Add Next.js App Router + `@supabase/ssr` authentication.
+4. Create organization onboarding and membership management.
+5. Replace LocalStorage repositories with organization-scoped Supabase queries.
+6. Keep RLS enabled and test SELECT/INSERT/UPDATE/DELETE policies.
+7. Move automatic timetable generation to a server-side constraint solver for large deployments.
+8. Add Realtime for schedule, bookings and substitution updates.
+9. Add object storage for institutional documents and generated exports.
+10. Add Stripe only after the core scheduling workflow is stable.
+
+The current schema deliberately keeps organization_id on business records so multiple universities can share one database while remaining isolated by RLS.
