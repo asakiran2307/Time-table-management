@@ -211,3 +211,86 @@ document.querySelectorAll("[data-master-delete]").forEach(function(b){b.onclick=
 }
 const oldRenderAll=renderAll;
 function renderAll(){oldRenderAll();bindMasterControls()}
+
+/* Enterprise operations layer */
+function attendance(){
+  var h="<table><thead><tr><th>Date</th><th>Class</th><th>Course</th><th>Period</th><th>Present</th><th>Total</th><th>Attendance</th><th>Action</th></tr></thead><tbody>";
+  db.attendance.forEach(function(a){
+    var pct=a.total?Math.round(a.present/a.total*100):0;
+    h+="<tr><td>"+esc(a.date)+"</td><td>"+esc(cl(a.classId)?cl(a.classId).name:"—")+"</td><td>"+esc(course(a.courseId)?course(a.courseId).code:"—")+"</td><td>"+(a.period+1)+"</td><td>"+a.present+"</td><td>"+a.total+"</td><td><b>"+pct+"%</b></td><td><button data-del-att='"+a.id+"'>Delete</button></td></tr>";
+  });
+  q("attendanceTable").innerHTML=h+"</tbody></table>";
+  q("attendanceTable").querySelectorAll("[data-del-att]").forEach(function(b){b.onclick=function(){db.attendance=db.attendance.filter(function(x){return x.id!==b.dataset.delAtt});logActivity("Attendance record deleted",b.dataset.delAtt);save()}});
+}
+function takeAttendance(){
+  var classOpts=options(db.classes,"id","name"), courseOpts=options(db.courses,"id","name");
+  var dayOpts=db.settings.days.map(function(d){return "<option value='"+d+"'>"+dayLabel(d)+"</option>"}).join("");
+  var pOpts="";for(var p=0;p<db.settings.periods;p++)if(!breakType(p))pOpts+="<option value='"+p+"'>Period "+(p+1)+"</option>";
+  openModal("Record Attendance","<label>Date<input name='date' type='date' required></label><label>Class<select name='classId'>"+classOpts+"</select></label><label>Course<select name='courseId'>"+courseOpts+"</select></label><label>Period<select name='period'>"+pOpts+"</select></label><div class='formgrid'><label>Present<input name='present' type='number' min='0' required></label><label>Total Students<input name='total' type='number' min='1' required></label></div><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save Attendance</button></div>");
+  q("cancelModal").onclick=closeModal;
+  q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),present=+f.get("present"),total=+f.get("total");if(present>total){alert("Present cannot exceed total students.");return}db.attendance.unshift({id:"ATT-"+Date.now(),date:f.get("date"),classId:f.get("classId"),courseId:f.get("courseId"),period:+f.get("period"),present:present,total:total});logActivity("Attendance recorded",f.get("date"));closeModal();save()};
+}
+function announcements(){
+  var h="<table><thead><tr><th>Published</th><th>Title</th><th>Audience</th><th>Message</th><th>Status</th><th>Action</th></tr></thead><tbody>";
+  db.announcements.forEach(function(a){h+="<tr><td>"+esc(new Date(a.at).toLocaleString())+"</td><td><b>"+esc(a.title)+"</b></td><td>"+esc(a.audience)+"</td><td>"+esc(a.message)+"</td><td>"+esc(a.status)+"</td><td><button data-del-ann='"+a.id+"'>Delete</button></td></tr>"});
+  q("announcementTable").innerHTML=h+"</tbody></table>";
+  q("announcementTable").querySelectorAll("[data-del-ann]").forEach(function(b){b.onclick=function(){db.announcements=db.announcements.filter(function(x){return x.id!==b.dataset.delAnn});logActivity("Announcement deleted",b.dataset.delAnn);save()}});
+}
+function addAnnouncement(){
+  openModal("New Announcement","<label>Title<input name='title' required></label><label>Audience<select name='audience'><option>Everyone</option><option>Faculty</option><option>Students</option><option>All Classes</option></select></label><label>Message<textarea name='message' rows='5' required></textarea></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Publish</button></div>");
+  q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.announcements.unshift({id:"ANN-"+Date.now(),title:f.get("title"),audience:f.get("audience"),message:f.get("message"),status:"Published",at:new Date().toISOString()});logActivity("Announcement published",f.get("title"));closeModal();save()};
+}
+function versions(){
+  var h="<table><thead><tr><th>Version</th><th>Created</th><th>Sessions</th><th>Note</th><th>Action</th></tr></thead><tbody>";
+  db.versions.forEach(function(v){h+="<tr><td><b>"+esc(v.name)+"</b></td><td>"+esc(new Date(v.at).toLocaleString())+"</td><td>"+v.schedule.length+"</td><td>"+esc(v.note||"Manual release")+"</td><td><button data-restore-version='"+v.id+"'>Restore</button> <button data-del-version='"+v.id+"'>Delete</button></td></tr>"});
+  q("versionTable").innerHTML=h+"</tbody></table>";
+  q("versionTable").querySelectorAll("[data-restore-version]").forEach(function(b){b.onclick=function(){var v=db.versions.find(function(x){return x.id===b.dataset.restoreVersion});if(!v)return;if(confirm("Restore "+v.name+"? Current timetable will be replaced.")){db.schedule=copy(v.schedule);logActivity("Timetable version restored",v.name);save()}}});
+  q("versionTable").querySelectorAll("[data-del-version]").forEach(function(b){b.onclick=function(){db.versions=db.versions.filter(function(x){return x.id!==b.dataset.delVersion});save()}});
+}
+function saveVersion(){
+  var note=prompt("Version note (optional):","Before timetable changes");if(note===null)return;
+  var name="Release "+(db.versions.length+1);
+  db.versions.unshift({id:"VER-"+Date.now(),name:name,note:note,schedule:copy(db.schedule),at:new Date().toISOString()});
+  db.versions=db.versions.slice(0,30);logActivity("Timetable version saved",name);save();
+}
+function analytics(){
+  var totalSlots=db.classes.length*db.settings.days.length*Math.max(0,db.settings.periods-db.settings.breaks.length);
+  var used=db.schedule.length,conf=conflicts().length;
+  q("analyticsStats").innerHTML=[["Scheduled sessions",used],["Available slots",Math.max(0,totalSlots-used)],["Faculty",db.faculty.length],["Rooms",db.rooms.length],["Conflicts",conf],["Saved releases",db.versions.length]].map(function(x){return "<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>"}).join("");
+  var fh="<table><thead><tr><th>Faculty</th><th>Sessions</th><th>Weekly target</th><th>Load</th></tr></thead><tbody>";
+  db.faculty.forEach(function(f){var n=db.schedule.filter(function(x){return x[3]===f.id}).length;var target=db.courses.filter(function(c){return c.faculty===f.id}).reduce(function(a,c){return a+(c.l||0)+(c.t||0)+(c.p||0)},0);fh+="<tr><td>"+esc(f.name)+"</td><td>"+n+"</td><td>"+target+"</td><td>"+(target?Math.round(n/target*100):0)+"%</td></tr>"});q("facultyWorkload").innerHTML=fh+"</tbody></table>";
+  var rh="<table><thead><tr><th>Room</th><th>Sessions</th><th>Capacity</th><th>Utilization</th></tr></thead><tbody>";
+  db.rooms.forEach(function(r){var n=db.schedule.filter(function(x){return x[4]===r.id}).length;var cap=db.settings.days.length*Math.max(0,db.settings.periods-db.settings.breaks.length);rh+="<tr><td>"+esc(r.name)+"</td><td>"+n+"</td><td>"+r.capacity+"</td><td>"+(cap?Math.round(n/cap*100):0)+"%</td></tr>"});q("roomUtilization").innerHTML=rh+"</tbody></table>";
+  var ch="<table><thead><tr><th>Course</th><th>Required</th><th>Scheduled</th><th>Coverage</th></tr></thead><tbody>";
+  db.courses.forEach(function(c){var req=(c.l||0)+(c.t||0)+(c.p||0),got=db.schedule.filter(function(x){return x[2]===c.id}).length;ch+="<tr><td>"+esc(c.code)+"</td><td>"+req+"</td><td>"+got+"</td><td>"+(req?Math.min(100,Math.round(got/req*100)):100)+"%</td></tr>"});q("courseCoverage").innerHTML=ch+"</tbody></table>";
+}
+function integrity(){
+  var issues=[];
+  db.classes.forEach(function(c){if(!db.departments.some(function(d){return d.id===c.department}))issues.push("Class "+c.name+" references a missing department.");if(c.section&&!db.sections.some(function(s){return s.code===c.section}))issues.push("Class "+c.name+" references a missing section.");});
+  db.courses.forEach(function(c){if(c.faculty&&!fac(c.faculty))issues.push("Course "+c.code+" references missing faculty.");if(c.room&&!room(c.room))issues.push("Course "+c.code+" references missing room.");});
+  db.schedule.forEach(function(x){if(!cl(x[5]))issues.push("Schedule references missing class: "+x[5]);if(!course(x[2]))issues.push("Schedule references missing course: "+x[2]);if(!fac(x[3]))issues.push("Schedule references missing faculty: "+x[3]);if(!room(x[4]))issues.push("Schedule references missing room: "+x[4]);if(breakType(x[1]))issues.push("Schedule uses a break period: "+x[0]+" P"+(x[1]+1));});
+  conflicts().forEach(function(c){issues.push(c.type+" conflict on "+c.day+" P"+(c.period+1));});
+  db.classes.forEach(function(c){db.courses.forEach(function(cr){var req=(cr.l||0)+(cr.t||0)+(cr.p||0);if(req&&!db.schedule.some(function(x){return x[5]===c.id&&x[2]===cr.id})&&c.department===((fac(cr.faculty)||{}).department))issues.push("Coverage gap: "+c.name+" / "+cr.code);})});
+  q("integrityResult").innerHTML=issues.length?"<div class='check bad'><b>"+issues.length+" issue(s) found</b><span>"+issues.slice(0,30).map(esc).join("<br>")+"</span></div>":"<div class='check good'><b>Integrity check passed</b><span>No orphan references, break violations or hard scheduling conflicts were found.</span></div>";
+}
+function restoreJSON(){
+  var input=q("jsonImport");if(!input.files||!input.files[0]){alert("Choose a JSON backup first.");return}
+  var reader=new FileReader();reader.onload=function(){try{var x=JSON.parse(reader.result);var required=["settings","departments","classes","sections","faculty","rooms","courses","schedule"];if(!required.every(function(k){return k in x}))throw new Error("Not a UniSchedule backup.");db=normalizeSaaSData(x);logActivity("Workspace restored","JSON backup");save();alert("Backup restored successfully.")}catch(e){alert("Restore failed: "+e.message)}};reader.readAsText(input.files[0]);
+}
+function ensureEnterpriseData(){
+  db.attendance=Array.isArray(db.attendance)?db.attendance:[];
+  db.announcements=Array.isArray(db.announcements)?db.announcements:[];
+  db.versions=Array.isArray(db.versions)?db.versions:[];
+}
+ensureEnterpriseData();
+var previousRenderAll=renderAll;
+renderAll=function(){previousRenderAll();ensureEnterpriseData();attendance();announcements();versions();analytics()};
+function bindEnterprise(){
+  if(q("takeAttendance"))q("takeAttendance").onclick=takeAttendance;
+  if(q("addAnnouncement"))q("addAnnouncement").onclick=addAnnouncement;
+  if(q("saveVersion"))q("saveVersion").onclick=saveVersion;
+  if(q("refreshAnalytics"))q("refreshAnalytics").onclick=analytics;
+  if(q("runIntegrity"))q("runIntegrity").onclick=integrity;
+  if(q("restoreJson"))q("restoreJson").onclick=restoreJSON;
+}
+bindEnterprise();renderAll();
