@@ -1,4 +1,49 @@
 const KEY="unisched-v1";
+const CLOUD_API="/api/state";
+let cloudHydrating=false;
+let cloudSaveTimer=null;
+
+function cloudSave(){
+  if(cloudHydrating)return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(function(){
+    fetch(CLOUD_API,{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({data:db})
+    }).then(function(r){
+      if(!r.ok)throw new Error("Cloud save HTTP "+r.status);
+      return r.json();
+    }).then(function(){
+      console.info("UniSchedule: cloud save complete");
+    }).catch(function(e){
+      console.error("UniSchedule cloud save failed:",e);
+    });
+  },150);
+}
+
+function cloudLoad(){
+  cloudHydrating=true;
+  fetch(CLOUD_API,{cache:"no-store"}).then(function(r){
+    if(r.status===404)return null;
+    if(!r.ok)throw new Error("Cloud load HTTP "+r.status);
+    return r.json();
+  }).then(function(payload){
+    if(payload&&payload.data){
+      db=normalizeSaaSData(payload.data);
+      localStorage.setItem(KEY,JSON.stringify(db));
+      renderAll();
+      console.info("UniSchedule: loaded data from Neon PostgreSQL");
+    }else{
+      cloudSave();
+    }
+  }).catch(function(e){
+    console.error("UniSchedule cloud load failed; keeping local data:",e);
+  }).finally(function(){
+    cloudHydrating=false;
+  });
+}
+
 const DEFAULT={settings:{university:"JOY UNIVERSITY",year:"2025–26",title:"TIME TABLE FOR THE ACADEMIC YEAR 2025-26",incharge:"Ms. S. AMBIKA",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreak:2,lunchBreak:5,breaks:[2,5]},departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],classes:[{id:"CSE3K",name:"B.Tech CSE – Year/Sem III/V",section:"K",department:"SOCI",room:"Room 103",incharge:"Ms. S. AMBIKA"}],sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI"}],faculty:[{id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI"},{id:"F2",name:"Dr. SOFIYA",department:"SOCI"},{id:"F3",name:"Ms. AMBIKA",department:"SOCI"},{id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI"},{id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI"},{id:"F6",name:"NEW FACULTY 14",department:"SOCI"}],rooms:[{id:"R103",name:"Room 103",type:"Classroom",capacity:60,building:"Joveena Block"},{id:"CCL",name:"Cloud Computing Lab",type:"Lab",capacity:45,building:"Joveena Block"},{id:"SAK2",name:"SAK Seminar Hall 2nd Floor",type:"Seminar Hall",capacity:120,building:"SAK Block"}],courses:[
 {id:"24BTCY151",code:"24BTCY151",name:"Introduction to Blockchain and Cryptocurrencty",l:3,t:0,p:0,credits:3,faculty:"F1",room:"R103"},
 {id:"24BTCY152",code:"24BTCY152",name:"Malware Analysis",l:3,t:0,p:0,credits:3,faculty:"F1",room:"R103"},
@@ -23,10 +68,11 @@ function save(){
     db=normalizeSaaSData(db);
     localStorage.setItem(KEY,JSON.stringify(db));
   }catch(e){
-    console.error("UniSchedule save failed:",e);
-    alert("Data could not be saved in this browser. Please check browser storage/private mode.");
+    console.error("UniSchedule local save failed:",e);
+    alert("Data could not be saved locally. Your browser may be blocking storage.");
     return false;
   }
+  cloudSave();
   try{renderAll()}catch(e){console.error("UniSchedule render failed after save:",e)}
   return true;
 }
@@ -310,3 +356,4 @@ function bindEnterprise(){
   if(q("restoreJson"))q("restoreJson").onclick=restoreJSON;
 }
 bind();bindEnterprise();renderAll();
+cloudLoad();
