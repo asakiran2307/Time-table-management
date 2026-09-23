@@ -35,6 +35,7 @@ function cloudLoad(){
       renderAll();
       console.info("UniSchedule: loaded data from Neon PostgreSQL");
     }else{
+      cloudHydrating=false;
       cloudSave();
     }
   }).catch(function(e){
