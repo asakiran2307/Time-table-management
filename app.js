@@ -52,7 +52,7 @@ function courses(){var h="<table><thead><tr><th>S.No</th><th>Code</th><th>Subjec
 function rooms(){var h="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Sessions</th></tr></thead><tbody>";db.rooms.forEach(function(r){h+="<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+db.schedule.filter(function(x){return x[4]===r.id}).length+"</td></tr>"});q("roomTable").innerHTML=h+"</tbody></table>"}
 function departments(){q("deptList").innerHTML=db.departments.map(function(d){return "<div class='card'><b>"+esc(d.name)+"</b><span>"+d.code+" · "+db.classes.filter(function(c){return c.department===d.id}).length+" classes · "+db.faculty.filter(function(f){return f.department===d.id}).length+" faculty</span></div>"}).join("");q("sectionList").innerHTML=db.classes.map(function(c){return "<div class='card'><b>"+esc(c.name)+" — Section "+esc(c.section)+"</b><span>"+esc(c.room)+" · In-charge: "+esc(c.incharge)+"</span></div>"}).join("")}
 function settingsUI(){q("sUniversity").value=db.settings.university;q("sYear").value=db.settings.year;q("sTitle").value=db.settings.title;q("sIncharge").value=db.settings.incharge;q("sDays").value=db.settings.days.join(",");q("sStart").value=db.settings.start;q("sDuration").value=db.settings.duration;q("sPeriods").value=db.settings.periods}
-function renderAll(){populate();dashboard();master();builder();classes();faculty();courses();rooms();departments();settingsUI()}
+function renderCore(){populate();dashboard();master();builder();classes();faculty();courses();rooms();departments();settingsUI()}
 function openModal(title,html){q("modalTitle").textContent=title;q("modalForm").innerHTML=html;q("modal").classList.add("open")}
 function closeModal(){q("modal").classList.remove("open")}
 function addFaculty(){openModal("Add Faculty","<label>Faculty name<input name='name' required></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add Faculty</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.faculty.push({id:"F"+Date.now(),name:f.get("name"),department:f.get("department")});closeModal();save()}}
@@ -72,5 +72,94 @@ async function exportPDF(all){var ids=all?db.classes.map(function(c){return c.id
 function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
 function exportAction(type){if(type==="json")return backup();if(type==="csv")return exportCSV();if(type==="excel")return exportExcel();if(type==="word")return exportWord();if(type==="png")return exportPNG();if(type==="pdf")return exportPDF(false);if(type==="allpdf")return exportPDF(true);if(type==="print")return window.print()}
 function saveMasterCalendar(){var days=q("masterDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);var periods=Math.max(1,Math.min(16,+q("masterPeriods").value||8));var sb=+q("masterShortBreak").value,lb=+q("masterLunchBreak").value;if(sb>=periods)sb=-1;if(lb>=periods)lb=-1;if(sb>=0&&lb>=0&&sb===lb){alert("Short break and lunch break must use different periods.");return}db.settings.days=days;db.settings.periods=periods;db.settings.start=q("masterStart").value||"09:00";db.settings.duration=Math.max(1,+q("masterDuration").value||50);db.settings.shortBreak=sb;db.settings.lunchBreak=lb;db.settings.breaks=[sb,lb].filter(function(v){return v>=0});save()}
-function bind(){nav();q("backup").onclick=backup;q("quick").onclick=function(){show("builder");autoGenerate()};q("generate").onclick=autoGenerate;q("clearClass").onclick=clearClass;q("builderClass").onchange=builder;q("masterAddClass").onclick=addClass;q("masterAddSection").onclick=addSection;q("masterAddFaculty").onclick=addFaculty;q("masterAddCourse").onclick=addCourse;q("masterAddDept").onclick=addDept;q("saveMasterCalendar").onclick=saveMasterCalendar;q("classFilter").onchange=classes;q("facultyFilter").onchange=faculty;q("addCourse").onclick=addCourse;q("addRoom").onclick=addRoom;q("addDept").onclick=addDept;q("closeModal").onclick=closeModal;q("modal").onclick=function(e){if(e.target.id==="modal")closeModal()};document.querySelectorAll(".export").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});document.querySelectorAll(".exportCard").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});q("saveSettings").onclick=function(){db.settings.university=q("sUniversity").value;db.settings.year=q("sYear").value;db.settings.title=q("sTitle").value;db.settings.incharge=q("sIncharge").value;save()};q("saveCalendar").onclick=function(){db.settings.days=q("sDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);db.settings.start=q("sStart").value;db.settings.duration=+q("sDuration").value;db.settings.periods=Math.max(1,+q("sPeriods").value);if(db.settings.shortBreak>=db.settings.periods)db.settings.shortBreak=-1;if(db.settings.lunchBreak>=db.settings.periods)db.settings.lunchBreak=-1;db.settings.breaks=[db.settings.shortBreak,db.settings.lunchBreak].filter(function(v){return v>=0});save()};q("reset").onclick=function(){if(confirm("Reset the workspace to the supplied sample?")){db=copy(DEFAULT);save()}}}
+function bindCore(){nav();q("backup").onclick=backup;q("quick").onclick=function(){show("builder");autoGenerate()};q("generate").onclick=autoGenerate;q("clearClass").onclick=clearClass;q("builderClass").onchange=builder;q("masterAddClass").onclick=addClass;q("masterAddSection").onclick=addSection;q("masterAddFaculty").onclick=addFaculty;q("masterAddCourse").onclick=addCourse;q("masterAddDept").onclick=addDept;q("saveMasterCalendar").onclick=saveMasterCalendar;q("classFilter").onchange=classes;q("facultyFilter").onchange=faculty;q("addCourse").onclick=addCourse;q("addRoom").onclick=addRoom;q("addDept").onclick=addDept;q("closeModal").onclick=closeModal;q("modal").onclick=function(e){if(e.target.id==="modal")closeModal()};document.querySelectorAll(".export").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});document.querySelectorAll(".exportCard").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});q("saveSettings").onclick=function(){db.settings.university=q("sUniversity").value;db.settings.year=q("sYear").value;db.settings.title=q("sTitle").value;db.settings.incharge=q("sIncharge").value;save()};q("saveCalendar").onclick=function(){db.settings.days=q("sDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);db.settings.start=q("sStart").value;db.settings.duration=+q("sDuration").value;db.settings.periods=Math.max(1,+q("sPeriods").value);if(db.settings.shortBreak>=db.settings.periods)db.settings.shortBreak=-1;if(db.settings.lunchBreak>=db.settings.periods)db.settings.lunchBreak=-1;db.settings.breaks=[db.settings.shortBreak,db.settings.lunchBreak].filter(function(v){return v>=0});save()};q("reset").onclick=function(){if(confirm("Reset the workspace to the supplied sample?")){db=copy(DEFAULT);save()}}}
 bind();renderAll();
+function normalizeSaaSData(x){
+x.availability=Array.isArray(x.availability)?x.availability:[];
+x.bookings=Array.isArray(x.bookings)?x.bookings:[];
+x.substitutions=Array.isArray(x.substitutions)?x.substitutions:[];
+x.users=Array.isArray(x.users)?x.users:[{id:"U1",name:"System Administrator",email:"admin@unischedule.local",role:"Owner"}];
+x.activity=Array.isArray(x.activity)?x.activity:[];
+x.organization=x.organization||{name:x.settings.university||"University Workspace",plan:"Trial",status:"Active"};
+return x}
+function load(){
+try{
+var x=JSON.parse(localStorage.getItem(KEY));
+if(!x)x=copy(DEFAULT);
+x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});
+x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);
+x.classes=Array.isArray(x.classes)?x.classes:copy(DEFAULT.classes);
+x.sections=Array.isArray(x.sections)?x.sections:[];
+x.faculty=Array.isArray(x.faculty)?x.faculty:copy(DEFAULT.faculty);
+x.rooms=Array.isArray(x.rooms)?x.rooms:copy(DEFAULT.rooms);
+x.courses=Array.isArray(x.courses)?x.courses:copy(DEFAULT.courses);
+x.schedule=Array.isArray(x.schedule)?x.schedule:copy(DEFAULT.schedule);
+if(x.settings.shortBreak==null)x.settings.shortBreak=(x.settings.breaks&&x.settings.breaks[0]!=null?x.settings.breaks[0]:2);
+if(x.settings.lunchBreak==null)x.settings.lunchBreak=(x.settings.breaks&&x.settings.breaks[1]!=null?x.settings.breaks[1]:5);
+x.settings.breaks=[x.settings.shortBreak,x.settings.lunchBreak].filter(function(v){return v>=0&&v<x.settings.periods});
+if(!x.sections.length)x.classes.forEach(function(c){if(c.section&&!x.sections.some(function(s){return s.code===c.section}))x.sections.push({id:"SEC-"+c.section,name:"Section "+c.section,code:c.section,department:c.department})});
+return normalizeSaaSData(x)
+}catch(e){return normalizeSaaSData(copy(DEFAULT))}}
+function logActivity(action,details){
+db.activity.unshift({id:"ACT-"+Date.now(),action:action,details:details||"",at:new Date().toISOString(),actor:(db.users[0]&&db.users[0].name)||"System"});
+db.activity=db.activity.slice(0,200)
+}
+function availabilityBlocked(fid,day,p){
+return db.availability.some(function(a){return a.faculty===fid&&a.day===day&&a.period===p&&a.blocked})
+}
+function availableFaculty(day,p,exclude){
+return db.faculty.filter(function(f){
+if(f.id===exclude)return false;
+if(availabilityBlocked(f.id,day,p))return false;
+return !db.schedule.some(function(x){return x[0]===day&&x[1]===p&&x[3]===f.id})
+})}
+function availability(){
+var h="<table><thead><tr><th>Faculty</th>";
+for(var p=0;p<db.settings.periods;p++)h+="<th>P"+(p+1)+"</th>";
+h+="</tr></thead><tbody>";
+db.faculty.forEach(function(f){h+="<tr><th>"+esc(f.name)+"</th>";for(var p=0;p<db.settings.periods;p++){var blocked=db.availability.some(function(a){return a.faculty===f.id&&a.period===p&&a.day==="ALL"&&a.blocked});h+="<td><button class='mini "+(blocked?"danger-mini":"")+"' data-avail='"+f.id+"' data-period='"+p+"'>"+(blocked?"Blocked":"Free")+"</button></td>"}h+="</tr>"});
+q("availabilityTable").innerHTML=h+"</tbody></table>";
+q("availabilityTable").querySelectorAll("[data-avail]").forEach(function(b){b.onclick=function(){var fid=b.dataset.avail,p=+b.dataset.period,idx=db.availability.findIndex(function(a){return a.faculty===fid&&a.period===p&&a.day==="ALL"});if(idx>=0)db.availability.splice(idx,1);else db.availability.push({id:"AVL-"+Date.now(),faculty:fid,day:"ALL",period:p,blocked:true});logActivity("Availability changed",fac(fid).name+" Period "+(p+1));save()}})
+}
+function bookings(){
+var h="<table><thead><tr><th>Day</th><th>Period</th><th>Room</th><th>Purpose</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody>";
+db.bookings.forEach(function(b){h+="<tr><td>"+dayLabel(b.day)+"</td><td>"+(b.period+1)+"</td><td>"+esc(room(b.room)?room(b.room).name:"—")+"</td><td>"+esc(b.title)+"</td><td>"+esc(b.requestedBy)+"</td><td>"+esc(b.status)+"</td><td><button data-cancel-book='"+b.id+"'>Cancel</button></td></tr>"});
+q("bookingTable").innerHTML=h+"</tbody></table>";
+q("bookingTable").querySelectorAll("[data-cancel-book]").forEach(function(b){b.onclick=function(){db.bookings=db.bookings.filter(function(x){return x.id!==b.dataset.cancelBook});logActivity("Room booking cancelled",b.dataset.cancelBook);save()}})
+}
+function addBooking(){
+var dayOpts=db.settings.days.map(function(d){return "<option value='"+d+"'>"+dayLabel(d)+"</option>"}).join("");
+var periodOpts="";for(var p=0;p<db.settings.periods;p++)if(!breakType(p))periodOpts+="<option value='"+p+"'>Period "+(p+1)+"</option>";
+openModal("New Room Booking","<label>Day<select name='day'>"+dayOpts+"</select></label><label>Period<select name='period'>"+periodOpts+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><label>Purpose<input name='title' required placeholder='Project review / seminar'></label><label>Requested by<input name='requestedBy' required></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Book Room</button></div>");
+q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),day=f.get("day"),p=+f.get("period"),rid=f.get("room");if(db.schedule.some(function(x){return x[0]===day&&x[1]===p&&x[4]===rid})||db.bookings.some(function(x){return x.day===day&&x.period===p&&x.room===rid&&x.status!=="Cancelled"})){alert("Room is already occupied in this period.");return}db.bookings.push({id:"BKG-"+Date.now(),day:day,period:p,room:rid,title:f.get("title"),requestedBy:f.get("requestedBy"),status:"Confirmed"});logActivity("Room booked",f.get("title"));closeModal();save()}
+}
+function substitutions(){
+var h="<table><thead><tr><th>Day</th><th>Period</th><th>Class</th><th>Course</th><th>Absent Faculty</th><th>Substitute</th><th>Status</th><th>Action</th></tr></thead><tbody>";
+db.substitutions.forEach(function(s){h+="<tr><td>"+dayLabel(s.day)+"</td><td>"+(s.period+1)+"</td><td>"+esc(cl(s.classId)?cl(s.classId).name:"—")+"</td><td>"+esc(course(s.courseId)?course(s.courseId).code:"—")+"</td><td>"+esc(fac(s.absentFaculty)?fac(s.absentFaculty).name:"—")+"</td><td>"+esc(fac(s.substituteFaculty)?fac(s.substituteFaculty).name:"—")+"</td><td>"+esc(s.status)+"</td><td><button data-del-sub='"+s.id+"'>Delete</button></td></tr>"});
+q("substitutionTable").innerHTML=h+"</tbody></table>";
+q("substitutionTable").querySelectorAll("[data-del-sub]").forEach(function(b){b.onclick=function(){db.substitutions=db.substitutions.filter(function(x){return x.id!==b.dataset.delSub});logActivity("Substitution removed",b.dataset.delSub);save()}})
+}
+function addSubstitution(){
+var dayOpts=db.settings.days.map(function(d){return "<option value='"+d+"'>"+dayLabel(d)+"</option>"}).join("");
+var periodOpts="";for(var p=0;p<db.settings.periods;p++)if(!breakType(p))periodOpts+="<option value='"+p+"'>Period "+(p+1)+"</option>";
+openModal("New Substitution","<label>Day<select name='day'>"+dayOpts+"</select></label><label>Period<select name='period'>"+periodOpts+"</select></label><label>Class<select name='classId'>"+options(db.classes,"id","name")+"</select></label><label>Course<select name='courseId'>"+options(db.courses,"id","name")+"</select></label><label>Absent Faculty<select name='absentFaculty'>"+options(db.faculty,"id","name")+"</select></label><label>Substitute Faculty<select name='substituteFaculty'>"+options(db.faculty,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Assign Substitute</button></div>");
+q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),day=f.get("day"),p=+f.get("period"),sf=f.get("substituteFaculty"),af=f.get("absentFaculty");if(sf===af){alert("Substitute must be different from absent faculty.");return}if(!availableFaculty(day,p,af).some(function(x){return x.id===sf})){alert("Selected substitute is not available at this time.");return}db.substitutions.push({id:"SUB-"+Date.now(),day:day,period:p,classId:f.get("classId"),courseId:f.get("courseId"),absentFaculty:af,substituteFaculty:sf,status:"Assigned"});logActivity("Substitute assigned",fac(sf).name);closeModal();save()}
+}
+function users(){
+var h="<table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody>";
+db.users.forEach(function(u){h+="<tr><td><b>"+esc(u.name)+"</b></td><td>"+esc(u.email)+"</td><td><select data-role-user='"+u.id+"'><option "+(u.role==="Owner"?"selected":"")+">Owner</option><option "+(u.role==="Admin"?"selected":"")+">Admin</option><option "+(u.role==="Scheduler"?"selected":"")+">Scheduler</option><option "+(u.role==="Faculty"?"selected":"")+">Faculty</option><option "+(u.role==="Viewer"?"selected":"")+">Viewer</option></select></td><td><button data-del-user='"+u.id+"'>Delete</button></td></tr>"});
+q("userTable").innerHTML=h+"</tbody></table>";
+q("userTable").querySelectorAll("[data-role-user]").forEach(function(s){s.onchange=function(){var u=db.users.find(function(x){return x.id===s.dataset.roleUser});if(u){u.role=s.value;logActivity("User role changed",u.name+" → "+u.role);save()}}});
+q("userTable").querySelectorAll("[data-del-user]").forEach(function(b){b.onclick=function(){if(db.users.length===1){alert("Keep at least one user.");return}db.users=db.users.filter(function(x){return x.id!==b.dataset.delUser});logActivity("User removed",b.dataset.delUser);save()}})
+}
+function addUser(){
+openModal("Add Workspace User","<label>Name<input name='name' required></label><label>Email<input name='email' type='email' required></label><label>Role<select name='role'><option>Admin</option><option>Scheduler</option><option>Faculty</option><option>Viewer</option></select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add User</button></div>");
+q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.users.push({id:"U-"+Date.now(),name:f.get("name"),email:f.get("email"),role:f.get("role")});logActivity("User added",f.get("email"));closeModal();save()}
+}
+function activity(){
+var h="<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead><tbody>";
+db.activity.forEach(function(a){h+="<tr><td>"+esc(new Date(a.at).toLocaleString())+"</td><td>"+esc(a.actor)+"</td><td>"+esc(a.action)+"</td><td>"+esc(a.details)+"</td></tr>"});
+q("activityTable").innerHTML=h+"</tbody></table>"
+}
+function renderAll(){renderCore();availability();bookings();substitutions();users();activity()}
+function bind(){bindCore();if(q("addAvailability"))q("addAvailability").onclick=function(){show("availability")};if(q("addBooking"))q("addBooking").onclick=addBooking;if(q("addSubstitution"))q("addSubstitution").onclick=addSubstitution;if(q("addUser"))q("addUser").onclick=addUser;if(q("clearActivity"))q("clearActivity").onclick=function(){if(confirm("Clear activity log?")){db.activity=[];save()}}}
