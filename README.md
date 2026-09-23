@@ -90,3 +90,24 @@ The Export Centre supports selected-class and complete-university PDF outputs, p
 ## Initial sample
 
 The sample workspace is populated using the structure visible in the supplied Joy University timetable: 2025–26 academic year, Monday–Friday schedule, 8 periods, break slots, CSE III/V Section K, course codes 24BTCY151–156 and 24BTCY851 plus the two lab courses, faculty and room information.
+
+
+## SaaS development
+
+The repository now contains a SaaS foundation in supabase/schema.sql and .env.example.
+
+### Current browser demo
+The UI works without a backend using LocalStorage, including master data, timetable generation, availability, room booking, substitutions, users/roles, activity logs and exports.
+
+### Production backend
+For a real multi-university SaaS deployment:
+
+1. Create a Supabase project.
+2. Run supabase/schema.sql in the Supabase SQL Editor.
+3. Configure Supabase Auth.
+4. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in the production app.
+5. Keep SUPABASE_SECRET_KEY server-side only.
+6. Migrate browser LocalStorage repositories to Supabase queries protected by RLS.
+7. Add Vercel deployment environment variables.
+
+Supabase's current Next.js guidance uses cookie-based Auth, Postgres and RLS; exposed tables should remain protected by RLS. Vercel's current SaaS starter pattern also demonstrates authentication, RBAC, subscriptions and activity logging.
