@@ -16,9 +16,25 @@ schedule:[
 ["THU",0,"24BTCY851","F5","R103","CSE3K"],["THU",1,"24BTCY151","F1","R103","CSE3K"],["THU",3,"24BTCY153","F2","R103","CSE3K"],["THU",4,"24BTCY152","F1","R103","CSE3K"],["THU",6,"24BTCY154","F3","R103","CSE3K"],["THU",7,"24BTCY156","F6","R103","CSE3K"],
 ["FRI",0,"24BTCY252","F1","CCL","CSE3K"],["FRI",3,"24BTCY152","F1","R103","CSE3K"],["FRI",4,"24BTCY154","F3","R103","CSE3K"],["FRI",6,"24BTCY155","F4","R103","CSE3K"]]};
 let db=load();
-function load(){try{var x=JSON.parse(localStorage.getItem(KEY));if(!x)return copy(DEFAULT);x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);x.classes=Array.isArray(x.classes)?x.classes:copy(DEFAULT.classes);x.sections=Array.isArray(x.sections)?x.sections:[];x.faculty=Array.isArray(x.faculty)?x.faculty:copy(DEFAULT.faculty);x.rooms=Array.isArray(x.rooms)?x.rooms:copy(DEFAULT.rooms);x.courses=Array.isArray(x.courses)?x.courses:copy(DEFAULT.courses);x.schedule=Array.isArray(x.schedule)?x.schedule:copy(DEFAULT.schedule);if(x.settings.shortBreak==null)x.settings.shortBreak=(x.settings.breaks&&x.settings.breaks[0]!=null?x.settings.breaks[0]:2);if(x.settings.lunchBreak==null)x.settings.lunchBreak=(x.settings.breaks&&x.settings.breaks[1]!=null?x.settings.breaks[1]:5);x.settings.breaks=[x.settings.shortBreak,x.settings.lunchBreak].filter(function(v,i,a){return v>=0&&v<x.settings.periods&&a.indexOf(v)===i});x.sections=x.sections||[];if(!x.sections.length){x.classes.forEach(function(c){if(c.section&&!x.sections.some(function(z){return z.code===c.section})){x.sections.push({id:"SEC-"+c.section,name:"Section "+c.section,code:c.section,department:c.department})}})}return x}catch(e){return copy(DEFAULT)}}
+function load(){try{var x=JSON.parse(localStorage.getItem(KEY));if(!x)return copy(DEFAULT);x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);x.classes=Array.isArray(x.classes)?x.classes:copy(DEFAULT.classes);x.sections=Array.isArray(x.sections)?x.sections:[];x.faculty=Array.isArray(x.faculty)?x.faculty:copy(DEFAULT.faculty);x.rooms=Array.isArray(x.rooms)?x.rooms:copy(DEFAULT.rooms);x.courses=Array.isArray(x.courses)?x.courses:copy(DEFAULT.courses);x.schedule=Array.isArray(x.schedule)?x.schedule:copy(DEFAULT.schedule);if(x.settings.shortBreak==null)x.settings.shortBreak=(x.settings.breaks&&x.settings.breaks[0]!=null?x.settings.breaks[0]:2);if(x.settings.lunchBreak==null)x.settings.lunchBreak=(x.settings.breaks&&x.settings.breaks[1]!=null?x.settings.breaks[1]:5);x.settings.breaks=[x.settings.shortBreak,x.settings.lunchBreak].filter(function(v,i,a){return v>=0&&v<x.settings.periods&&a.indexOf(v)===i});x.sections=x.sections||[];if(!x.sections.length){x.classes.forEach(function(c){if(c.section&&!x.sections.some(function(z){return z.code===c.section})){x.sections.push({id:"SEC-"+c.section,name:"Section "+c.section,code:c.section,department:c.department})}})}return normalizeSaaSData(x)}catch(e){return normalizeSaaSData(copy(DEFAULT))}}
 function copy(x){return JSON.parse(JSON.stringify(x))}
-function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+function save(){
+  try{
+    db=normalizeSaaSData(db);
+    localStorage.setItem(KEY,JSON.stringify(db));
+  }catch(e){
+    console.error("UniSchedule save failed:",e);
+    alert("Data could not be saved in this browser. Please check browser storage/private mode.");
+    return false;
+  }
+  try{renderAll()}catch(e){console.error("UniSchedule render failed after save:",e)}
+  return true;
+}
+window.addEventListener("storage",function(e){
+  if(e.key===KEY&&e.newValue){
+    try{db=normalizeSaaSData(JSON.parse(e.newValue));renderAll()}catch(err){console.error("UniSchedule sync failed:",err)}
+  }
+});
 function esc(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function q(id){return document.getElementById(id)}
 function course(id){return db.courses.find(function(x){return x.id===id})}
