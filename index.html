@@ -1,5 +1,19 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UniSchedule</title><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="UniSchedule — university timetable planning, conflict checking, management and export workspace.">
+<meta name="theme-color" content="#111827">
+<meta name="application-name" content="UniSchedule">
+<title>UniSchedule — University Timetable Management</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
 <body><div class="app-shell"><aside class="sidebar"><div class="brand"><b>U</b><span>UniSchedule<br><small>Academic Planner</small></span></div><nav>
 <button class="nav active" data-page="dashboard">Dashboard</button><button class="nav" data-page="builder">Timetable Builder</button><button class="nav" data-page="classes">Classes</button><button class="nav" data-page="faculty">Faculty</button><button class="nav" data-page="courses">Courses</button><button class="nav" data-page="rooms">Rooms & Labs</button><button class="nav" data-page="departments">Departments</button><button class="nav" data-page="exports">Exports</button><button class="nav" data-page="settings">Settings</button></nav></aside>
 <main><header><div><small>UNIVERSITY ACADEMIC MANAGEMENT</small><h1 id="title">Dashboard</h1></div><div><button id="backup">Backup JSON</button><button class="primary" id="quick">Generate Timetable</button></div></header>
