@@ -3,46 +3,29 @@ const CLOUD_API="/api/state";
 let cloudHydrating=false;
 let cloudSaveTimer=null;
 
+function setCloudStatus(state,message){
+  var el=q("cloudStatus");if(!el)return;el.textContent=message;el.dataset.state=state;
+}
 function cloudSave(){
   if(cloudHydrating)return;
-  clearTimeout(cloudSaveTimer);
+  clearTimeout(cloudSaveTimer);setCloudStatus("saving","Saving to cloud database…");
   cloudSaveTimer=setTimeout(function(){
-    fetch(CLOUD_API,{
-      method:"PUT",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({data:db})
-    }).then(function(r){
-      if(!r.ok)throw new Error("Cloud save HTTP "+r.status);
-      return r.json();
-    }).then(function(){
-      console.info("UniSchedule: cloud save complete");
-    }).catch(function(e){
-      console.error("UniSchedule cloud save failed:",e);
-    });
-  },150);
+    fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})})
+      .then(function(r){return r.text().then(function(t){var p={};try{p=t?JSON.parse(t):{}}catch(e){}if(!r.ok)throw new Error(p.error||("Cloud save HTTP "+r.status));return p})})
+      .then(function(){setCloudStatus("connected","Cloud database connected");console.info("UniSchedule: cloud save complete")})
+      .catch(function(e){setCloudStatus("error","Cloud database unavailable — local backup is active");console.error("UniSchedule cloud save failed:",e)});
+  },250);
 }
-
 function cloudLoad(){
-  cloudHydrating=true;
-  fetch(CLOUD_API,{cache:"no-store"}).then(function(r){
-    if(r.status===404)return null;
-    if(!r.ok)throw new Error("Cloud load HTTP "+r.status);
-    return r.json();
-  }).then(function(payload){
-    if(payload&&payload.data){
-      db=normalizeSaaSData(payload.data);
-      localStorage.setItem(KEY,JSON.stringify(db));
-      renderAll();
-      console.info("UniSchedule: loaded data from Neon PostgreSQL");
-    }else{
-      cloudHydrating=false;
-      cloudSave();
-    }
-  }).catch(function(e){
-    console.error("UniSchedule cloud load failed; keeping local data:",e);
-  }).finally(function(){
-    cloudHydrating=false;
-  });
+  cloudHydrating=true;setCloudStatus("checking","Checking cloud database…");
+  fetch(CLOUD_API,{cache:"no-store"})
+    .then(function(r){return r.text().then(function(t){var p={};try{p=t?JSON.parse(t):{}}catch(e){}if(r.status===404)return {empty:true};if(!r.ok)throw new Error(p.error||("Cloud load HTTP "+r.status));return p})})
+    .then(function(p){if(p&&p.empty){setCloudStatus("connected","Cloud database connected");cloudHydrating=false;cloudSave();return}
+      if(p&&p.data){db=normalizeSaaSData(p.data);localStorage.setItem(KEY,JSON.stringify(db));setCloudStatus("connected","Cloud database connected");renderAll();console.info("UniSchedule: loaded data from Neon PostgreSQL");}
+      else{setCloudStatus("connected","Cloud database connected");cloudHydrating=false;cloudSave();}
+    })
+    .catch(function(e){setCloudStatus("error","Cloud database unavailable — local backup is active");console.error("UniSchedule cloud load failed; keeping local data:",e)})
+    .finally(function(){cloudHydrating=false});
 }
 
 const DEFAULT={settings:{university:"JOY UNIVERSITY",year:"2025–26",title:"TIME TABLE FOR THE ACADEMIC YEAR 2025-26",incharge:"Ms. S. AMBIKA",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreak:2,lunchBreak:5,breaks:[2,5]},departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],classes:[{id:"CSE3K",name:"B.Tech CSE – Year/Sem III/V",section:"K",department:"SOCI",room:"Room 103",incharge:"Ms. S. AMBIKA"}],sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI"}],faculty:[{id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI"},{id:"F2",name:"Dr. SOFIYA",department:"SOCI"},{id:"F3",name:"Ms. AMBIKA",department:"SOCI"},{id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI"},{id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI"},{id:"F6",name:"NEW FACULTY 14",department:"SOCI"}],rooms:[{id:"R103",name:"Room 103",type:"Classroom",capacity:60,building:"Joveena Block"},{id:"CCL",name:"Cloud Computing Lab",type:"Lab",capacity:45,building:"Joveena Block"},{id:"SAK2",name:"SAK Seminar Hall 2nd Floor",type:"Seminar Hall",capacity:120,building:"SAK Block"}],courses:[
@@ -62,7 +45,6 @@ schedule:[
 ["THU",0,"24BTCY851","F5","R103","CSE3K"],["THU",1,"24BTCY151","F1","R103","CSE3K"],["THU",3,"24BTCY153","F2","R103","CSE3K"],["THU",4,"24BTCY152","F1","R103","CSE3K"],["THU",6,"24BTCY154","F3","R103","CSE3K"],["THU",7,"24BTCY156","F6","R103","CSE3K"],
 ["FRI",0,"24BTCY252","F1","CCL","CSE3K"],["FRI",3,"24BTCY152","F1","R103","CSE3K"],["FRI",4,"24BTCY154","F3","R103","CSE3K"],["FRI",6,"24BTCY155","F4","R103","CSE3K"]]};
 let db=load();
-function load(){try{var x=JSON.parse(localStorage.getItem(KEY));if(!x)return copy(DEFAULT);x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);x.classes=Array.isArray(x.classes)?x.classes:copy(DEFAULT.classes);x.sections=Array.isArray(x.sections)?x.sections:[];x.faculty=Array.isArray(x.faculty)?x.faculty:copy(DEFAULT.faculty);x.rooms=Array.isArray(x.rooms)?x.rooms:copy(DEFAULT.rooms);x.courses=Array.isArray(x.courses)?x.courses:copy(DEFAULT.courses);x.schedule=Array.isArray(x.schedule)?x.schedule:copy(DEFAULT.schedule);if(x.settings.shortBreak==null)x.settings.shortBreak=(x.settings.breaks&&x.settings.breaks[0]!=null?x.settings.breaks[0]:2);if(x.settings.lunchBreak==null)x.settings.lunchBreak=(x.settings.breaks&&x.settings.breaks[1]!=null?x.settings.breaks[1]:5);x.settings.breaks=[x.settings.shortBreak,x.settings.lunchBreak].filter(function(v,i,a){return v>=0&&v<x.settings.periods&&a.indexOf(v)===i});x.sections=x.sections||[];if(!x.sections.length){x.classes.forEach(function(c){if(c.section&&!x.sections.some(function(z){return z.code===c.section})){x.sections.push({id:"SEC-"+c.section,name:"Section "+c.section,code:c.section,department:c.department})}})}return normalizeSaaSData(x)}catch(e){return normalizeSaaSData(copy(DEFAULT))}}
 function copy(x){return JSON.parse(JSON.stringify(x))}
 function save(){
   try{
@@ -104,13 +86,13 @@ function masterCalendarUI(){var days=q("masterDays");if(!days)return;q("masterDa
 function master(){if(!q("masterClassList"))return;populateMaster();masterCalendarUI();q("masterClassList").innerHTML=db.classes.map(function(c){var sec=db.sections.find(function(s){return s.code===c.section});return "<div class='card'><b>"+esc(c.name)+"</b><span>Section "+esc(c.section)+" · "+esc(sec?sec.name:"")+" · "+esc(c.room)+" · "+esc(c.incharge)+"</span></div>"}).join("")||"<p class='muted'>No classes configured.</p>";q("masterPeopleList").innerHTML=db.sections.map(function(x){return "<div class='card'><b>"+esc(x.name)+"</b><span>"+esc(x.code)+" · "+esc((db.departments.find(function(d){return d.id===x.department})||{}).name||"")+"</span></div>"}).join("")+db.faculty.map(function(x){return "<div class='card'><b>"+esc(x.name)+"</b><span>Faculty · "+esc((db.departments.find(function(d){return d.id===x.department})||{}).name||"")+"</span></div>"}).join("")}
 function populateMaster(){if(!q("masterDept"))return;q("masterDept").innerHTML=options(db.departments,"id","name");q("masterSection").innerHTML=options(db.sections,"id","name");q("masterClass").innerHTML=options(db.classes,"id","name");q("masterFaculty").innerHTML=options(db.faculty,"id","name");q("masterCourse").innerHTML=options(db.courses,"id","name")}
 function builder(){var id=q("builderClass").value;if(!id){q("builderTable").innerHTML="<p>No class configured.</p>";return}q("builderTable").innerHTML=tableForClass(id,true);q("builderTable").querySelectorAll(".editable").forEach(function(td){td.onclick=function(){editSlot(td.dataset.day,+td.dataset.period)}});var used={};db.courses.forEach(function(c){used[c.id]=0});db.schedule.filter(function(x){return x[5]===id}).forEach(function(x){used[x[2]]++});var html="";db.courses.forEach(function(c){var req=(c.l||0)+(c.t||0)+(c.p||0),got=used[c.id]||0;if(!req)return;html+="<div class='load'><div><b>"+esc(c.code)+"</b><br>"+esc(c.name)+"</div><span>"+got+"/"+req+"</span><div class='bar'><i style='width:"+Math.min(100,req?got/req*100:0)+"%'></i></div></div>"});q("workload").innerHTML=html||"<p class='muted'>No courses.</p>";var cc=conflicts().filter(function(x){return x.classId===id}).length;q("conflicts").textContent=cc+" conflicts";q("conflicts").className="badge "+(cc?"bad":"good")}
-function editSlot(day,p){var id=q("builderClass").value,e=entry(day,p,id);if(breakType(p))return;var html="<label>Course<select name='course'><option value=''>Empty slot</option>"+options(db.courses,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save slot</button></div>";openModal("Edit timetable slot",html);var f=q("modalForm");f.course.value=e?e[2]:"";f.room.value=e?e[4]:(course(db.courses[0].id)||{}).room||db.rooms[0].id;q("cancelModal").onclick=closeModal;f.onsubmit=function(ev){ev.preventDefault();db.schedule=db.schedule.filter(function(x){return !(x[0]===day&&x[1]===p&&x[5]===id)});if(f.course.value){var c=course(f.course.value);db.schedule.push([day,p,c.id,c.faculty,f.room.value,id])}closeModal();save()}}
+function editSlot(day,p){var id=q("builderClass").value,e=entry(day,p,id);if(breakType(p))return;var html="<label>Course<select name='course'><option value=''>Empty slot</option>"+options(db.courses,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save slot</button></div>";openModal("Edit timetable slot",html);var f=q("modalForm");f.course.value=e?e[2]:"";f.room.value=e?e[4]:(course(db.courses[0].id)||{}).room||db.rooms[0].id;q("cancelModal").onclick=closeModal;f.onsubmit=function(ev){ev.preventDefault();db.schedule=db.schedule.filter(function(x){return !(x[0]===day&&x[1]===p&&x[5]===id)});if(f.course.value){var c=course(f.course.value);if(!c){alert("Selected course no longer exists.");return}var collision=db.schedule.some(function(x){return x[0]===day&&x[1]===p&&x[5]!==id&&(x[3]===c.faculty||x[4]===f.room.value)});if(collision){alert("That slot creates a faculty or room collision.");return}db.schedule.push([day,p,c.id,c.faculty,f.room.value,id])}closeModal();save()}}
 function autoGenerate(){var id=q("builderClass").value;if(!id)return;db.schedule=db.schedule.filter(function(x){return x[5]!==id});var slots=[];db.settings.days.forEach(function(d){for(var p=0;p<db.settings.periods;p++)if(!breakType(p))slots.push([d,p])});var needs=[];db.courses.forEach(function(c){var n=c.lab?Math.ceil((c.p||0)/2):((c.l||0)+(c.t||0)+(c.p||0));for(var i=0;i<n;i++)needs.push(c)});needs.sort(function(a,b){return (b.lab?1:0)-(a.lab?1:0)});needs.forEach(function(c){for(var i=0;i<slots.length;i++){var d=slots[i][0],p=slots[i][1];if(entry(d,p,id))continue;if(availabilityBlocked(c.faculty,d,p))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===p&&x[3]===c.faculty}))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===p&&x[4]===c.room}))continue;if(c.lab){var np=p+1;if(np>=db.settings.periods||breakType(np)||entry(d,np,id))continue;if(availabilityBlocked(c.faculty,d,np))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===np&&x[3]===c.faculty}))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===np&&x[4]===c.room}))continue;db.schedule.push([d,p,c.id,c.faculty,c.room,id]);db.schedule.push([d,np,c.id,c.faculty,c.room,id]);break}db.schedule.push([d,p,c.id,c.faculty,c.room,id]);break}});save()}
 function clearClass(){var id=q("builderClass").value;if(confirm("Clear this class timetable?")){db.schedule=db.schedule.filter(function(x){return x[5]!==id});save()}}
 function conflicts(){var out=[];db.schedule.forEach(function(x,i){db.schedule.forEach(function(y,j){if(i>=j||x[0]!==y[0]||x[1]!==y[1])return;if(x[5]===y[5])out.push({classId:x[5],type:"Class",day:x[0],period:x[1]});if(x[3]===y[3])out.push({classId:x[5],type:"Faculty",day:x[0],period:x[1]});if(x[4]===y[4])out.push({classId:x[5],type:"Room",day:x[0],period:x[1]})})});return out.filter(function(x,i,a){return a.findIndex(function(y){return JSON.stringify(x)===JSON.stringify(y)})===i})}
 function dashboard(){q("year").textContent=db.settings.year;q("days").textContent=db.settings.days.length;q("periods").textContent=db.settings.periods;q("stats").innerHTML=[["Classes",db.classes.length],["Courses",db.courses.length],["Faculty",db.faculty.length],["Rooms",db.rooms.length]].map(function(x){return "<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>"}).join("");q("dashTable").innerHTML=db.classes[0]?tableForClass(db.classes[0].id,false):"<p class='muted'>Add a class.</p>";var c=conflicts();q("checks").innerHTML="<div class='check'><b>Schedule records</b><span>"+db.schedule.length+" sessions stored</span></div><div class='check'><b>Hard conflicts</b><span>"+(c.length?c.length+" conflicts":"No collisions detected")+"</span></div><div class='check'><b>Exports</b><span>PDF, Excel, CSV, Word, PNG, JSON and print</span></div>"}
-function classes(){q("classTable").innerHTML=tableForClass(q("classFilter").value||db.classes[0].id,false)}
-function faculty(){var id=q("facultyFilter").value||db.faculty[0].id,html="<table><thead><tr><th>DAY</th>";timeSlots().forEach(function(t){html+="<th>"+t.start+"<br>"+t.end+"</th>"});html+="</tr></thead><tbody>";db.settings.days.forEach(function(d){html+="<tr><th>"+dayLabel(d)+"</th>";for(var p=0;p<db.settings.periods;p++){var e=db.schedule.find(function(x){return x[0]===d&&x[1]===p&&x[3]===id});html+=e?"<td><b>"+e[2]+"</b><br>"+esc(cl(e[5]).section)+"</td>":"<td>—</td>"}html+="</tr>"});q("facultyTable").innerHTML=html+"</tbody></table>"}
+function classes(){var first=db.classes[0];if(!first){q("classTable").innerHTML="<p class=\"muted\">No classes configured.</p>";return}q("classTable").innerHTML=tableForClass(q("classFilter").value||first.id,false)}
+function faculty(){var first=db.faculty[0];if(!first){q("facultyTable").innerHTML="<p class=\"muted\">No faculty configured.</p>";return}var id=q("facultyFilter").value||first.id,html="<table><thead><tr><th>DAY</th>";timeSlots().forEach(function(t){html+="<th>"+t.start+"<br>"+t.end+"</th>"});html+="</tr></thead><tbody>";db.settings.days.forEach(function(d){html+="<tr><th>"+dayLabel(d)+"</th>";for(var p=0;p<db.settings.periods;p++){var e=db.schedule.find(function(x){return x[0]===d&&x[1]===p&&x[3]===id});html+=e?"<td><b>"+e[2]+"</b><br>"+esc(cl(e[5]).section)+"</td>":"<td>—</td>"}html+="</tr>"});q("facultyTable").innerHTML=html+"</tbody></table>"}
 function courses(){var h="<table><thead><tr><th>S.No</th><th>Code</th><th>Subject</th><th>L</th><th>T</th><th>P</th><th>Hrs/Wk</th><th>Credits</th><th>Faculty</th><th>Room</th></tr></thead><tbody>";db.courses.forEach(function(c,i){var f=fac(c.faculty),r=room(c.room);h+="<tr><td>"+(i+1)+"</td><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+((c.l||0)+(c.t||0)+(c.p||0))+"</td><td>"+c.credits+"</td><td>"+esc(f?f.name:"—")+"</td><td>"+esc(r?r.name:"—")+"</td></tr>"});q("courseTable").innerHTML=h+"</tbody></table>"}
 function rooms(){var h="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Sessions</th></tr></thead><tbody>";db.rooms.forEach(function(r){h+="<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+db.schedule.filter(function(x){return x[4]===r.id}).length+"</td></tr>"});q("roomTable").innerHTML=h+"</tbody></table>"}
 function departments(){q("deptList").innerHTML=db.departments.map(function(d){return "<div class='card'><b>"+esc(d.name)+"</b><span>"+d.code+" · "+db.classes.filter(function(c){return c.department===d.id}).length+" classes · "+db.faculty.filter(function(f){return f.department===d.id}).length+" faculty</span></div>"}).join("");q("sectionList").innerHTML=db.classes.map(function(c){return "<div class='card'><b>"+esc(c.name)+" — Section "+esc(c.section)+"</b><span>"+esc(c.room)+" · In-charge: "+esc(c.incharge)+"</span></div>"}).join("")}
@@ -124,25 +106,27 @@ function addClass(){openModal("Add Class","<label>Class name<input name='name' p
 function addCourse(){openModal("Add Course","<label>Course code<input name='code' required></label><label>Subject name<input name='name' required></label><div class='formgrid'><label>Lectures<input name='l' type='number' value='3'></label><label>Tutorials<input name='t' type='number' value='0'></label><label>Practicals<input name='p' type='number' value='0'></label><label>Credits<input name='credits' type='number' value='3'></label></div><label>Faculty<select name='faculty'>"+options(db.faculty,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.courses.push({id:f.get("code"),code:f.get("code"),name:f.get("name"),l:+f.get("l"),t:+f.get("t"),p:+f.get("p"),credits:+f.get("credits"),faculty:f.get("faculty"),room:f.get("room")});closeModal();save()}}
 function addRoom(){openModal("Add Room","<label>Room name<input name='name' required></label><label>Type<input name='type' value='Classroom'></label><label>Capacity<input name='capacity' type='number' value='60'></label><label>Building<input name='building'></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.rooms.push({id:"R"+Date.now(),name:f.get("name"),type:f.get("type"),capacity:+f.get("capacity"),building:f.get("building")});closeModal();save()}}
 function addDept(){openModal("Add Department","<label>Department name<input name='name' required></label><label>Code<input name='code' required></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),code=f.get("code").toUpperCase();db.departments.push({id:code,name:f.get("name"),code:code});closeModal();save()}}
-function csvRows(){var rows=[];db.schedule.forEach(function(x){rows.push({Day:x[0],Period:x[1]+1,Time:timeSlots()[x[1]].start+" - "+timeSlots()[x[1]].end,Class:cl(x[5]).name,Section:cl(x[5]).section,Course:x[2],Subject:course(x[2]).name,Faculty:fac(x[3]).name,Room:room(x[4]).name})});return rows}
+function csvRows(){var rows=[];db.schedule.forEach(function(x){var cls=cl(x[5]),cr=course(x[2]),fc=fac(x[3]),rm=room(x[4]),slot=timeSlots()[x[1]];rows.push({Day:x[0],Period:x[1]+1,Time:slot?slot.start+" - "+slot.end:"",Class:cls?cls.name:"Unknown class",Section:cls?cls.section:"",Course:x[2]||"",Subject:cr?cr.name:"Unknown course",Faculty:fc?fc.name:"Unknown faculty",Room:rm?rm.name:"Unknown room"})});return rows}
 function download(name,data,type){var b=new Blob([data],{type:type}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},500)}
 function exportCSV(){var rows=csvRows(),keys=Object.keys(rows[0]||{Day:""}),out=keys.join(",")+"\\n"+rows.map(function(r){return keys.map(function(k){return '"'+String(r[k]||"").replaceAll('"','""')+'"'}).join(",")}).join("\\n");download("university-timetable.csv",out,"text/csv")}
 function exportExcel(){var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(csvRows()),"Schedule");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.courses),"Courses");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.faculty),"Faculty");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.rooms),"Rooms");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.classes),"Classes");XLSX.writeFile(wb,"university-timetable.xlsx")}
-function exportWord(){var rows=csvRows(),html="<html><head><meta charset='utf-8'><style>body{font-family:Arial}table{border-collapse:collapse;width:100%;font-size:10px}td,th{border:1px solid #555;padding:5px}th{background:#eee}</style></head><body><h2>"+esc(db.settings.university)+"</h2><h3>"+esc(db.settings.title)+"</h3><table><tr>"+Object.keys(rows[0]).map(function(k){return "<th>"+esc(k)+"</th>"}).join("")+"</tr>"+rows.map(function(r){return "<tr>"+Object.keys(rows[0]).map(function(k){return "<td>"+esc(r[k])+"</td>"}).join("")+"</tr>"}).join("")+"</table></body></html>";download("university-timetable.doc",html,"application/msword")}
+function exportWord(){var rows=csvRows(),keys=Object.keys(rows[0]||{Day:"Day",Period:"Period",Time:"Time",Class:"Class",Section:"Section",Course:"Course",Subject:"Subject",Faculty:"Faculty",Room:"Room"}),html="<html><head><meta charset='utf-8'><style>body{font-family:Arial}table{border-collapse:collapse;width:100%;font-size:10px}td,th{border:1px solid #555;padding:5px}th{background:#eee}</style></head><body><h2>"+esc(db.settings.university)+"</h2><h3>"+esc(db.settings.title)+"</h3><table><tr>"+keys.map(function(k){return "<th>"+esc(k)+"</th>"}).join("")+"</tr>"+rows.map(function(r){return "<tr>"+keys.map(function(k){return "<td>"+esc(r[k])+"</td>"}).join("")+"</tr>"}).join("")+"</table></body></html>";download("university-timetable.doc",html,"application/msword")}
 async function exportPNG(){var el=q("dashTable"),canvas=await html2canvas(el,{scale:2,backgroundColor:"#fff"});canvas.toBlob(function(b){downloadBlob("class-timetable.png",b)})}
 function downloadBlob(name,b){var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove()}
-async function exportPDF(all){var ids=all?db.classes.map(function(c){return c.id}):[q("exportClass").value||db.classes[0].id];var js=window.jspdf.jsPDF,pdf=new js({orientation:"landscape",unit:"mm",format:"a4"});for(var i=0;i<ids.length;i++){var temp=document.createElement("div");temp.style.cssText="position:fixed;left:-10000px;top:0;width:1100px;background:#fff;padding:30px;font-family:Arial";temp.innerHTML="<h2 style='text-align:center'>"+esc(db.settings.university)+"</h2><h3 style='text-align:center'>"+esc(db.settings.title)+"</h3><p style='text-align:center'>"+esc(cl(ids[i]).name)+" — Section "+esc(cl(ids[i]).section)+" | "+esc(cl(ids[i]).room)+"</p>"+tableForClass(ids[i],false);document.body.appendChild(temp);var canvas=await html2canvas(temp,{scale:2,backgroundColor:"#fff"});if(i)pdf.addPage();pdf.addImage(canvas.toDataURL("image/png"),"PNG",8,8,281,Math.min(190,281*canvas.height/canvas.width));temp.remove()}pdf.save(all?"all-university-timetables.pdf":"class-timetable.pdf")}
+async function exportPDF(all){if(!db.classes.length){alert("No classes configured.");return}var ids=all?db.classes.map(function(c){return c.id}):[q("exportClass").value||db.classes[0].id];var js=window.jspdf.jsPDF,pdf=new js({orientation:"landscape",unit:"mm",format:"a4"});for(var i=0;i<ids.length;i++){var temp=document.createElement("div");temp.style.cssText="position:fixed;left:-10000px;top:0;width:1100px;background:#fff;padding:30px;font-family:Arial";temp.innerHTML="<h2 style='text-align:center'>"+esc(db.settings.university)+"</h2><h3 style='text-align:center'>"+esc(db.settings.title)+"</h3><p style='text-align:center'>"+esc(cl(ids[i]).name)+" — Section "+esc(cl(ids[i]).section)+" | "+esc(cl(ids[i]).room)+"</p>"+tableForClass(ids[i],false);document.body.appendChild(temp);var canvas=await html2canvas(temp,{scale:2,backgroundColor:"#fff"});if(i)pdf.addPage();pdf.addImage(canvas.toDataURL("image/png"),"PNG",8,8,281,Math.min(190,281*canvas.height/canvas.width));temp.remove()}pdf.save(all?"all-university-timetables.pdf":"class-timetable.pdf")}
 function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
 function exportAction(type){if(type==="json")return backup();if(type==="csv")return exportCSV();if(type==="excel")return exportExcel();if(type==="word")return exportWord();if(type==="png")return exportPNG();if(type==="pdf")return exportPDF(false);if(type==="allpdf")return exportPDF(true);if(type==="print")return window.print()}
 function saveMasterCalendar(){var days=q("masterDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);var periods=Math.max(1,Math.min(16,+q("masterPeriods").value||8));var sb=+q("masterShortBreak").value,lb=+q("masterLunchBreak").value;if(sb>=periods)sb=-1;if(lb>=periods)lb=-1;if(sb>=0&&lb>=0&&sb===lb){alert("Short break and lunch break must use different periods.");return}db.settings.days=days;db.settings.periods=periods;db.settings.start=q("masterStart").value||"09:00";db.settings.duration=Math.max(1,+q("masterDuration").value||50);db.settings.shortBreak=sb;db.settings.lunchBreak=lb;db.settings.breaks=[sb,lb].filter(function(v){return v>=0});save()}
 function bindCore(){nav();q("backup").onclick=backup;q("quick").onclick=function(){show("builder");autoGenerate()};q("generate").onclick=autoGenerate;q("clearClass").onclick=clearClass;q("builderClass").onchange=builder;q("masterAddClass").onclick=addClass;q("masterAddSection").onclick=addSection;q("masterAddFaculty").onclick=addFaculty;q("masterAddCourse").onclick=addCourse;q("masterAddDept").onclick=addDept;q("saveMasterCalendar").onclick=saveMasterCalendar;q("classFilter").onchange=classes;q("facultyFilter").onchange=faculty;q("addCourse").onclick=addCourse;q("addRoom").onclick=addRoom;q("addDept").onclick=addDept;q("closeModal").onclick=closeModal;q("modal").onclick=function(e){if(e.target.id==="modal")closeModal()};document.querySelectorAll(".export").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});document.querySelectorAll(".exportCard").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});q("saveSettings").onclick=function(){db.settings.university=q("sUniversity").value;db.settings.year=q("sYear").value;db.settings.title=q("sTitle").value;db.settings.incharge=q("sIncharge").value;save()};q("saveCalendar").onclick=function(){db.settings.days=q("sDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);db.settings.start=q("sStart").value;db.settings.duration=+q("sDuration").value;db.settings.periods=Math.max(1,+q("sPeriods").value);if(db.settings.shortBreak>=db.settings.periods)db.settings.shortBreak=-1;if(db.settings.lunchBreak>=db.settings.periods)db.settings.lunchBreak=-1;db.settings.breaks=[db.settings.shortBreak,db.settings.lunchBreak].filter(function(v){return v>=0});save()};q("reset").onclick=function(){if(confirm("Reset the workspace to the supplied sample?")){db=copy(DEFAULT);save()}}}
-bind();renderAll();
 function normalizeSaaSData(x){
 x.availability=Array.isArray(x.availability)?x.availability:[];
 x.bookings=Array.isArray(x.bookings)?x.bookings:[];
 x.substitutions=Array.isArray(x.substitutions)?x.substitutions:[];
 x.users=Array.isArray(x.users)?x.users:[{id:"U1",name:"System Administrator",email:"admin@unischedule.local",role:"Owner"}];
 x.activity=Array.isArray(x.activity)?x.activity:[];
+x.attendance=Array.isArray(x.attendance)?x.attendance:[];
+x.announcements=Array.isArray(x.announcements)?x.announcements:[];
+x.versions=Array.isArray(x.versions)?x.versions:[];
 x.organization=x.organization||{name:x.settings.university||"University Workspace",plan:"Trial",status:"Active"};
 return x}
 function load(){
@@ -224,7 +208,7 @@ var h="<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</
 db.activity.forEach(function(a){h+="<tr><td>"+esc(new Date(a.at).toLocaleString())+"</td><td>"+esc(a.actor)+"</td><td>"+esc(a.action)+"</td><td>"+esc(a.details)+"</td></tr>"});
 q("activityTable").innerHTML=h+"</tbody></table>"
 }
-function renderAll(){renderCore();availability();bookings();substitutions();users();activity()}
+function renderAll(){ensureEnterpriseData();renderCore();availability();bookings();substitutions();users();activity();attendance();announcements();versions();analytics();bindMasterControls()}
 function bind(){bindCore();if(q("addAvailability"))q("addAvailability").onclick=function(){show("availability")};if(q("addBooking"))q("addBooking").onclick=addBooking;if(q("addSubstitution"))q("addSubstitution").onclick=addSubstitution;if(q("addUser"))q("addUser").onclick=addUser;if(q("clearActivity"))q("clearActivity").onclick=function(){if(confirm("Clear activity log?")){db.activity=[];save()}}}
 
 function masterEntity(type){
@@ -264,6 +248,7 @@ if(!confirm("Delete this "+type+"?"))return;
 if(type==="department"&& (db.classes.some(function(c){return c.department===x.id})||db.faculty.some(function(f){return f.department===x.id})||db.sections.some(function(s){return s.department===x.id})))return alert("This department is still in use.");
 if(type==="section"&&db.classes.some(function(c){return c.section===x.code}))return alert("This section is still assigned to a class.");
 if(type==="faculty"&&db.courses.some(function(c){return c.faculty===x.id}) )return alert("This faculty member is assigned to a course.");
+if(type==="class"&&db.schedule.some(function(s){return s[5]===x.id}))return alert("This class still has timetable entries.");
 if(type==="course"&&db.schedule.some(function(s){return s[2]===x.id}))return alert("This course exists in the timetable.");
 var key={department:"departments",section:"sections",class:"classes",faculty:"faculty",course:"courses"}[type];
 db[key]=db[key].filter(function(y){return y.id!==x.id});logActivity(type+" deleted",x.name||x.code);save()
@@ -272,9 +257,6 @@ function bindMasterControls(){
 document.querySelectorAll("[data-master-edit]").forEach(function(b){b.onclick=function(){editMaster(b.dataset.masterEdit)}});
 document.querySelectorAll("[data-master-delete]").forEach(function(b){b.onclick=function(){deleteMaster(b.dataset.masterDelete)}});
 }
-const oldRenderAll=renderAll;
-function renderAll(){oldRenderAll();bindMasterControls()}
-
 /* Enterprise operations layer */
 function attendance(){
   var h="<table><thead><tr><th>Date</th><th>Class</th><th>Course</th><th>Period</th><th>Present</th><th>Total</th><th>Attendance</th><th>Action</th></tr></thead><tbody>";
@@ -345,9 +327,6 @@ function ensureEnterpriseData(){
   db.announcements=Array.isArray(db.announcements)?db.announcements:[];
   db.versions=Array.isArray(db.versions)?db.versions:[];
 }
-ensureEnterpriseData();
-var previousRenderAll=renderAll;
-renderAll=function(){previousRenderAll();ensureEnterpriseData();attendance();announcements();versions();analytics()};
 function bindEnterprise(){
   if(q("takeAttendance"))q("takeAttendance").onclick=takeAttendance;
   if(q("addAnnouncement"))q("addAnnouncement").onclick=addAnnouncement;
