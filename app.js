@@ -293,4 +293,4 @@ function bindEnterprise(){
   if(q("runIntegrity"))q("runIntegrity").onclick=integrity;
   if(q("restoreJson"))q("restoreJson").onclick=restoreJSON;
 }
-bindEnterprise();renderAll();
+bind();bindEnterprise();renderAll();
