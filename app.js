@@ -148,6 +148,7 @@ function normalizeState(x){
   ensureJoyDemoDatasetV6(x);
   ensureJoyDemoDatasetV7(x);
   ensureJoyDemoDatasetV8(x);
+  ensureJoyDemoDatasetV9(x);
   if(!x.schedule.length)seedSchedule(x);
   else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
@@ -431,6 +432,76 @@ function ensureJoyDemoDatasetV8(state){
   ["BCAC5A","BCAC5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="BCAC5A"?"R204":"R205"));
   state.__joyDemoSeedVersion=8;
 }
+
+function rebuildConflictFreeSchedule(state,preserveLocked=true){
+  const locked=preserveLocked?state.schedule.filter(e=>e.locked):[];
+  state.schedule=locked.slice();
+  const activities=[];
+  const seenShared=new Set();
+  state.courses.forEach(course=>{
+    const ids=arr(course.classIds);
+    if(!ids.length)return;
+    const shared=!!course.shared&&ids.length>1;
+    if(shared){
+      if(seenShared.has(course.id))return;
+      seenShared.add(course.id);
+      for(let s=0;s<courseSessions(course);s++)activities.push({classId:ids[0],classIds:copy(ids),shared:true,courseId:course.id,duration:course.lab?2:1,session:s});
+    }else{
+      ids.forEach(classId=>{
+        for(let s=0;s<courseSessions(course);s++)activities.push({classId,classIds:[classId],shared:false,courseId:course.id,duration:course.lab?2:1,session:s});
+      });
+    }
+  });
+  activities.sort((a,b)=>b.duration-a.duration||b.classIds.length-a.classIds.length||a.courseId.localeCompare(b.courseId)||a.session-b.session);
+  const missing=[];
+  for(const a of activities){
+    const course=state.courses.find(c=>c.id===a.courseId);
+    if(!course)continue;
+    const preferred=course.room;
+    const fallback=a.shared?state.rooms.slice():state.rooms.filter(r=>roomFits(state,r.id,a.classId,a.courseId));
+    const rooms=preferred&&roomFits(state,preferred,a.classId,a.courseId)
+      ?[state.rooms.find(r=>r.id===preferred),...fallback.filter(r=>r.id!==preferred)]
+      :fallback;
+    const candidates=[];
+    state.settings.days.forEach(day=>{
+      for(let p=0;p<state.settings.periods;p++){
+        if(state.settings.breaks.includes(p))continue;
+        for(const room of rooms){
+          if(!room)continue;
+          const reason=hardCheck(state,a,day,p,room.id);
+          if(reason)continue;
+          const classIds=a.shared?a.classIds:[a.classId];
+          const temp={id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:course.faculty,roomId:room.id,classId:a.classId,duration:a.duration,locked:false,activityId:uid("ACT"),shared:a.shared};
+          const score=softPenalty(state,temp,11)+p*0.02+state.settings.days.indexOf(day)*0.03;
+          candidates.push({day,p,roomId:room.id,classIds,temp,score});
+        }
+      }
+    });
+    candidates.sort((x,y)=>x.score-y.score);
+    const best=candidates[0];
+    if(!best){missing.push(a);continue}
+    const activityId=uid("ACT");
+    best.classIds.forEach(classId=>{
+      state.schedule.push({id:uid("SCH"),day:best.day,period:best.p,courseId:a.courseId,facultyId:course.faculty,roomId:best.roomId,classId,duration:a.duration,locked:false,activityId,shared:a.shared});
+      if(a.duration===2){
+        state.schedule.push({id:uid("SCH"),day:best.day,period:best.p+1,courseId:a.courseId,facultyId:course.faculty,roomId:best.roomId,classId,duration:a.duration,locked:false,activityId,shared:a.shared});
+      }
+    });
+  }
+  return {missing};
+}
+
+function ensureJoyDemoDatasetV9(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=9)return;
+  state.settings.periods=Math.max(Number(state.settings.periods)||12,12);
+  state.settings.duration=45;
+  state.settings.shortBreaks=[2];
+  state.settings.lunchBreaks=[5];
+  sanitizeBreaks(state.settings);
+  rebuildConflictFreeSchedule(state,true);
+  state.__joyDemoSeedVersion=9;
+}
 function seedSchedule(state){
   const s=state.settings;
   const days=s.days;
@@ -658,7 +729,7 @@ function generateCandidate(mode="balanced",trial=1,source=db){
     candidates.sort((x,y)=>x.cost-y.cost);
     if(candidates[0]){
       state.schedule.push(...candidates[0].temps);
-      if(a.duration===2)candidates[0].temps.forEach(temp=>state.schedule.push(Object.assign({},temp,{id:uid("SCH"),period:a.period+1,activityId:a.id,shared:!!a.shared})));
+      if(a.duration===2)candidates[0].temps.forEach(temp=>state.schedule.push(Object.assign({},temp,{id:uid("SCH"),period:temp.period+1,activityId:temp.activityId,shared:!!temp.shared})));
       placedIds.add(a.id);
     }else unscheduled.push({activity:a,reason:"No feasible day/period/room combination"});
   }
@@ -697,6 +768,25 @@ function preflight(){
     });
   });
   return {d,conflicts,coverage,ok:d.issues.length===0&&conflicts.length===0&&coverage.length===0};
+}
+function runFullPreflight(){
+  const before=preflight();
+  let repaired=false;
+  if(before.conflicts.length||before.coverage.length){
+    const result=rebuildConflictFreeSchedule(db,true);
+    repaired=true;
+    log("Preflight repair",before.conflicts.length+" conflict(s) · "+before.coverage.length+" coverage gap(s) reviewed; "+result.missing.length+" activity(ies) still unscheduled");
+    save();
+  }else{
+    renderPreflight();
+  }
+  const after=preflight();
+  if(!after.ok){
+    alert("Preflight still has "+after.conflicts.length+" hard conflict(s), "+after.coverage.length+" coverage gap(s), and "+after.d.issues.length+" data issue(s).");
+  }else if(repaired){
+    alert("All detected timetable conflicts and coverage gaps were repaired. Preflight is now READY.");
+  }
+  navigate("preflight");
 }
 function renderShareHistory(){
   const box=q("shareHistory");if(!box)return;
@@ -860,10 +950,20 @@ function qualityHTML(sc){
   return "<div class='quality-grid'><div class='quality-main'><span>QUALITY SCORE</span><strong>"+sc.score+"%</strong><small>"+sc.hardN+" hard conflicts · "+sc.softPenalty+" soft penalty</small></div><div class='quality-item'><b>"+sc.classGap+"</b><span>class gap points</span></div><div class='quality-item'><b>"+sc.facultyGap+"</b><span>faculty gap points</span></div><div class='quality-item'><b>"+sc.spread+"</b><span>same-day repeats</span></div><div class='quality-item'><b>"+sc.edge+"</b><span>edge-period uses</span></div></div>";
 }
 function renderPreflight(){
-  const pf=preflight();q("preflightSummary").innerHTML=[["DATA",pf.d.issues.length?"REVIEW":"READY",pf.d.issues.length?"bad":"good"],["HARD",pf.conflicts.length?pf.conflicts.length+" CONFLICTS":"0 CONFLICTS",pf.conflicts.length?"bad":"good"],["COVERAGE",pf.coverage.length?pf.coverage.length+" GAPS":"COMPLETE",pf.coverage.length?"bad":"good"]].map(x=>"<div class='preflight-kpi "+x[2]+"'><strong>"+x[1]+"</strong><span>"+x[0]+"</span></div>").join("");
-  q("hardReport").innerHTML=pf.conflicts.length?pf.conflicts.map(x=>"<div class='check bad'><b>"+esc(x.type)+" conflict</b><span>"+esc(dayLabel(x.day))+" · Period "+(x.period+1)+"</span></div>").join(""):"<div class='check good'><b>No hard conflicts</b><span>Classes, faculty and rooms are not double-booked.</span></div>";
-  q("dataReport").innerHTML=(pf.d.issues.length?pf.d.issues.map(x=>"<div class='check bad'><b>Issue</b><span>"+esc(x)+"</span></div>").join(""):"<div class='check good'><b>Master data ready</b><span>"+pf.d.totalRequired+" required activities · "+pf.d.available+" base class slots</span></div>")+(pf.d.warnings||[]).map(x=>"<div class='check warn'><b>Warning</b><span>"+esc(x)+"</span></div>").join("");
-  q("issueReport").innerHTML=pf.coverage.length?pf.coverage.slice(0,40).map(x=>"<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>").join(""):"<div class='empty-state'><strong>Validation passed.</strong><span>The current timetable can move to release review.</span></div>";
+  const pf=preflight();
+  q("preflightSummary").innerHTML=[["DATA",pf.d.issues.length?"REVIEW":"READY",pf.d.issues.length?"bad":"good"],["HARD",pf.conflicts.length?pf.conflicts.length+" CONFLICTS":"0 CONFLICTS",pf.conflicts.length?"bad":"good"],["COVERAGE",pf.coverage.length?pf.coverage.length+" GAPS":"COMPLETE",pf.coverage.length?"bad":"good"]].map(x=>"<div class='preflight-kpi "+x[2]+"'><strong>"+x[1]+"</strong><span>"+x[0]+"</span></div>").join("");
+  q("hardReport").innerHTML=pf.conflicts.length
+    ?pf.conflicts.map(x=>"<div class='check bad'><b>"+esc(x.type)+" conflict</b><span>"+esc(dayLabel(x.day))+" · Period "+(x.period+1)+"</span></div>").join("")
+    :"<div class='check good'><b>No hard conflicts</b><span>Classes, faculty and rooms are not double-booked.</span></div>";
+  q("dataReport").innerHTML=(pf.d.issues.length
+    ?pf.d.issues.map(x=>"<div class='check bad'><b>Issue</b><span>"+esc(x)+"</span></div>").join("")
+    :"<div class='check good'><b>Master data ready</b><span>"+pf.d.totalRequired+" required activities · "+pf.d.available+" base class slots</span></div>")+
+    (pf.d.warnings||[]).map(x=>"<div class='check warn'><b>Warning</b><span>"+esc(x)+"</span></div>").join("");
+  const rows=[];
+  pf.conflicts.forEach(x=>rows.push("<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x.type+" conflict · "+dayLabel(x.day)+" · Period "+(x.period+1))+"</span></div>"));
+  pf.coverage.forEach(x=>rows.push("<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>"));
+  (pf.d.issues||[]).forEach(x=>rows.push("<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>"));
+  q("issueReport").innerHTML=rows.length?rows.slice(0,60).join(""):"<div class='empty-state'><strong>Validation passed.</strong><span>The current timetable can move to release review.</span></div>";
 }
 function renderPublish(){
   const latest=db.versions.find(v=>v.status==="Published"),pf=preflight();
@@ -1106,7 +1206,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="generateBtn")runGenerate();if(e.target.id==="headerGenerate")navigate("generate");
   if(e.target.id==="lockModeBtn")toggleLockMode();
   if(e.target.id==="clearScheduleBtn")clearUnlocked();
-  if(e.target.id==="runPreflight")navigate("preflight");
+  if(e.target.id==="runPreflight")runFullPreflight();
   if(e.target.id==="markValidated"){const pf=preflight();if(!pf.ok){alert("Validation failed. Resolve the preflight issues first.");return}const draft=db.versions.find(v=>v.status==="Draft");if(draft)draft.status="Validated";else db.versions.unshift({id:uid("VER"),name:"Validated draft",status:"Validated",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule)});log("Timetable validated","Preflight passed");save();navigate("publish")};
   if(e.target.id==="publishBtn")publishCurrent();
   if(e.target.id==="createShare")createShare();if(e.target.id==="copyShare")copyShare(e.target.dataset.url);
