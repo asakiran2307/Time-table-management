@@ -61,6 +61,71 @@ const DEFAULT={
   branding:{name:"JOY UNIVERSITY",code:"JU001",logo:"",timezone:"Asia/Kolkata"}
 };
 
+
+/* Authentication gateway: demo mode until live Supabase Auth is connected. */
+const AUTH_KEY="unisched-demo-auth-v1";
+const PLATFORM_KEY="unisched-platform-v1";
+const MASTER_CREDENTIALS={username:"masteradmin",password:"Master@2026"};
+let authSession=null;
+function defaultPlatform(){return {universities:[{code:"JU001",name:"JOY UNIVERSITY",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",username:"joyadmin",password:"JU@2026",status:"Active",data:copy(DEFAULT)}]}}
+function loadPlatform(){try{const x=JSON.parse(localStorage.getItem(PLATFORM_KEY)||"null");return x&&Array.isArray(x.universities)?x:defaultPlatform()}catch(e){return defaultPlatform()}}
+let platform=loadPlatform();
+function savePlatform(){localStorage.setItem(PLATFORM_KEY,JSON.stringify(platform))}
+function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?platform.universities.find(u=>u.code===authSession.orgCode):null}
+function showOnly(which){
+  const login=q("loginGate"),master=q("masterConsole"),app=q("app");
+  if(login)login.classList.toggle("hidden",which!=="login");
+  if(master)master.classList.toggle("hidden",which!=="master");
+  if(app)app.style.display=which==="app"?"flex":"none";
+}
+function switchLoginRole(role){
+  document.querySelectorAll("[data-login-role]").forEach(b=>b.classList.toggle("active",b.dataset.loginRole===role));
+  q("universityLogin").classList.toggle("hidden",role!=="university");
+  q("masterLogin").classList.toggle("hidden",role!=="master");
+}
+function refreshLoginUniversities(){
+  const s=q("loginUniversity");if(!s)return;
+  s.innerHTML=platform.universities.filter(u=>u.status==="Active").map(u=>"<option value='"+esc(u.code)+"'>"+esc(u.name)+" ("+esc(u.code)+")</option>").join("");
+}
+function masterLogin(){
+  if(q("masterUsername").value.trim()!==MASTER_CREDENTIALS.username||q("masterPassword").value!==MASTER_CREDENTIALS.password){q("masterError").textContent="Invalid Master Admin credentials.";return}
+  q("masterError").textContent="";authSession={role:"MASTER_ADMIN"};localStorage.setItem(AUTH_KEY,JSON.stringify(authSession));showOnly("master");renderMasterConsole();
+}
+function universityLogin(){
+  const u=platform.universities.find(x=>x.code===q("loginUniversity").value);
+  if(!u||u.status!=="Active"){q("loginError").textContent="University account is inactive.";return}
+  if(q("loginUsername").value.trim()!==u.username||q("loginPassword").value!==u.password){q("loginError").textContent="Invalid university username or password.";return}
+  q("loginError").textContent="";authSession={role:"UNIVERSITY_OWNER",orgCode:u.code};localStorage.setItem(AUTH_KEY,JSON.stringify(authSession));
+  db=normalizeState(copy(u.data));showOnly("app");render();setSync("University owner session · local demo");
+}
+function logout(){authSession=null;localStorage.removeItem(AUTH_KEY);showOnly("login");refreshLoginUniversities()}
+function createUniversity(){
+  const name=q("newUniName").value.trim(),code=q("newUniCode").value.trim().toUpperCase(),username=q("newOwnerUser").value.trim(),password=q("newOwnerPass").value,school=q("newUniSchool").value.trim(),timezone=q("newUniTimezone").value.trim()||"Asia/Kolkata";
+  if(!name||!code||!username||!password){q("createUniResult").textContent="Complete all required fields.";return}
+  if(platform.universities.some(u=>u.code===code||u.username===username)){q("createUniResult").textContent="University code or owner username already exists.";return}
+  const data=normalizeState(copy(DEFAULT));data.organization.name=name;data.organization.code=code;data.organization.school=school;data.organization.timezone=timezone;data.settings.university=name;data.settings.school=school;data.branding.name=name;data.branding.code=code;data.branding.timezone=timezone;
+  platform.universities.push({code,name,school,timezone,username,password,status:"Active",data});savePlatform();renderMasterConsole();refreshLoginUniversities();
+  q("createUniResult").innerHTML="<div class='check good'><b>"+esc(name)+" created</b><span>One university owner account is ready.</span></div>";
+}
+function renderMasterConsole(){
+  if(!q("masterStats"))return;
+  q("masterStats").innerHTML=[["Universities",platform.universities.length],["Active",platform.universities.filter(u=>u.status==="Active").length],["Suspended",platform.universities.filter(u=>u.status==="Suspended").length],["Owner accounts",platform.universities.length]].map(x=>"<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>").join("");
+  q("masterUniversities").innerHTML="<table><thead><tr><th>University</th><th>Code</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>"+platform.universities.map(u=>"<tr><td><b>"+esc(u.name)+"</b><small>"+esc(u.school||"")+"</small></td><td>"+esc(u.code)+"</td><td>"+esc(u.username)+"</td><td><span class='badge "+(u.status==="Active"?"good":"bad")+"'>"+u.status+"</span></td><td><button class='btn small' data-toggle-uni='"+u.code+"'>"+(u.status==="Active"?"Suspend":"Activate")+"</button></td></tr>").join("")+"</tbody></table>";
+}
+function toggleUniversity(code){const u=platform.universities.find(x=>x.code===code);if(!u)return;u.status=u.status==="Active"?"Suspended":"Active";u.data.organization.status=u.status;savePlatform();renderMasterConsole();refreshLoginUniversities()}
+function initAuth(){
+  refreshLoginUniversities();
+  document.querySelectorAll("[data-login-role]").forEach(b=>b.onclick=()=>switchLoginRole(b.dataset.loginRole));
+  q("masterLoginBtn").onclick=masterLogin;q("universityLoginBtn").onclick=universityLogin;
+  q("masterLogout").onclick=logout;q("logoutBtn").onclick=logout;q("createUniversityBtn").onclick=createUniversity;
+  let raw=null;try{raw=JSON.parse(localStorage.getItem(AUTH_KEY)||"null")}catch(e){}
+  authSession=raw;
+  if(sharedSnap){showOnly("app");return}
+  if(authSession?.role==="MASTER_ADMIN"){showOnly("master");renderMasterConsole()}
+  else if(authSession?.role==="UNIVERSITY_OWNER"&&currentUniversity()){db=normalizeState(copy(currentUniversity().data));showOnly("app")}
+  else{authSession=null;showOnly("login")}
+}
+
 function normalizeState(x){
   x=Object.assign(copy(DEFAULT),x||{});
   x.organization=Object.assign(copy(DEFAULT.organization),x.organization||{});
@@ -113,6 +178,7 @@ function save(){
   if(sharedSnap)return false;
   db=normalizeState(db);
   localStorage.setItem(KEY,JSON.stringify(db));
+  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){u.data=copy(db);savePlatform()}}
   clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
   render();
 }
@@ -714,6 +780,7 @@ document.addEventListener("click",e=>{
   const sol=e.target.closest("[data-apply-solution]");if(sol)applySolution(+sol.dataset.applySolution);
   const ver=e.target.closest("[data-restore-version]");if(ver)restoreVersion(ver.dataset.restoreVersion);
   const rc=e.target.closest("[data-report-class]");if(rc){q("classSelector").value=rc.dataset.reportClass;navigate("generate")}
+  const tu=e.target.closest("[data-toggle-uni]");if(tu)toggleUniversity(tu.dataset.toggleUni);
   const rv=e.target.closest("[data-revoke-share]");if(rv){const s=db.shareLinks.find(x=>x.id===rv.dataset.revokeShare);if(s){s.active=false;log("Share link revoked",s.id);save()}}
 });
 
