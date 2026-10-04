@@ -28,7 +28,7 @@ button{border-radius:8px}select,input{border-radius:8px}
 
 /* 2026 campus-first workspace refinement */
 body:before{display:none}
-body{background:url('/home.jpg') center center/cover fixed no-repeat;background-color:#17324a}
+body{background-image:url('/home.jpg'),url('https://joyuniversity.edu.in/images/JU_Visiting-JU-Mock---Header-Image.jpg');background-position:center center;background-size:cover;background-attachment:fixed;background-repeat:no-repeat;background-color:#17324a}
 .sidebar{overflow-y:auto}
 .sidebar nav{gap:16px}
 .nav-group{display:grid;gap:4px}
