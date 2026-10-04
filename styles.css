@@ -50,3 +50,52 @@ header{background:rgba(247,250,252,.78);backdrop-filter:none}
 .stats{gap:12px}
 @media(max-width:1000px){.workspace-banner{display:block}.workspace-meta{justify-content:flex-start;margin-top:15px}.workflow-strip{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:650px){.workflow-strip{grid-template-columns:1fr 1fr}.workspace-banner{padding:22px}.workspace-banner h2{font-size:28px}.meta-pill{font-size:8px}}
+
+/* Final topbar + workflow UI */
+.topbar{height:82px;margin:0 -30px 24px;padding:0 30px;display:grid;grid-template-columns:minmax(280px,1.2fr) minmax(180px,.7fr) auto;align-items:center;gap:22px;background:rgba(255,255,255,.97);border-bottom:1px solid rgba(16,42,67,.12);box-shadow:0 8px 22px rgba(11,34,55,.08);position:sticky;top:0;z-index:50}
+.topbar-brand{display:flex;align-items:center;min-width:0;gap:12px}
+.topbar-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;background:#102a43;color:#fff;font-size:18px;font-weight:900;box-shadow:0 8px 18px rgba(16,42,67,.18)}
+.topbar-kicker{font-size:9px;font-weight:900;letter-spacing:.16em;color:#7890a5}
+.topbar-title{font-size:16px;font-weight:900;line-height:1.15;color:#142d46;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-subtitle{font-size:9px;margin-top:3px;font-weight:800;letter-spacing:.06em;color:#708398;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-context{display:grid;gap:2px;justify-self:center;text-align:left;min-width:175px;padding-left:18px;border-left:1px solid rgba(16,42,67,.1)}
+.context-label{font-size:8px;font-weight:900;letter-spacing:.14em;color:#8a9aac}
+.topbar-context strong{font-size:11px;color:#233e57}
+.topbar-context .cloud-status{margin:0;font-size:9px}
+.topbar-actions{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.topbar-actions .owner-badge{margin:0}
+.topbar-actions button{padding:9px 11px}
+.workflow-header{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding:18px 20px;border:1px solid rgba(16,42,67,.1);border-radius:14px 14px 0 0;background:rgba(248,251,253,.88)}
+.workflow-header h3{margin:5px 0 4px;font-size:16px;color:#17334e}
+.workflow-header p{margin:0;color:#718295;font-size:10px;line-height:1.4}
+.workflow-progress{width:210px;flex:0 0 210px}
+.workflow-progress>span{display:block;text-align:right;margin-bottom:6px;font-size:10px;font-weight:900;color:#496176}
+.progress-track{height:6px;border-radius:99px;background:#e7edf2;overflow:hidden}
+.progress-track i{display:block;height:100%;background:#17334e;border-radius:inherit}
+.workflow-strip{border:1px solid rgba(16,42,67,.1);border-top:0;border-radius:0 0 14px 14px;padding:12px;background:rgba(248,251,253,.82)}
+.workflow-strip button{min-height:64px;background:rgba(255,255,255,.92);transition:background .16s ease,border-color .16s ease,box-shadow .16s ease}
+.workflow-strip button.active{border-color:#17334e;box-shadow:0 8px 18px rgba(16,42,67,.09)}
+.workflow-strip button.complete{background:#f7fafc}
+.workflow-strip button.complete b{color:#16734a}
+.workflow-step span{display:grid;gap:2px}
+.workflow-step strong{font-size:10px;color:#263f56}
+.workflow-step small{font-size:9px;color:#7a8998}
+.preflight-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 14px}
+.preflight-kpi{background:rgba(255,255,255,.92);border:1px solid rgba(16,42,67,.1);border-radius:12px;padding:15px}
+.preflight-kpi strong{display:block;font-size:21px;color:#193650}.preflight-kpi span{font-size:9px;color:#77889a}
+.preflight-kpi.ready strong{color:#16734a}.preflight-kpi.warning strong{color:#a26219}
+.issue-row{display:flex;gap:9px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #edf1f4;font-size:10px;color:#485c6e}
+.issue-dot{width:7px;height:7px;margin-top:3px;border-radius:50%;background:#b06b20;flex:none}
+.empty-state{display:grid;gap:4px;padding:18px;border:1px dashed #cbd5df;border-radius:10px;background:#fafcfd}
+.empty-state strong{font-size:11px;color:#26445d}.empty-state span{font-size:10px;color:#7a8997}
+.release-ready,.release-blocked{display:flex;gap:10px;padding:14px;border-radius:11px;border:1px solid rgba(16,42,67,.1);background:#fafcfd}
+.release-ready b,.release-blocked b{display:block;font-size:11px;color:#25425b}.release-ready span,.release-blocked span{display:block;font-size:10px;color:#788897;margin-top:2px}
+.release-ready{background:#f3fbf6;border-color:#bfe5cd}.release-blocked{background:#fff8ef;border-color:#f0d5a9}
+.status-dot{width:9px;height:9px;margin-top:3px;border-radius:50%;background:#1c8a55;flex:none}.release-blocked .status-dot{background:#b46b1f}
+.release-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#eaf8f0;color:#16734a;font-size:9px;font-weight:900}
+.share-preview{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border:1px solid #e5ebef;border-radius:10px;background:#fbfcfd}
+.share-preview div{display:grid;gap:3px}.share-preview b{font-size:10px;color:#27445d}.share-preview span{font-size:9px;color:#7d8b97}.share-box{display:grid;grid-template-columns:1fr auto;gap:7px;padding:10px;border-radius:10px;background:#f4f8fb;border:1px solid #dbe5ec}.share-box span{grid-column:1/-1;font-size:9px;font-weight:900;color:#4c657b}.share-box input{min-width:0;font-size:9px}
+.shared-mode .sidebar{display:none}.shared-mode main{margin-left:0}.shared-mode .topbar-actions,.shared-mode .workflow-strip,.shared-mode .toolbar button,.shared-mode .export-grid,.shared-mode .actions,.shared-mode button#quick,.shared-mode button#backup{display:none!important}
+.shared-mode .topbar-subtitle:after{content:" · VIEW ONLY";color:#16734a}
+@media(max-width:1000px){.topbar{grid-template-columns:1fr auto;height:auto;min-height:82px;padding:12px 18px;margin:0 -18px 20px}.topbar-context{display:none}.topbar-actions{justify-self:end}.workflow-header{align-items:flex-start;display:block}.workflow-progress{width:100%;margin-top:12px}.preflight-summary{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:650px){.topbar{grid-template-columns:1fr;padding:12px 15px}.topbar-actions{justify-self:start;flex-wrap:wrap}.topbar-title{font-size:14px}.owner-badge{font-size:9px}.workflow-strip{grid-template-columns:1fr 1fr}.preflight-summary{grid-template-columns:1fr}.share-box{grid-template-columns:1fr}.share-box button{width:100%}}
