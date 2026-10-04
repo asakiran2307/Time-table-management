@@ -146,6 +146,7 @@ function normalizeState(x){
   ensureJoyDemoDatasetV4(x);
   ensureJoyDemoDatasetV5(x);
   ensureJoyDemoDatasetV6(x);
+  ensureJoyDemoDatasetV7(x);
   if(!x.schedule.length)seedSchedule(x);
   else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
@@ -327,6 +328,94 @@ function ensureJoyDemoDatasetV6(state){
   ["CSE5K","CSE5A","CSE5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="CSE5A"?"R104":id==="CSE5B"?"R105":"R103"));
   ["BCAC5A","BCAC5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="BCAC5B"?"R205":"R204"));
   state.__joyDemoSeedVersion=6;
+}
+function ensureJoyDemoDatasetV7(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=7)return;
+  const add=(list,obj)=>{if(!list.some(x=>x.id===obj.id))list.push(obj)};
+  const dep=state.departments.find(d=>d.id==="SOCI")||state.departments[0];
+
+  add(state.programs,{id:"BTECH-AIML",name:"B.Tech CSE (AI & ML)",department:dep?.id||"SOCI",durationYears:4});
+  add(state.programs,{id:"BTECH-AIDS",name:"B.Tech CSE (AI & DS)",department:dep?.id||"SOCI",durationYears:4});
+  add(state.programs,{id:"BTECH-AIIOT",name:"B.Tech CSE (AI & IoT)",department:dep?.id||"SOCI",durationYears:4});
+  const gen=state.programs.find(p=>p.id==="BTECH-CSE");if(gen){gen.name="B.Tech CSE (General)";gen.durationYears=4}
+
+  const setClass=(id,name,section,program,strength,incharge)=>{
+    const c=state.classes.find(x=>x.id===id);
+    if(c)Object.assign(c,{name,section,program,strength,incharge});
+    const sec=state.sections.find(x=>x.program===program&&x.code===section);
+    if(sec)Object.assign(sec,{name:"Section "+section,program,strength});
+    else add(state.sections,{id:"SEC-"+id,name:"Section "+section,code:section,department:dep?.id||"SOCI",program,semester:"SEM5",strength});
+  };
+  setClass("CSE5K","B.Tech CSE (General) · Semester V · K","K","BTECH-CSE",58,"Ms. S. AMBIKA");
+  setClass("CSE5A","B.Tech CSE (AI & ML) · Semester V · A","A","BTECH-AIML",60,"Dr. PRIYA SHARMA");
+  setClass("CSE5B","B.Tech CSE (AI & DS) · Semester V · B","B","BTECH-AIDS",60,"Dr. VIVEK RAMAN");
+  add(state.classes,{id:"CSE5C",name:"B.Tech CSE (AI & IoT) · Semester V · C",section:"C",department:dep?.id||"SOCI",program:"BTECH-AIIOT",semester:"SEM5",strength:55,incharge:"Dr. MEERA JOSEPH"});
+  add(state.sections,{id:"SEC-CSE5C",name:"Section C",code:"C",department:dep?.id||"SOCI",program:"BTECH-AIIOT",semester:"SEM5",strength:55});
+
+  const cseIds=["CSE5K","CSE5A","CSE5B","CSE5C"];
+  ["24BTCY151","24BTCY152","24BTCY153","24BTCY154","24BTCY155","24BTCY156","24BTCY851","24BTCY251","24BTCY252"].forEach(id=>{
+    const c=state.courses.find(x=>x.id===id);if(c&&!c.shared)c.classIds=copy(cseIds);
+  });
+
+  [
+    {id:"R301",name:"Gen CSE Smart Classroom",code:"R301",type:"Classroom",capacity:70,building:"Innovation Block",floor:3,features:["projector","smart-board","internet"]},
+    {id:"R302",name:"AI & ML Studio",code:"R302",type:"Classroom",capacity:70,building:"AI Block",floor:3,features:["projector","smart-board","internet","gpu"]},
+    {id:"R303",name:"AI & DS Analytics Room",code:"R303",type:"Classroom",capacity:70,building:"AI Block",floor:3,features:["projector","smart-board","internet","analytics"]},
+    {id:"R304",name:"AI & IoT Smart Room",code:"R304",type:"Classroom",capacity:65,building:"IoT Block",floor:3,features:["projector","smart-board","internet","iot"]},
+    {id:"ML-LAB",name:"Machine Learning Lab",code:"ML-LAB",type:"Lab",capacity:60,building:"AI Block",floor:2,features:["computers","internet","gpu","python","linux"],lab:true},
+    {id:"DS-LAB",name:"Data Science Lab",code:"DS-LAB",type:"Lab",capacity:60,building:"AI Block",floor:2,features:["computers","internet","python","analytics"],lab:true},
+    {id:"IOT-LAB",name:"IoT & Edge Computing Lab",code:"IOT-LAB",type:"Lab",capacity:55,building:"IoT Block",floor:2,features:["computers","internet","iot","embedded","sensors"],lab:true}
+  ].forEach(room=>add(state.rooms,room));
+
+  [
+    {id:"F21",name:"Dr. SURESH NAIR",department:dep?.id||"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
+    {id:"F22",name:"Dr. KAVYA IYER",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F23",name:"Dr. ROHAN DAS",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F24",name:"Ms. ANJALI MENON",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F25",name:"Dr. ADITYA RAJ",department:dep?.id||"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
+    {id:"F26",name:"Ms. POOJA REDDY",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F27",name:"Dr. HARI KRISHNAN",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F28",name:"Dr. ZOYA KHAN",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F29",name:"Mr. VISHAL MENON",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F30",name:"Dr. RAHUL VARMA",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F31",name:"Ms. ISHA NAIR",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F32",name:"Dr. NIKHIL JOSE",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18}
+  ].forEach(f=>add(state.faculty,f));
+
+  // Track-specific courses. Core CSE subjects remain common data across all four CSE sections.
+  const specials=[
+    {id:"GEN501",code:"GENC501",name:"Web Technologies",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F21",room:"R301",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"GEN502",code:"GENC502",name:"Cloud Computing",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F22",room:"R301",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"GEN503",code:"GENC503",name:"Database Systems",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F23",room:"R301",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"GEN504",code:"GENC504",name:"Software Architecture",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F24",room:"R301",classIds:["CSE5K"],sessionPattern:"2 × 1"},
+
+    {id:"AIML501",code:"AIML501",name:"Machine Learning",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F25",room:"R302",classIds:["CSE5A"],sessionPattern:"3 × 1"},
+    {id:"AIML502",code:"AIML502",name:"Deep Learning",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F26",room:"R302",classIds:["CSE5A"],sessionPattern:"3 × 1"},
+    {id:"AIML503",code:"AIML503",name:"Natural Language Processing",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F25",room:"R302",classIds:["CSE5A"],sessionPattern:"3 × 1"},
+    {id:"AIML504",code:"AIML504",name:"Computer Vision",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F26",room:"R302",classIds:["CSE5A"],sessionPattern:"2 × 1"},
+    {id:"AIMLL501",code:"AIMLL501",name:"Machine Learning Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F25",room:"ML-LAB",lab:true,classIds:["CSE5A"],sessionPattern:"1 × 2"},
+
+    {id:"AIDS501",code:"AIDS501",name:"Statistics for AI & Data Science",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F27",room:"R303",classIds:["CSE5B"],sessionPattern:"3 × 1"},
+    {id:"AIDS502",code:"AIDS502",name:"Data Mining",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F28",room:"R303",classIds:["CSE5B"],sessionPattern:"3 × 1"},
+    {id:"AIDS503",code:"AIDS503",name:"Data Visualization",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F29",room:"R303",classIds:["CSE5B"],sessionPattern:"2 × 1"},
+    {id:"AIDS504",code:"AIDS504",name:"Big Data Analytics",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F30",room:"R303",classIds:["CSE5B"],sessionPattern:"3 × 1"},
+    {id:"AIDSL501",code:"AIDSL501",name:"Data Science Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F28",room:"DS-LAB",lab:true,classIds:["CSE5B"],sessionPattern:"1 × 2"},
+
+    {id:"IOT501",code:"AIOT501",name:"IoT Architecture",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F31",room:"R304",classIds:["CSE5C"],sessionPattern:"3 × 1"},
+    {id:"IOT502",code:"AIOT502",name:"Embedded AI",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F32",room:"R304",classIds:["CSE5C"],sessionPattern:"3 × 1"},
+    {id:"IOT503",code:"AIOT503",name:"Edge Computing",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F31",room:"R304",classIds:["CSE5C"],sessionPattern:"2 × 1"},
+    {id:"IOT504",code:"AIOT504",name:"Sensor Data Analytics",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F32",room:"R304",classIds:["CSE5C"],sessionPattern:"3 × 1"},
+    {id:"IOTL501",code:"AIOTL501",name:"IoT & Edge Computing Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F31",room:"IOT-LAB",lab:true,classIds:["CSE5C"],sessionPattern:"1 × 2"}
+  ];
+  specials.forEach(c=>add(state.courses,c));
+
+  // Keep existing BCA Cyber A/B data and rooms, then seed every CSE track with its own room allocation.
+  seedJoyClassMissingCourses(state,"CSE5K","R301");
+  seedJoyClassMissingCourses(state,"CSE5A","R302");
+  seedJoyClassMissingCourses(state,"CSE5B","R303");
+  seedJoyClassMissingCourses(state,"CSE5C","R304");
+  state.__joyDemoSeedVersion=7;
 }
 function seedSchedule(state){
   const s=state.settings;
