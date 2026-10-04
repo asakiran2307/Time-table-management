@@ -876,7 +876,42 @@ async function exportDOCX(){
   db.classes.forEach(cl=>{children.push(new Paragraph({children:[new TextRun({text:cl.name,bold:true,size:22})]}));db.settings.days.forEach(day=>{const cells=[];for(let p=0;p<db.settings.periods;p++){if(currentBreakType(p)){cells.push("P"+(p+1)+": "+currentBreakType(p));continue}const e=entryAt(db,day,p,cl.id);if(e)cells.push("P"+(p+1)+" "+findCourse(e.courseId)?.code+" / "+findRoom(e.roomId)?.name);};children.push(new Paragraph(dayLabel(day)+": "+cells.join(" | ")))})});
   const doc=new Document({sections:[{children}]});const blob=await Packer.toBlob(doc);const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="unischedule-timetable.docx";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
-function render(){
+
+const BG_KEY="unisched-campus-bg-v1";
+function applyCampusBackground(){
+  try{
+    const saved=localStorage.getItem(BG_KEY);
+    if(!saved)return false;
+    document.body.style.backgroundImage="linear-gradient(rgba(10,28,45,.14),rgba(10,28,45,.14)),url('"+saved+"')";
+    const gate=q("loginGate"),master=q("masterConsole");
+    if(gate)gate.style.backgroundImage="linear-gradient(135deg,rgba(10,28,45,.52),rgba(10,28,45,.28)),url('"+saved+"')";
+    if(master)master.style.backgroundImage="linear-gradient(rgba(242,246,249,.78),rgba(242,246,249,.78)),url('"+saved+"')";
+    const status=q("backgroundStatus");if(status)status.innerHTML="<b>Exact campus image active.</b> This browser is using the saved original image.";
+    return true;
+  }catch(e){return false}
+}
+function saveCampusBackground(file){
+  if(!file)return;
+  if(!/^image\/(jpeg|jpg|png)$/i.test(file.type))return alert("Choose a JPG or PNG image.");
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      localStorage.setItem(BG_KEY,String(reader.result));
+      applyCampusBackground();
+      alert("Exact campus background saved for this browser.");
+    }catch(e){alert("The image could not be stored in this browser.");}
+  };
+  reader.readAsDataURL(file);
+}
+function resetCampusBackground(){
+  localStorage.removeItem(BG_KEY);
+  document.body.style.backgroundImage="";
+  const gate=q("loginGate"),master=q("masterConsole");
+  if(gate)gate.style.backgroundImage="";
+  if(master)master.style.backgroundImage="";
+  const status=q("backgroundStatus");if(status)status.textContent="Default background restored.";
+}
+\nfunction render(){
   syncHeader();renderCurrentPage();
 }
 function syncHeader(){
@@ -1368,6 +1403,8 @@ document.addEventListener("click",e=>{
   if(e.target.id==="saveVersionBtn")saveDraftVersion();
   if(e.target.id==="refreshInsights")renderIntelligence();if(e.target.id==="downloadTemplate")downloadImportTemplate();
   if(e.target.id==="saveBranding")updateBranding();
+  if(e.target.id==="resetBackground")resetCampusBackground();
+  if(e.target.id==="backgroundFile")saveCampusBackground(e.target.files?.[0]);
   const editDept=e.target.closest("[data-edit-dept]");if(editDept)editDepartment(editDept.dataset.editDept);
   const editClassBtn=e.target.closest("[data-edit-class]");if(editClassBtn)editClass(editClassBtn.dataset.editClass);
   const editFacultyBtn=e.target.closest("[data-edit-faculty]");if(editFacultyBtn)editFaculty(editFacultyBtn.dataset.editFaculty);
@@ -1416,6 +1453,7 @@ if(sharedSnap){
   q("pageTitle").textContent="Shared Timetable";
 }
 render();
+applyCampusBackground();
 if(!sharedSnap)cloudLoad();
 
 initAuth();
