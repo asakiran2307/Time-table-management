@@ -1,5 +1,6 @@
 const KEY="unisched-v3";
 const CLOUD_API="/api/state";
+const CLOUD_ENABLED=false;
 let cloudTimer=null,lockMode=false,solutionCandidates=[];
 
 function q(id){return document.getElementById(id)}
@@ -117,11 +118,13 @@ function save(){
 }
 function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,details,at:now()});db.activityLog=db.activityLog.slice(0,300)}
 function cloudSave(){
+  if(!CLOUD_ENABLED)return;
   fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})})
     .then(r=>r.ok?setSync("Cloud sync enabled"):Promise.reject())
     .catch(()=>setSync("Local mode · cloud unavailable"));
 }
 function cloudLoad(){
+  if(!CLOUD_ENABLED){setSync("Local demo mode · Supabase not connected");return}
   setSync("Syncing workspace…");
   fetch(CLOUD_API,{cache:"no-store"}).then(async r=>{if(!r.ok)throw 0;return r.json()}).then(p=>{
     if(p&&p.data){db=normalizeState(p.data);localStorage.setItem(KEY,JSON.stringify(db));log("Cloud workspace loaded","Remote state");render()}
@@ -171,6 +174,9 @@ function roomFits(state,rid,cid,courseId){
   if(!r||!cl||!c)return false;
   if(r.capacity<(cl.strength||0))return false;
   if(c.lab&&!r.lab)return false;
+  const req=arr(c.requiredFeatures).map(x=>String(x).toLowerCase());
+  const have=arr(r.features).map(x=>String(x).toLowerCase());
+  if(req.some(x=>!have.includes(x)))return false;
   return true;
 }
 function hardCheck(state,a,day,p,roomId,ignoreIds=[]){
@@ -683,13 +689,14 @@ document.addEventListener("click",e=>{
   if(e.target.id==="lockModeBtn")toggleLockMode();
   if(e.target.id==="clearScheduleBtn")clearUnlocked();
   if(e.target.id==="runPreflight")navigate("preflight");
+  if(e.target.id==="markValidated"){const pf=preflight();if(!pf.ok){alert("Validation failed. Resolve the preflight issues first.");return}const draft=db.versions.find(v=>v.status==="Draft");if(draft)draft.status="Validated";else db.versions.unshift({id:uid("VER"),name:"Validated draft",status:"Validated",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule)});log("Timetable validated","Preflight passed");save();navigate("publish")};
   if(e.target.id==="publishBtn")publishCurrent();
   if(e.target.id==="createShare")createShare();if(e.target.id==="copyShare")copyShare(e.target.dataset.url);
   if(e.target.id==="compareGenerate")runGenerate();
   if(e.target.id==="runScenario")runScenario();if(e.target.id==="addRoomBlockInline")addRoomBlock();if(e.target.id==="addClassBlockInline")addClassBlock();
   if(e.target.id==="saveCalendarBtn")saveCalendar();
   if(e.target.id==="saveVersionBtn")saveDraftVersion();
-  if(e.target.id==="refreshInsights")renderIntelligence();
+  if(e.target.id==="refreshInsights")renderIntelligence();if(e.target.id==="downloadTemplate")downloadImportTemplate();
   if(e.target.id==="saveBranding")updateBranding();
   if(e.target.id==="backupBtn")backup();
   if(e.target.id==="reportPdf")exportPDF();
@@ -716,6 +723,7 @@ document.addEventListener("input",e=>{
   if(id==="scenarioStrength")q("scenarioStrengthVal").textContent=e.target.value+"%";
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="importFile"){window.__importRows=null;renderImport()}
   if(["shortBreakCount","lunchBreakCount","calendarPeriods"].includes(e.target.id))breakSelectors();
   if(e.target.id==="classSelector")renderGenerate();
 });
