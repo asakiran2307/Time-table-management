@@ -25,3 +25,28 @@ button{border-radius:8px}select,input{border-radius:8px}
 .card{background:rgba(255,255,255,.78);border-color:rgba(16,42,67,.12)}
 @media(max-width:950px){.sidebar{width:220px}main{margin-left:220px;padding:0 18px 32px}}
 @media(max-width:650px){.sidebar{width:100%;position:relative}main{margin:0;background:rgba(242,246,250,.8)}body{background-attachment:scroll}header{padding:14px 0}}
+
+/* 2026 campus-first workspace refinement */
+body:before{display:none}
+body{background:url('/home.jpg') center center/cover fixed no-repeat;background-color:#17324a}
+.sidebar{overflow-y:auto}
+.sidebar nav{gap:16px}
+.nav-group{display:grid;gap:4px}
+.nav-label{padding:5px 12px 3px;color:#8fa4ba;font-size:9px;font-weight:800;letter-spacing:.16em}
+main{background:rgba(241,246,250,.48)}
+header{background:rgba(247,250,252,.78);backdrop-filter:none}
+.workspace-banner{display:flex;justify-content:space-between;align-items:flex-end;gap:28px;margin-bottom:14px;padding:28px 30px;border:1px solid rgba(17,39,60,.13);border-radius:18px;background:linear-gradient(120deg,rgba(255,255,255,.96),rgba(255,255,255,.78));box-shadow:0 18px 42px rgba(19,45,68,.12)}
+.eyebrow{font-size:10px;font-weight:900;letter-spacing:.15em;color:#6d7e90}
+.workspace-banner h2{margin:8px 0 7px;font-size:36px;letter-spacing:-.04em;color:#132b43}
+.workspace-banner p{margin:0;color:#667589;line-height:1.5}
+.workspace-meta{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.meta-pill{padding:8px 10px;border-radius:999px;border:1px solid rgba(16,42,67,.12);background:rgba(248,251,253,.88);font-size:9px;font-weight:900;color:#38536b;letter-spacing:.05em}
+.workflow-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.workflow-strip button{display:flex;align-items:center;gap:10px;text-align:left;padding:12px 13px;background:rgba(255,255,255,.8);border:1px solid rgba(17,39,60,.12);box-shadow:0 10px 24px rgba(19,45,68,.06)}
+.workflow-strip button:hover{border-color:rgba(16,42,67,.28);background:rgba(255,255,255,.95)}
+.workflow-strip b{font-size:11px;color:#8a5d28}.workflow-strip span{font-size:10px;font-weight:800;color:#40566a}
+.hero{background:rgba(255,255,255,.91)}
+.panel{background:rgba(255,255,255,.92)}
+.stats{gap:12px}
+@media(max-width:1000px){.workspace-banner{display:block}.workspace-meta{justify-content:flex-start;margin-top:15px}.workflow-strip{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.workflow-strip{grid-template-columns:1fr 1fr}.workspace-banner{padding:22px}.workspace-banner h2{font-size:28px}.meta-pill{font-size:8px}}
