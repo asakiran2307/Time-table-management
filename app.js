@@ -499,6 +499,15 @@ function ensureJoyDemoDatasetV9(state){
   state.settings.shortBreaks=[2];
   state.settings.lunchBreaks=[5];
   sanitizeBreaks(state.settings);
+  const allIds=["CSE5K","CSE5A","CSE5B","CSE5C","BCAC5A","BCAC5B"];
+  ["UNI501","UNI502"].forEach(id=>{
+    const c=state.courses.find(x=>x.id===id);
+    if(c){c.classIds=copy(allIds);c.shared=true;c.room="JUH300";}
+  });
+  const g1=state.combinedGroups.find(x=>x.id==="CG-COMMON-01"),g2=state.combinedGroups.find(x=>x.id==="CG-COMMON-02");
+  if(g1)g1.classIds=copy(allIds),g1.roomId="JUH300";
+  if(g2)g2.classIds=copy(allIds),g2.roomId="JUH300";
+  const hall=state.rooms.find(x=>x.id==="JUH300");if(hall)hall.capacity=Math.max(Number(hall.capacity)||0,350);
   rebuildConflictFreeSchedule(state,true);
   state.__joyDemoSeedVersion=9;
 }
