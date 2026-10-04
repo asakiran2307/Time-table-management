@@ -208,7 +208,12 @@ function seedSchedule(state){
     ["THU",0,"24BTCY851","F5","R103",1],["THU",1,"24BTCY151","F1","R103",1],["THU",3,"24BTCY153","F2","R103",1],["THU",4,"24BTCY152","F1","R103",1],["THU",6,"24BTCY154","F3","R103",1],["THU",7,"24BTCY156","F6","R103",1],
     ["FRI",0,"24BTCY252","F1","CCL",2],["FRI",3,"24BTCY152","F1","R103",1],["FRI",4,"24BTCY154","F3","R103",1],["FRI",6,"24BTCY155","F4","R103",1]
   ];
-  state.schedule=fixed.map(v=>({id:uid("SCH"),day:v[0],period:v[1],courseId:v[2],facultyId:v[3],roomId:v[4],classId,vduration:v[5],duration:v[5],locked:false,activityId:uid("SEED")}));
+  state.schedule=[];
+  fixed.forEach(v=>{
+    const activityId=uid("SEED");
+    state.schedule.push({id:uid("SCH"),day:v[0],period:v[1],courseId:v[2],facultyId:v[3],roomId:v[4],classId,vduration:v[5],duration:v[5],locked:false,activityId});
+    if(v[5]===2)state.schedule.push({id:uid("SCH"),day:v[0],period:v[1]+1,courseId:v[2],facultyId:v[3],roomId:v[4],classId,vduration:v[5],duration:v[5],locked:false,activityId});
+  });
   appendJoyBcaDemoSchedule(state);
 }
 function appendJoyBcaDemoSchedule(state){
@@ -220,8 +225,9 @@ function appendJoyBcaDemoSchedule(state){
   };
   add("MON",7,"UNI501","F7","SAK2"); add("MON",1,"BCA501","F9","R204"); add("MON",3,"BCA502","F10","R204"); add("MON",4,"BCA503","F11","R204"); add("MON",6,"BCA504","F12","R204");
   add("TUE",7,"UNI502","F8","SAK2"); add("TUE",1,"BCA501","F9","R204"); add("TUE",3,"BCA502","F10","R204"); add("TUE",4,"BCA503","F11","R204"); add("TUE",6,"BCA504","F12","R204");
-  add("WED",7,"UNI501","F7","SAK2"); add("WED",1,"BCA501","F9","R204"); add("WED",3,"BCA502","F10","R204"); add("THU",6,"BCAL501","F10","DFL",2);
-  add("FRI",1,"UNI502","F8","SAK2"); add("THU",1,"BCA504","F12","R204"); add("THU",3,"BCA503","F11","R204"); add("FRI",6,"BCAL502","F9","NSL",2);
+  add("WED",7,"UNI501","F7","SAK2"); add("WED",1,"BCA501","F9","R204"); add("WED",3,"BCA502","F10","R204");
+  add("THU",3,"BCAL501","F10","DFL",2);
+  add("FRI",7,"UNI502","F8","SAK2"); add("FRI",3,"BCAL502","F9","NSL",2);
 }
 let db=normalizeState(loadLocal());
 
