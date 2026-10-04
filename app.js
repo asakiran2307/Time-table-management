@@ -28,7 +28,7 @@ function cloudLoad(){
     .finally(function(){cloudHydrating=false});
 }
 
-const DEFAULT={settings:{university:"JOY UNIVERSITY",year:"2025–26",title:"TIME TABLE FOR THE ACADEMIC YEAR 2025-26",incharge:"Ms. S. AMBIKA",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreak:2,lunchBreak:5,breaks:[2,5]},departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],classes:[{id:"CSE3K",name:"B.Tech CSE – Year/Sem III/V",section:"K",department:"SOCI",room:"Room 103",incharge:"Ms. S. AMBIKA"}],sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI"}],faculty:[{id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI"},{id:"F2",name:"Dr. SOFIYA",department:"SOCI"},{id:"F3",name:"Ms. AMBIKA",department:"SOCI"},{id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI"},{id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI"},{id:"F6",name:"NEW FACULTY 14",department:"SOCI"}],rooms:[{id:"R103",name:"Room 103",type:"Classroom",capacity:60,building:"Joveena Block"},{id:"CCL",name:"Cloud Computing Lab",type:"Lab",capacity:45,building:"Joveena Block"},{id:"SAK2",name:"SAK Seminar Hall 2nd Floor",type:"Seminar Hall",capacity:120,building:"SAK Block"}],courses:[
+const DEFAULT={settings:{university:"JOY UNIVERSITY",year:"2025–26",semester:"Semester V",title:"TIME TABLE FOR THE ACADEMIC YEAR 2025-26",incharge:"Ms. S. AMBIKA",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5],shortBreak:2,lunchBreak:5,breaks:[2,5]},departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],classes:[{id:"CSE3K",name:"B.Tech CSE – Year/Sem III/V",section:"K",department:"SOCI",room:"Room 103",incharge:"Ms. S. AMBIKA"}],sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI"}],faculty:[{id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI"},{id:"F2",name:"Dr. SOFIYA",department:"SOCI"},{id:"F3",name:"Ms. AMBIKA",department:"SOCI"},{id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI"},{id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI"},{id:"F6",name:"NEW FACULTY 14",department:"SOCI"}],rooms:[{id:"R103",name:"Room 103",type:"Classroom",capacity:60,building:"Joveena Block"},{id:"CCL",name:"Cloud Computing Lab",type:"Lab",capacity:45,building:"Joveena Block"},{id:"SAK2",name:"SAK Seminar Hall 2nd Floor",type:"Seminar Hall",capacity:120,building:"SAK Block"}],courses:[
 {id:"24BTCY151",code:"24BTCY151",name:"Introduction to Blockchain and Cryptocurrencty",l:3,t:0,p:0,credits:3,faculty:"F1",room:"R103"},
 {id:"24BTCY152",code:"24BTCY152",name:"Malware Analysis",l:3,t:0,p:0,credits:3,faculty:"F1",room:"R103"},
 {id:"24BTCY153",code:"24BTCY153",name:"Computer Architecture",l:3,t:0,p:0,credits:3,faculty:"F2",room:"R103"},
@@ -72,7 +72,24 @@ function fac(id){return db.faculty.find(function(x){return x.id===id})}
 function room(id){return db.rooms.find(function(x){return x.id===id})}
 function cl(id){return db.classes.find(function(x){return x.id===id})}
 function dayLabel(d){return {MON:"Monday",TUE:"Tuesday",WED:"Wednesday",THU:"Thursday",FRI:"Friday",SAT:"Saturday"}[d]||d}
-function breakType(p){if(p===db.settings.shortBreak)return "SHORT BREAK";if(p===db.settings.lunchBreak)return "LUNCH";return null}
+function syncBreakSettings(s){
+  var sb=Array.isArray(s.shortBreaks)?s.shortBreaks.slice():[];
+  var lb=Array.isArray(s.lunchBreaks)?s.lunchBreaks.slice():[];
+  if(!sb.length&&s.shortBreak!=null&&s.shortBreak>=0)sb=[+s.shortBreak];
+  if(!lb.length&&s.lunchBreak!=null&&s.lunchBreak>=0)lb=[+s.lunchBreak];
+  sb=sb.map(Number).filter(function(v){return Number.isInteger(v)&&v>=0&&v<s.periods}).filter(function(v,i,a){return a.indexOf(v)===i});
+  lb=lb.map(Number).filter(function(v){return Number.isInteger(v)&&v>=0&&v<s.periods}).filter(function(v,i,a){return a.indexOf(v)===i});
+  lb=lb.filter(function(v){return sb.indexOf(v)<0});
+  s.shortBreaks=sb;s.lunchBreaks=lb;
+  s.shortBreak=sb.length?sb[0]:-1;s.lunchBreak=lb.length?lb[0]:-1;
+  s.breaks=sb.concat(lb).sort(function(a,b){return a-b});
+  return s;
+}
+function breakType(p){
+  if((db.settings.shortBreaks||[]).indexOf(p)>=0)return "SHORT BREAK";
+  if((db.settings.lunchBreaks||[]).indexOf(p)>=0)return "LUNCH BREAK";
+  return null;
+}
 function timeSlots(){var a=db.settings.start.split(":");var base=+a[0]*60 + +a[1];var out=[];for(var i=0;i<db.settings.periods;i++){var s=base+i*db.settings.duration,e=s+db.settings.duration;out.push({start:String(Math.floor(s/60)%24).padStart(2,"0")+":"+String(s%60).padStart(2,"0"),end:String(Math.floor(e/60)%24).padStart(2,"0")+":"+String(e%60).padStart(2,"0")})}return out}
 function entry(day,p,classId){return db.schedule.find(function(x){return x[0]===day&&x[1]===p&&x[5]===classId})}
 function nav(){document.querySelectorAll(".nav").forEach(function(b){b.onclick=function(){show(b.dataset.page)}});document.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){show(b.dataset.go)}})}
@@ -83,7 +100,35 @@ function tableForClass(id,editable){var currentClass=cl(id);if(!currentClass)ret
  var ts=timeSlots(),h="<table class='timetable'><thead><tr><th>DAY</th>";
  ts.forEach(function(t){h+="<th>"+t.start+"<br>"+t.end+"</th>"});h+="</tr></thead><tbody>";
  db.settings.days.forEach(function(d){h+="<tr><th>"+dayLabel(d)+"</th>";for(var p=0;p<db.settings.periods;p++){var bt=breakType(p);if(bt){h+="<td class='slot break'>"+bt+"</td>";continue}var e=entry(d,p,id);var c=e&&course(e[2]);var f=e&&fac(e[3]);var r=e&&room(e[4]);var s=e&&c?"<strong>"+esc(c.code)+"</strong><span>"+esc(c.name)+"</span><span>"+esc(f?f.name:"Unknown faculty")+" · "+esc(r?r.name:"Unknown room")+"</span>":"<span>—</span>";h+="<td class='slot "+(c&&c.lab?"lab ":"")+(editable?"editable":"")+"' "+(editable?"data-day='"+d+"' data-period='"+p+"'":"")+">"+s+"</td>"}h+="</tr>"});return h+"</tbody></table>"}
-function masterCalendarUI(){var days=q("masterDays");if(!days)return;q("masterDays").value=db.settings.days.join(",");q("masterPeriods").value=db.settings.periods;q("masterStart").value=db.settings.start;q("masterDuration").value=db.settings.duration;var opts="<option value='-1'>None</option>";for(var i=0;i<db.settings.periods;i++)opts+="<option value='"+i+"'>Period "+(i+1)+"</option>";q("masterShortBreak").innerHTML=opts;q("masterLunchBreak").innerHTML=opts;q("masterShortBreak").value=db.settings.shortBreak==null?-1:db.settings.shortBreak;q("masterLunchBreak").value=db.settings.lunchBreak==null?-1:db.settings.lunchBreak}
+function periodOptions(){
+  var opts="<option value='-1'>Not a break</option>";
+  for(var i=0;i<db.settings.periods;i++)opts+="<option value='"+i+"'>Period "+(i+1)+"</option>";
+  return opts;
+}
+function renderBreakSelectors(){
+  var sc=q("masterShortBreakCount"),lc=q("masterLunchBreakCount");
+  if(!sc||!lc)return;
+  var sn=Math.max(0,Math.min(4,+sc.value||0)),ln=Math.max(0,Math.min(2,+lc.value||0));
+  var sb=db.settings.shortBreaks||[],lb=db.settings.lunchBreaks||[];
+  var sh="",lh="";
+  for(var i=0;i<sn;i++)sh+="<label>Short Break "+(i+1)+"<select data-short-break='"+i+"'>"+periodOptions()+"</select></label>";
+  for(var j=0;j<ln;j++)lh+="<label>Lunch Break "+(j+1)+"<select data-lunch-break='"+j+"'>"+periodOptions()+"</select></label>";
+  q("shortBreakConfig").innerHTML=sh||"<div class='break-empty'>No short breaks configured</div>";
+  q("lunchBreakConfig").innerHTML=lh||"<div class='break-empty'>No lunch breaks configured</div>";
+  q("shortBreakConfig").querySelectorAll("select").forEach(function(el,i){el.value=String(sb[i]!=null?sb[i]:-1)});
+  q("lunchBreakConfig").querySelectorAll("select").forEach(function(el,i){el.value=String(lb[i]!=null?lb[i]:-1)});
+}
+function masterCalendarUI(){
+  var days=q("masterDays");if(!days)return;
+  syncBreakSettings(db.settings);
+  q("masterDays").value=db.settings.days.join(",");
+  q("masterPeriods").value=db.settings.periods;
+  q("masterStart").value=db.settings.start;
+  q("masterDuration").value=db.settings.duration;
+  q("masterShortBreakCount").value=(db.settings.shortBreaks||[]).length;
+  q("masterLunchBreakCount").value=(db.settings.lunchBreaks||[]).length;
+  renderBreakSelectors();
+}
 function master(){if(!q("masterClassList"))return;populateMaster();masterCalendarUI();q("masterClassList").innerHTML=db.classes.map(function(c){var sec=db.sections.find(function(s){return s.code===c.section});return "<div class='card'><b>"+esc(c.name)+"</b><span>Section "+esc(c.section)+" · "+esc(sec?sec.name:"")+" · "+esc(c.room)+" · "+esc(c.incharge)+"</span></div>"}).join("")||"<p class='muted'>No classes configured.</p>";q("masterPeopleList").innerHTML=db.sections.map(function(x){return "<div class='card'><b>"+esc(x.name)+"</b><span>"+esc(x.code)+" · "+esc((db.departments.find(function(d){return d.id===x.department})||{}).name||"")+"</span></div>"}).join("")+db.faculty.map(function(x){return "<div class='card'><b>"+esc(x.name)+"</b><span>Faculty · "+esc((db.departments.find(function(d){return d.id===x.department})||{}).name||"")+"</span></div>"}).join("")}
 function populateMaster(){if(!q("masterDept"))return;q("masterDept").innerHTML=options(db.departments,"id","name");q("masterSection").innerHTML=options(db.sections,"id","name");q("masterClass").innerHTML=options(db.classes,"id","name");q("masterFaculty").innerHTML=options(db.faculty,"id","name");q("masterCourse").innerHTML=options(db.courses,"id","name")}
 function builder(){var id=q("builderClass").value;if(!id){q("builderTable").innerHTML="<p>No class configured.</p>";return}q("builderTable").innerHTML=tableForClass(id,true);q("builderTable").querySelectorAll(".editable").forEach(function(td){td.onclick=function(){editSlot(td.dataset.day,+td.dataset.period)}});var used={};db.courses.forEach(function(c){used[c.id]=0});db.schedule.filter(function(x){return x[5]===id}).forEach(function(x){used[x[2]]++});var html="";db.courses.forEach(function(c){var req=(c.l||0)+(c.t||0)+(c.p||0),got=used[c.id]||0;if(!req)return;html+="<div class='load'><div><b>"+esc(c.code)+"</b><br>"+esc(c.name)+"</div><span>"+got+"/"+req+"</span><div class='bar'><i style='width:"+Math.min(100,req?got/req*100:0)+"%'></i></div></div>"});q("workload").innerHTML=html||"<p class='muted'>No courses.</p>";var cc=conflicts().filter(function(x){return x.classId===id}).length;q("conflicts").textContent=cc+" conflicts";q("conflicts").className="badge "+(cc?"bad":"good")}
@@ -117,8 +162,34 @@ function downloadBlob(name,b){var a=document.createElement("a");a.href=URL.creat
 async function exportPDF(all){if(!db.classes.length){alert("No classes configured.");return}var ids=all?db.classes.map(function(c){return c.id}):[q("exportClass").value||db.classes[0].id];var js=window.jspdf.jsPDF,pdf=new js({orientation:"landscape",unit:"mm",format:"a4"});for(var i=0;i<ids.length;i++){var temp=document.createElement("div");temp.style.cssText="position:fixed;left:-10000px;top:0;width:1100px;background:#fff;padding:30px;font-family:Arial";temp.innerHTML="<h2 style='text-align:center'>"+esc(db.settings.university)+"</h2><h3 style='text-align:center'>"+esc(db.settings.title)+"</h3><p style='text-align:center'>"+esc(cl(ids[i]).name)+" — Section "+esc(cl(ids[i]).section)+" | "+esc(cl(ids[i]).room)+"</p>"+tableForClass(ids[i],false);document.body.appendChild(temp);var canvas=await html2canvas(temp,{scale:2,backgroundColor:"#fff"});if(i)pdf.addPage();pdf.addImage(canvas.toDataURL("image/png"),"PNG",8,8,281,Math.min(190,281*canvas.height/canvas.width));temp.remove()}pdf.save(all?"all-university-timetables.pdf":"class-timetable.pdf")}
 function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
 function exportAction(type){if(type==="json")return backup();if(type==="csv")return exportCSV();if(type==="excel")return exportExcel();if(type==="word")return exportWord();if(type==="png")return exportPNG();if(type==="pdf")return exportPDF(false);if(type==="allpdf")return exportPDF(true);if(type==="print")return window.print()}
-function saveMasterCalendar(){var days=q("masterDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);var periods=Math.max(1,Math.min(16,+q("masterPeriods").value||8));var sb=+q("masterShortBreak").value,lb=+q("masterLunchBreak").value;if(sb>=periods)sb=-1;if(lb>=periods)lb=-1;if(sb>=0&&lb>=0&&sb===lb){alert("Short break and lunch break must use different periods.");return}db.settings.days=days;db.settings.periods=periods;db.settings.start=q("masterStart").value||"09:00";db.settings.duration=Math.max(1,+q("masterDuration").value||50);db.settings.shortBreak=sb;db.settings.lunchBreak=lb;db.settings.breaks=[sb,lb].filter(function(v){return v>=0});save()}
-function bindCore(){nav();q("backup").onclick=backup;q("quick").onclick=function(){show("builder");autoGenerate()};q("generate").onclick=autoGenerate;q("clearClass").onclick=clearClass;q("builderClass").onchange=builder;q("masterAddClass").onclick=addClass;q("masterAddSection").onclick=addSection;q("masterAddFaculty").onclick=addFaculty;q("masterAddCourse").onclick=addCourse;q("masterAddDept").onclick=addDept;q("saveMasterCalendar").onclick=saveMasterCalendar;q("classFilter").onchange=classes;q("facultyFilter").onchange=faculty;q("addCourse").onclick=addCourse;q("addRoom").onclick=addRoom;q("addDept").onclick=addDept;q("closeModal").onclick=closeModal;q("modal").onclick=function(e){if(e.target.id==="modal")closeModal()};document.querySelectorAll(".export").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});document.querySelectorAll(".exportCard").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});q("saveSettings").onclick=function(){db.settings.university=q("sUniversity").value;db.settings.year=q("sYear").value;db.settings.title=q("sTitle").value;db.settings.incharge=q("sIncharge").value;save()};q("saveCalendar").onclick=function(){db.settings.days=q("sDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);db.settings.start=q("sStart").value;db.settings.duration=+q("sDuration").value;db.settings.periods=Math.max(1,+q("sPeriods").value);if(db.settings.shortBreak>=db.settings.periods)db.settings.shortBreak=-1;if(db.settings.lunchBreak>=db.settings.periods)db.settings.lunchBreak=-1;db.settings.breaks=[db.settings.shortBreak,db.settings.lunchBreak].filter(function(v){return v>=0});save()};q("reset").onclick=function(){if(confirm("Reset the workspace to the supplied sample?")){db=copy(DEFAULT);save()}}}
+function saveMasterCalendar(){
+  var days=q("masterDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);
+  var periods=Math.max(1,Math.min(16,+q("masterPeriods").value||8));
+  var sb=Array.from(q("shortBreakConfig").querySelectorAll("select")).map(function(x){return +x.value}).filter(function(v){return v>=0&&v<periods});
+  var lb=Array.from(q("lunchBreakConfig").querySelectorAll("select")).map(function(x){return +x.value}).filter(function(v){return v>=0&&v<periods});
+  var all=sb.concat(lb);
+  if(new Set(sb).size!==sb.length||new Set(lb).size!==lb.length||new Set(all).size!==all.length){
+    alert("Every break must use a different period.");
+    return;
+  }
+  db.settings.days=days;
+  db.settings.periods=periods;
+  db.settings.start=q("masterStart").value||"09:00";
+  db.settings.duration=Math.max(1,+q("masterDuration").value||50);
+  db.settings.shortBreaks=sb;
+  db.settings.lunchBreaks=lb;
+  syncBreakSettings(db.settings);
+  db.schedule=db.schedule.filter(function(x){return breakType(x[1])===null});
+  save();
+}
+function seedKSectionData(){
+  if(!confirm("Restore the seeded Joy University Section K timetable and sample master data? Your current local workspace will be replaced."))return;
+  db=copy(DEFAULT);
+  syncBreakSettings(db.settings);
+  logActivity("K Section sample restored","Joy University demo timetable");
+  save();
+}
+function bindCore(){nav();q("backup").onclick=backup;q("quick").onclick=function(){show("builder");autoGenerate()};q("generate").onclick=autoGenerate;q("clearClass").onclick=clearClass;q("builderClass").onchange=builder;q("masterAddClass").onclick=addClass;q("masterAddSection").onclick=addSection;q("masterAddFaculty").onclick=addFaculty;q("masterAddCourse").onclick=addCourse;q("masterAddDept").onclick=addDept;q("saveMasterCalendar").onclick=saveMasterCalendar;if(q("seedKData"))q("seedKData").onclick=seedKSectionData;if(q("masterShortBreakCount"))q("masterShortBreakCount").onchange=renderBreakSelectors;if(q("masterLunchBreakCount"))q("masterLunchBreakCount").onchange=renderBreakSelectors;q("classFilter").onchange=classes;q("facultyFilter").onchange=faculty;q("addCourse").onclick=addCourse;q("addRoom").onclick=addRoom;q("addDept").onclick=addDept;q("closeModal").onclick=closeModal;q("modal").onclick=function(e){if(e.target.id==="modal")closeModal()};document.querySelectorAll(".export").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});document.querySelectorAll(".exportCard").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});q("saveSettings").onclick=function(){db.settings.university=q("sUniversity").value;db.settings.year=q("sYear").value;db.settings.title=q("sTitle").value;db.settings.incharge=q("sIncharge").value;save()};q("saveCalendar").onclick=function(){db.settings.days=q("sDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);db.settings.start=q("sStart").value;db.settings.duration=+q("sDuration").value;db.settings.periods=Math.max(1,+q("sPeriods").value);if(db.settings.shortBreak>=db.settings.periods)db.settings.shortBreak=-1;if(db.settings.lunchBreak>=db.settings.periods)db.settings.lunchBreak=-1;db.settings.breaks=[db.settings.shortBreak,db.settings.lunchBreak].filter(function(v){return v>=0});save()};q("reset").onclick=function(){if(confirm("Reset the workspace to the supplied sample?")){db=copy(DEFAULT);save()}}}
 function normalizeSaaSData(x){
 x.availability=Array.isArray(x.availability)?x.availability:[];
 x.bookings=Array.isArray(x.bookings)?x.bookings:[];
@@ -135,7 +206,7 @@ try{
 var shared=readSharedSnapshot();
 var x=shared||JSON.parse(localStorage.getItem(KEY));
 if(!x)x=copy(DEFAULT);
-x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});
+x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});syncBreakSettings(x.settings);
 x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);
 x.classes=Array.isArray(x.classes)?x.classes:copy(DEFAULT.classes);
 x.sections=Array.isArray(x.sections)?x.sections:[];
