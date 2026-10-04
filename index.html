@@ -63,9 +63,12 @@
   <div class="workflow-header"><div><span class="eyebrow">SCHEDULING WORKFLOW</span><h3>From setup to published release</h3><p>Every stage reports its own readiness instead of hiding failures inside generation.</p></div><div class="workflow-progress"><strong id="progressText">0% complete</strong><div class="progress-track"><i id="progressBar"></i></div></div></div>
   <div id="workflow" class="workflow-grid"></div>
   <div id="dashboardStats" class="stats"></div>
-  <div class="dashboard-grid">
-    <div class="panel"><div class="panel-head"><div><span class="eyebrow">CURRENT RELEASE</span><h3 id="releaseTitle">Draft timetable</h3></div><span id="releaseBadge" class="badge">DRAFT</span></div><div id="dashboardTable"></div></div>
-    <div class="panel"><div class="panel-head"><div><span class="eyebrow">SYSTEM CHECKS</span><h3>Readiness</h3></div><button class="btn small" data-go="preflight">Run preflight</button></div><div id="dashboardChecks"></div></div>
+  <div class="dashboard-table-panel panel">
+    <div class="panel-head">
+      <div><span class="eyebrow">CURRENT RELEASE · SECTION K</span><h3 id="releaseTitle">Draft timetable</h3></div>
+      <div class="grid-tools"><span id="releaseBadge" class="badge">DRAFT</span><button class="btn small" data-go="generate">Open full timetable</button></div>
+    </div>
+    <div class="dashboard-table-fit"><div id="dashboardTable"></div></div>
   </div>
 </section>
 
