@@ -12,6 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@9.5.1/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -32,6 +33,7 @@
     <button class="nav" data-page="faculty">Faculty Records</button>
     <button class="nav" data-page="rooms">Rooms & Labs</button>
     <button class="nav" data-page="calendar">Calendar</button>
+    <button class="nav" data-page="import">Data Import</button>
     <div class="nav-label">ANALYSIS</div>
     <button class="nav" data-page="compare">Solution Compare</button>
     <button class="nav" data-page="scenarios">What-if Scenarios</button>
@@ -127,7 +129,7 @@
 <section id="publish" class="page">
   <div class="section-head"><div><span class="eyebrow">STAGE 05</span><h2>Publish & Share</h2><p>Publish an immutable version, export it and create a view-only snapshot link.</p></div></div>
   <div class="two-col"><div class="panel"><div class="panel-head"><h3>Release readiness</h3></div><div id="publishReadiness"></div><button class="btn primary full" id="publishBtn">Publish current draft</button></div>
-    <div class="panel"><div class="panel-head"><h3>View-only sharing</h3><span class="badge neutral">NO EDIT ACCESS</span></div><p class="muted">A share link contains a published snapshot. It does not create a faculty or student account.</p><div id="shareControls"><label>Share scope<select id="shareScope"><option value="university">Whole university</option><option value="class">Current class</option><option value="department">Department</option></select></label><div class="actions"><button class="btn" id="createShare">Create link</button><button class="btn" id="copyShare" disabled>Copy link</button></div></div><div id="shareResult"></div></div></div>
+    <div class="panel"><div class="panel-head"><h3>View-only sharing</h3><span class="badge neutral">NO EDIT ACCESS</span></div><p class="muted">A share link contains a published snapshot. It does not create a faculty or student account.</p><div id="shareControls"><label>Share scope<select id="shareScope"><option value="university">Whole university</option><option value="class">Current class</option><option value="department">Department</option></select></label><div class="actions"><button class="btn" id="createShare">Create link</button><button class="btn" id="copyShare" disabled>Copy link</button></div></div><div id="shareResult"></div><div id="shareQr" class="share-qr"></div><div id="shareHistory"></div></div></div>
   <div class="panel"><div class="panel-head"><h3>Published releases</h3></div><div id="publishedList"></div></div>
 </section>
 
@@ -146,13 +148,14 @@
   <div class="panel"><h3>Scenario result</h3><div id="scenarioResult"><div class="empty-state"><strong>No scenario run yet.</strong><span>Change the inputs and run the simulation.</span></div></div></div>
 </div></section>
 
-<section id="reports" class="page"><div class="section-head"><div><span class="eyebrow">OUTPUT</span><h2>Reports & Export</h2><p>Owner-only exports for class, department, faculty, rooms and quality reports.</p></div><div class="section-actions"><button class="btn primary" data-export="pdf">PDF</button><button class="btn" data-export="excel">Excel</button><button class="btn" data-export="csv">CSV</button><button class="btn" data-export="print">Print</button></div></div>
+<section id="reports" class="page"><div class="section-head"><div><span class="eyebrow">OUTPUT</span><h2>Reports & Export</h2><p>Owner-only exports for class, department, faculty, rooms and quality reports.</p></div><div class="section-actions"><button class="btn primary" data-export="pdf">PDF</button><button class="btn" data-export="excel">Excel</button><button class="btn" data-export="docx">DOCX</button><button class="btn" data-export="csv">CSV</button><button class="btn" data-export="ics">Calendar (.ics)</button><button class="btn" data-export="print">Print</button></div></div>
 <div class="report-grid"><div class="panel"><h3>Class timetable</h3><div id="reportClass"></div></div><div class="panel"><h3>Faculty workload</h3><div id="reportFaculty"></div></div><div class="panel"><h3>Room utilization</h3><div id="reportRooms"></div></div><div class="panel"><h3>Conflict & coverage</h3><div id="reportQuality"></div></div></div></section>
 
 <section id="versions" class="page"><div class="section-head"><div><span class="eyebrow">RELEASES</span><h2>Versions & History</h2><p>Draft, validated, published and archived snapshots with restore and comparison support.</p></div><button class="btn primary" id="saveVersionBtn">Save draft version</button></div><div class="panel"><div id="versionsTable"></div></section>
 
 <section id="intelligence" class="page"><div class="section-head"><div><span class="eyebrow">SCHEDULING INTELLIGENCE</span><h2>Insights & Explanations</h2><p>Explain unscheduled activities and highlight changes that can improve schedule quality.</p></div><button class="btn primary" id="refreshInsights">Refresh insights</button></div><div class="insight-grid"><div class="panel"><h3>Quality breakdown</h3><div id="qualityBreakdown"></div></div><div class="panel"><h3>Recommendations</h3><div id="insightList"></div></div></div></section>
 
+<section id="import" class="page"><div class="section-head"><div><span class="eyebrow">DATA TOOLS</span><h2>Excel Import</h2><p>Upload a prepared workbook, validate the rows, preview errors and import only valid records.</p></div></div><div class="two-col"><div class="panel"><h3>Workbook</h3><p class="muted">Supported sheets: Departments, Programs, Classes, Faculty, Rooms, Courses. Headers are flexible but should match the field names shown in the preview.</p><input id="importFile" type="file" accept=".xlsx,.xls,.csv"><div class="actions"><button class="btn" id="downloadTemplate">Download template</button><button class="btn primary" id="validateImport">Validate workbook</button></div></div><div class="panel"><h3>Import summary</h3><div id="importSummary"><div class="empty-state"><strong>No workbook loaded.</strong><span>Upload an Excel file to begin.</span></div></div></div></div><div class="panel"><h3>Preview</h3><div id="importPreview"></div><div class="actions"><button class="btn primary" id="applyImport" disabled>Import valid rows</button></div></div></section>
 <section id="settings" class="page"><div class="section-head"><div><span class="eyebrow">SYSTEM</span><h2>Institution Settings</h2><p>Owner-level branding, backup and product configuration.</p></div></div><div class="two-col"><div class="panel"><h3>Branding</h3><div class="mini-form"><label>Display name<input id="brandName"></label><label>Institution code<input id="brandCode"></label><label>Logo URL<input id="brandLogo"></label><label>Timezone<input id="brandTimezone"></label></div><button class="btn primary" id="saveBranding">Save branding</button></div><div class="panel"><h3>Product boundary</h3><div class="policy-card"><b>One university → one authorized user</b><span>Faculty and students exist only as timetable records. Export, publish and share remain owner operations.</span></div><div class="policy-card"><b>Public links are view-only</b><span>Published snapshots never grant editing permission.</span></div><div class="policy-card"><b>Production security</b><span>Use Supabase Auth + PostgreSQL RLS for live tenant isolation; the current browser demo falls back to local/cloud state.</span></div></div></div></section>
 
 </main>
