@@ -17,7 +17,7 @@ function cloudSave(){
   },250);
 }
 function cloudLoad(){
-  cloudHydrating=true;setCloudStatus("checking","Checking cloud database…");
+  cloudHydrating=true;setCloudStatus("checking","Sync status: checking…");
   fetch(CLOUD_API,{cache:"no-store"})
     .then(function(r){return r.text().then(function(t){var p={};try{p=t?JSON.parse(t):{}}catch(e){}if(r.status===404)return {empty:true};if(!r.ok)throw new Error(p.error||("Cloud load HTTP "+r.status));return p})})
     .then(function(p){if(p&&p.empty){setCloudStatus("connected","Cloud database connected");cloudHydrating=false;cloudSave();return}
@@ -47,6 +47,7 @@ schedule:[
 let db=load();
 function copy(x){return JSON.parse(JSON.stringify(x))}
 function save(){
+  if(window.__sharedMode)return false;
   try{
     db=normalizeSaaSData(db);
     localStorage.setItem(KEY,JSON.stringify(db));
@@ -131,7 +132,8 @@ x.organization=x.organization||{name:x.settings.university||"University Workspac
 return x}
 function load(){
 try{
-var x=JSON.parse(localStorage.getItem(KEY));
+var shared=readSharedSnapshot();
+var x=shared||JSON.parse(localStorage.getItem(KEY));
 if(!x)x=copy(DEFAULT);
 x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});
 x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);
@@ -208,7 +210,7 @@ var h="<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</
 db.activity.forEach(function(a){h+="<tr><td>"+esc(new Date(a.at).toLocaleString())+"</td><td>"+esc(a.actor)+"</td><td>"+esc(a.action)+"</td><td>"+esc(a.details)+"</td></tr>"});
 q("activityTable").innerHTML=h+"</tbody></table>"
 }
-function renderAll(){ensureEnterpriseData();renderCore();availability();bookings();substitutions();users();activity();attendance();announcements();versions();analytics();bindMasterControls()}
+function renderAll(){ensureEnterpriseData();renderCore();availability();bookings();substitutions();activity();attendance();announcements();versions();analytics();preflight();publishUI();renderWorkflow();bindMasterControls()}
 function bind(){bindCore();if(q("addAvailability"))q("addAvailability").onclick=function(){show("availability")};if(q("addBooking"))q("addBooking").onclick=addBooking;if(q("addSubstitution"))q("addSubstitution").onclick=addSubstitution;if(q("addUser"))q("addUser").onclick=addUser;if(q("clearActivity"))q("clearActivity").onclick=function(){if(confirm("Clear activity log?")){db.activity=[];save()}}}
 
 function masterEntity(type){
@@ -295,7 +297,7 @@ function versions(){
 function saveVersion(){
   var note=prompt("Version note (optional):","Before timetable changes");if(note===null)return;
   var name="Release "+(db.versions.length+1);
-  db.versions.unshift({id:"VER-"+Date.now(),name:name,note:note,schedule:copy(db.schedule),at:new Date().toISOString()});
+  db.versions.unshift({id:"VER-"+Date.now(),name:name,note:note,status:"Draft",schedule:copy(db.schedule),at:new Date().toISOString()});
   db.versions=db.versions.slice(0,30);logActivity("Timetable version saved",name);save();
 }
 function analytics(){
@@ -318,6 +320,138 @@ function integrity(){
   db.classes.forEach(function(c){db.courses.forEach(function(cr){var req=(cr.l||0)+(cr.t||0)+(cr.p||0);if(req&&!db.schedule.some(function(x){return x[5]===c.id&&x[2]===cr.id})&&c.department===((fac(cr.faculty)||{}).department))issues.push("Coverage gap: "+c.name+" / "+cr.code);})});
   q("integrityResult").innerHTML=issues.length?"<div class='check bad'><b>"+issues.length+" issue(s) found</b><span>"+issues.slice(0,30).map(esc).join("<br>")+"</span></div>":"<div class='check good'><b>Integrity check passed</b><span>No orphan references, break violations or hard scheduling conflicts were found.</span></div>";
 }
+
+function workflowMetrics(){
+  var issues=[];
+  var dataChecks=[];
+  if(!db.settings.year)dataChecks.push("Academic year is missing.");
+  if(!db.settings.days.length)dataChecks.push("No working days configured.");
+  if(!db.settings.periods)dataChecks.push("No periods configured.");
+  if(!db.departments.length)dataChecks.push("Add at least one department.");
+  if(!db.classes.length)dataChecks.push("Add at least one class/section.");
+  if(!db.courses.length)dataChecks.push("Add at least one course.");
+  if(!db.faculty.length)dataChecks.push("Add faculty records before generation.");
+  if(!db.rooms.length)dataChecks.push("Add rooms or labs before generation.");
+  db.courses.forEach(function(cr){
+    if(!cr.faculty||!fac(cr.faculty))issues.push(cr.code+" has no valid faculty assignment.");
+    if(!cr.room||!room(cr.room))issues.push(cr.code+" has no valid room assignment.");
+  });
+  db.classes.forEach(function(clx){
+    if(!clx.department||!db.departments.some(function(d){return d.id===clx.department}))issues.push(clx.name+" has no valid department.");
+  });
+  db.schedule.forEach(function(x){
+    if(!cl(x[5])||!course(x[2])||!fac(x[3])||!room(x[4]))issues.push("A timetable entry references missing master data.");
+    if(breakType(x[1]))issues.push("A timetable entry is using a break period.");
+  });
+  var hard=conflicts();
+  hard.forEach(function(x){issues.push(x.type+" conflict on "+dayLabel(x.day)+" P"+(x.period+1)+".")});
+  var coverage=[];
+  db.classes.forEach(function(clx){
+    db.courses.forEach(function(cr){
+      var req=(cr.l||0)+(cr.t||0)+(cr.p||0);
+      if(!req)return;
+      var got=db.schedule.filter(function(x){return x[5]===clx.id&&x[2]===cr.id}).length;
+      if(got<req&&clx.department===((fac(cr.faculty)||{}).department)){
+        coverage.push(clx.name+" / "+cr.code+" needs "+req+" sessions; "+got+" scheduled.");
+      }
+    });
+  });
+  coverage.forEach(function(x){issues.push("Coverage gap: "+x)});
+  var fatal=dataChecks.concat(issues);
+  return {
+    dataChecks:dataChecks,
+    issues:issues,
+    hardConflicts:hard,
+    coverage:coverage,
+    passed:fatal.length===0,
+    dataReady:dataChecks.length===0,
+    scheduled:db.schedule.length
+  };
+}
+function renderWorkflow(){
+  var m=workflowMetrics();
+  var stages=0;
+  if(m.dataReady)stages++;
+  if(m.dataReady && db.availability)stages++;
+  if(m.scheduled>0)stages++;
+  if(m.passed)stages++;
+  if(db.versions.some(function(v){return v.status==="Published"}))stages++;
+  var pct=Math.round(stages/5*100);
+  if(q("workflowProgress"))q("workflowProgress").textContent=pct+"% complete";
+  if(q("workflowProgressBar"))q("workflowProgressBar").style.width=pct+"%";
+  document.querySelectorAll(".workflow-step").forEach(function(b,i){
+    b.classList.toggle("active",i===Math.min(stages,4));
+    b.classList.toggle("complete",i<stages);
+  });
+  if(q("cloudStatus")&&cloudHydrating===false&&q("cloudStatus").dataset.state==="checking")setCloudStatus("checking","Local workspace · cloud sync optional");
+  if(window.__sharedMode){
+    document.body.classList.add("shared-mode");
+    if(q("title"))q("title").textContent="Shared Timetable";
+  }
+}
+function preflight(){
+  var m=workflowMetrics();
+  var hardHTML=m.hardConflicts.length
+    ? m.hardConflicts.slice(0,12).map(function(x){return "<div class='check bad'><b>"+esc(x.type)+" conflict</b><span>"+esc(dayLabel(x.day))+" · Period "+(x.period+1)+"</span></div>"}).join("")
+    : "<div class='check good'><b>No hard conflicts detected</b><span>Class, faculty and room collision checks are clear.</span></div>";
+  var dataHTML=m.dataChecks.length
+    ? m.dataChecks.map(function(x){return "<div class='check bad'><b>Needs attention</b><span>"+esc(x)+"</span></div>"}).join("")
+    : "<div class='check good'><b>Master data is ready</b><span>Academic structure, faculty, courses, rooms and calendar are present.</span></div>";
+  q("preflightHard").innerHTML=hardHTML;
+  q("preflightData").innerHTML=dataHTML;
+  q("preflightSummary").innerHTML="<div class='preflight-kpi "+(m.passed?"ready":"warning")+"'><strong>"+(m.passed?"READY":"REVIEW")+"</strong><span>"+(m.issues.length+m.dataChecks.length)+" issue(s) found</span></div><div class='preflight-kpi'><strong>"+m.scheduled+"</strong><span>scheduled sessions</span></div><div class='preflight-kpi'><strong>"+m.hardConflicts.length+"</strong><span>hard conflicts</span></div>";
+  q("preflightIssues").innerHTML=m.issues.length
+    ? m.issues.slice(0,30).map(function(x){return "<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>"}).join("")
+    : "<div class='empty-state'><strong>Everything looks good.</strong><span>You can move this draft to the publish stage.</span></div>";
+}
+function publishUI(){
+  var m=workflowMetrics(), published=db.versions.filter(function(v){return v.status==="Published"});
+  var latest=published[0];
+  q("publishedVersionName").textContent=latest?latest.name:"No published version";
+  q("publishReadiness").innerHTML=m.passed
+    ? "<div class='release-ready'><span class='status-dot'></span><div><b>Ready to publish</b><span>0 hard conflicts · master data is valid · current draft can be released.</span></div></div>"
+    : "<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing is blocked</b><span>Run Preflight and resolve the listed issues first.</span></div></div>";
+  q("publishNow").disabled=!m.passed||!!window.__sharedMode;
+  q("createShare").disabled=!latest||!!window.__sharedMode;
+  q("publishedReleases").innerHTML=published.length
+    ? "<table><thead><tr><th>Release</th><th>Created</th><th>Sessions</th><th>Status</th></tr></thead><tbody>"+published.map(function(v){return "<tr><td><b>"+esc(v.name)+"</b></td><td>"+esc(new Date(v.at).toLocaleString())+"</td><td>"+v.schedule.length+"</td><td><span class='release-badge'>Published</span></td></tr>"}).join("")+"</tbody></table>"
+    : "<div class='empty-state'><strong>No published release yet.</strong><span>Validate the current draft, then publish it here.</span></div>";
+}
+function publishCurrent(){
+  if(window.__sharedMode)return;
+  var m=workflowMetrics();
+  if(!m.passed){alert("Publishing is blocked. Run Preflight and resolve all issues first.");show("preflight");return}
+  var name="Release "+(db.versions.filter(function(v){return v.status==="Published"}).length+1);
+  db.versions.unshift({id:"VER-"+Date.now(),name:name,note:"Published timetable",status:"Published",schedule:copy(db.schedule),at:new Date().toISOString()});
+  logActivity("Timetable published",name);
+  save();
+  show("publish");
+}
+function makeShareLink(){
+  if(window.__sharedMode)return;
+  var latest=db.versions.find(function(v){return v.status==="Published"});
+  if(!latest){alert("Publish a timetable version before sharing.");return}
+  var payload=copy(latest.schedule);
+  var snapshot={settings:copy(db.settings),departments:copy(db.departments),classes:copy(db.classes),sections:copy(db.sections),faculty:copy(db.faculty),rooms:copy(db.rooms),courses:copy(db.courses),schedule:payload,shared:true,version:latest.name};
+  try{
+    var encoded=btoa(unescape(encodeURIComponent(JSON.stringify(snapshot))));
+    var url=location.origin+location.pathname+"#shared="+encoded;
+    q("shareResult").innerHTML="<div class='share-box'><span>View-only share link created</span><input readonly value='"+esc(url)+"'><button id='copyShare'>Copy link</button></div>";
+    q("copyShare").onclick=function(){navigator.clipboard?navigator.clipboard.writeText(url).then(function(){q("copyShare").textContent="Copied"}):alert(url)};
+  }catch(e){alert("This timetable is too large for a URL-only demo share link.")}
+}
+function readSharedSnapshot(){
+  var raw=location.hash.indexOf("#shared=")===0?location.hash.slice(8):"";
+  if(!raw)return null;
+  try{
+    var json=decodeURIComponent(escape(atob(raw)));
+    var x=JSON.parse(json);
+    if(!x||!x.shared||!Array.isArray(x.schedule))return null;
+    window.__sharedMode=true;
+    return x;
+  }catch(e){return null}
+}
+
 function restoreJSON(){
   var input=q("jsonImport");if(!input.files||!input.files[0]){alert("Choose a JSON backup first.");return}
   var reader=new FileReader();reader.onload=function(){try{var x=JSON.parse(reader.result);var required=["settings","departments","classes","sections","faculty","rooms","courses","schedule"];if(!required.every(function(k){return k in x}))throw new Error("Not a UniSchedule backup.");db=normalizeSaaSData(x);logActivity("Workspace restored","JSON backup");save();alert("Backup restored successfully.")}catch(e){alert("Restore failed: "+e.message)}};reader.readAsText(input.files[0]);
@@ -334,6 +468,9 @@ function bindEnterprise(){
   if(q("refreshAnalytics"))q("refreshAnalytics").onclick=analytics;
   if(q("runIntegrity"))q("runIntegrity").onclick=integrity;
   if(q("restoreJson"))q("restoreJson").onclick=restoreJSON;
+  if(q("runPreflight"))q("runPreflight").onclick=function(){preflight();show("preflight")};
+  if(q("publishNow"))q("publishNow").onclick=publishCurrent;
+  if(q("createShare"))q("createShare").onclick=makeShareLink;
 }
 bind();bindEnterprise();renderAll();
 cloudLoad();
