@@ -1368,6 +1368,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="backupBtn")backup();
   if(e.target.id==="reportPdf")exportPDF();
   if(e.target.id==="reportExcel")exportExcel();
+  if(e.target.id==="reportDocx")exportDOCX();
   if(e.target.id==="reportCsv")exportCSV();
   if(e.target.id==="reportScope"){renderReports();return}
   if(e.target.id==="reportEntity"){renderReports();return}
@@ -1397,6 +1398,7 @@ document.addEventListener("change",e=>{
   if(["shortBreakCount","lunchBreakCount","calendarPeriods"].includes(e.target.id))breakSelectors();
   if(e.target.id==="classSelector"){selectedClassId=e.target.value;renderGenerate();}
   if(e.target.id==="dashboardClassSelector"){selectedClassId=e.target.value;renderDashboard();}
+  if(e.target.id==="reportScope"||e.target.id==="reportEntity"){renderReports();}
 });
 q("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 q("copyShare").disabled=true;
