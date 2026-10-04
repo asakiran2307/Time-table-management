@@ -109,6 +109,7 @@ function loadLocal(){
   try{return JSON.parse(localStorage.getItem(KEY)||"null")||copy(DEFAULT)}catch(e){return copy(DEFAULT)}
 }
 function save(){
+  if(sharedSnap)return false;
   db=normalizeState(db);
   localStorage.setItem(KEY,JSON.stringify(db));
   clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
@@ -235,9 +236,23 @@ function allConflicts(state=db){
 }
 
 function generateCandidate(mode="balanced",trial=1,source=db){
-  const state=copy(source);state.schedule=mode==="repair"||mode==="manual"?state.schedule.filter(e=>e.locked):state.schedule.filter(e=>e.locked&&mode!=="fast");
+  const state=copy(source);
+  if(mode==="repair"){
+    const kept=[];
+    state.schedule.forEach(e=>{
+      if(e.locked){kept.push(e);return}
+      const a={classId:e.classId,courseId:e.courseId,duration:e.duration||1};
+      const reason=hardCheck(kept,a,e.day,e.period,e.roomId,[]);
+      if(!reason)kept.push(e);
+    });
+    state.schedule=kept;
+  }else if(mode==="manual"){
+    state.schedule=state.schedule.filter(e=>e.locked);
+  }else{
+    state.schedule=state.schedule.filter(e=>e.locked&&mode!=="fast");
+  }
   const acts=activityList(source).sort((a,b)=>b.duration-a.duration||deterministicNoise(a.index+trial*17)-deterministicNoise(b.index+trial*17));
-  const placedIds=new Set(state.schedule.map(e=>e.activityId).filter(Boolean));
+  const placedIds=new Set();
   let unscheduled=[];
   for(const a of acts){
     if(placedIds.has(a.id))continue;
@@ -297,6 +312,85 @@ function preflight(){
   });
   return {d,conflicts,coverage,ok:d.issues.length===0&&conflicts.length===0&&coverage.length===0};
 }
+function renderShareHistory(){
+  const box=q("shareHistory");if(!box)return;
+  const active=db.shareLinks.filter(x=>x.active!==false);
+  const revoked=db.shareLinks.filter(x=>x.active===false);
+  box.innerHTML=(active.length?"<div class='share-history-title'>Active share links</div>"+active.slice(0,10).map(s=>"<div class='list-row'><div><b>"+esc(s.scope)+" · "+esc(s.version)+"</b><small>"+new Date(s.at).toLocaleString()+"</small></div><button class='btn small' data-revoke-share='"+s.id+"'>Revoke record</button></div>").join(""):"")+
+    (revoked.length?"<div class='share-history-title revoked'>Revoked records</div>"+revoked.slice(0,5).map(s=>"<div class='list-row'><div><b>"+esc(s.scope)+" · "+esc(s.version)+"</b><small>Revoked</small></div></div>").join(""):"");
+}
+function renderImport(){
+  if(!q("importSummary"))return;
+  if(!window.__importRows){q("importSummary").innerHTML="<div class='empty-state'><strong>No workbook loaded.</strong><span>Upload an Excel file to begin.</span></div>";q("importPreview").innerHTML="";q("applyImport").disabled=true;return}
+  const x=window.__importRows;const keys=Object.keys(x);let total=0,valid=0,errors=[];
+  keys.forEach(k=>{x[k].rows.forEach((row,i)=>{total++;if(row.__error)errors.push(k+" row "+(i+2)+": "+row.__error);else valid++})});
+  q("importSummary").innerHTML="<div class='preflight-summary'><div class='preflight-kpi good'><strong>"+valid+"</strong><span>valid rows</span></div><div class='preflight-kpi "+(errors.length?"warning":"good")+"'><strong>"+errors.length+"</strong><span>errors</span></div><div class='preflight-kpi neutral'><strong>"+total+"</strong><span>rows detected</span></div></div>"+(errors.length?errors.slice(0,20).map(e=>"<div class='issue-row'><span class='issue-dot'></span><span>"+esc(e)+"</span></div>").join(""):"<div class='check good'><b>Workbook is ready</b><span>Only valid rows will be imported.</span></div>");
+  q("importPreview").innerHTML=keys.map(k=>"<div class='import-sheet'><div class='import-sheet-head'><b>"+esc(k)+"</b><span>"+x[k].rows.length+" row(s)</span></div><div class='table-wrap'><table><thead><tr>"+(x[k].headers||[]).map(h=>"<th>"+esc(h)+"</th>").join("")+"</tr></thead><tbody>"+x[k].rows.slice(0,12).map(r=>"<tr>"+(x[k].headers||[]).map(h=>"<td>"+esc(r[h]??"")+"</td>").join("")+"</tr>").join("")+"</tbody></table></div></div>").join("");
+  q("applyImport").disabled=valid===0;
+}
+function normalizeHeader(h){return String(h||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"")}
+function readImportFile(file){
+  if(!window.XLSX)return alert("Excel library unavailable.");
+  const reader=new FileReader();reader.onload=()=>{
+    try{
+      const wb=XLSX.read(reader.result,{type:"array"});
+      const wanted=["Departments","Programs","Classes","Faculty","Rooms","Courses"];
+      const out={};
+      wb.SheetNames.forEach(name=>{
+        const mapped=wanted.find(w=>normalizeHeader(w)===normalizeHeader(name))||name;
+        const sheet=wb.Sheets[name];const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});const headers=rows.length?Object.keys(rows[0]):[];
+        out[mapped]={headers,rows:rows.map(raw=>{
+          const row={};headers.forEach(h=>row[h]=raw[h]);
+          const code=(row.Code||row.code||"").toString().trim();
+          if((mapped==="Departments"||mapped==="Programs"||mapped==="Classes"||mapped==="Faculty"||mapped==="Rooms"||mapped==="Courses")&&!((row.Name||row.name||"").toString().trim()||code))row.__error="Name or Code is required.";
+          return row;
+        })};
+      });
+      window.__importRows=out;renderImport();
+    }catch(e){alert("Import parse failed: "+e.message)}
+  };reader.readAsArrayBuffer(file);
+}
+function applyImport(){
+  const x=window.__importRows;if(!x)return;let count=0;
+  (x.Departments?.rows||[]).forEach(r=>{if(r.__error)return;db.departments.push({id:uid("DEP"),name:r.Name||r.name||"",code:(r.Code||r.code||uid("DEP")).toString().toUpperCase()});count++});
+  (x.Programs?.rows||[]).forEach(r=>{if(r.__error)return;db.programs.push({id:uid("PRG"),name:r.Name||r.name||"",department:r.DepartmentId||r.department||db.departments[0]?.id||""});count++});
+  (x.Classes?.rows||[]).forEach(r=>{if(r.__error)return;db.classes.push({id:uid("CLS"),name:r.Name||r.name||"Imported Class",section:r.Section||r.section||"",department:r.DepartmentId||r.department||db.departments[0]?.id||"",program:r.ProgramId||r.program||"",semester:r.SemesterId||r.semester||db.semesters[0]?.id||"",strength:+(r.Strength||r.strength||60),incharge:r.Incharge||r.incharge||""});count++});
+  (x.Faculty?.rows||[]).forEach(r=>{if(r.__error)return;db.faculty.push({id:uid("FAC"),name:r.Name||r.name||"",designation:r.Designation||r.designation||"Assistant Professor",department:r.DepartmentId||r.department||db.departments[0]?.id||"",maxDay:+(r.MaxDay||r.maxDay||4),maxWeek:+(r.MaxWeek||r.maxWeek||18)});count++});
+  (x.Rooms?.rows||[]).forEach(r=>{if(r.__error)return;const type=r.Type||r.type||"Classroom";db.rooms.push({id:uid("ROOM"),name:r.Name||r.name||"",code:(r.Code||r.code||uid("ROOM")).toString().toUpperCase(),type,capacity:+(r.Capacity||r.capacity||60),building:r.Building||r.building||"",floor:+(r.Floor||r.floor||1),features:String(r.Features||r.features||"").split(",").map(s=>s.trim()).filter(Boolean),lab:type==="Lab"});count++});
+  (x.Courses?.rows||[]).forEach(r=>{if(r.__error)return;db.courses.push({id:uid("CRS"),code:(r.Code||r.code||uid("CRS")).toString().toUpperCase(),name:r.Name||r.name||"",type:r.Type||r.type||"Theory",credits:+(r.Credits||r.credits||0),l:+(r.L||r.l||0),t:+(r.T||r.t||0),p:+(r.P||r.p||0),faculty:r.FacultyId||r.faculty||"",room:r.RoomId||r.room||"",classIds:String(r.ClassIds||r.classIds||"").split(",").map(s=>s.trim()).filter(Boolean)});count++});
+  log("Excel import applied",count+" rows");window.__importRows=null;save();navigate("master");
+}
+function downloadImportTemplate(){
+  if(!window.XLSX)return alert("Excel library unavailable.");
+  const wb=XLSX.utils.book_new();
+  [["Name","Code"]].forEach((h)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([h]),"Departments"));
+  [["Name","DepartmentId"]].forEach(h=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([h]),"Programs"));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Name","Section","DepartmentId","ProgramId","SemesterId","Strength","Incharge"]]),"Classes");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Name","Designation","DepartmentId","MaxDay","MaxWeek"]]),"Faculty");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Name","Code","Type","Capacity","Building","Floor","Features"]]),"Rooms");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Code","Name","Type","Credits","L","T","P","FacultyId","RoomId","ClassIds"]]),"Courses");
+  XLSX.writeFile(wb,"unischedule-import-template.xlsx");
+}
+function exportAction(type){if(type==="pdf")return exportPDF();if(type==="excel")return exportExcel();if(type==="docx")return exportDOCX();if(type==="csv")return exportCSV();if(type==="ics")return exportICS();if(type==="print")return printReport();if(type==="json")return backup()}
+function exportICS(){
+  const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//UniSchedule//Academic Timetable//EN"];
+  db.schedule.slice().sort((a,b)=>a.day.localeCompare(b.day)||a.period-b.period).forEach(e=>{
+    const d=findCourse(e.courseId),r=findRoom(e.roomId),c=findClass(e.classId);lines.push("BEGIN:VEVENT");lines.push("UID:"+e.id+"@unischedule");lines.push("SUMMARY:"+String(d?.code||"")+" - "+String(d?.name||"").replace(/[\n,;]/g," "));lines.push("DESCRIPTION:"+String(c?.name||"")+" | "+String(findFaculty(e.facultyId)?.name||"")+" | "+String(r?.name||"").replace(/[\n,;]/g," "));lines.push("DTSTART:"+icsStamp(e.day,e.period));lines.push("DTEND:"+icsStamp(e.day,e.period+(e.duration||1)));lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");download("unischedule-timetable.ics",lines.join("\r\n"),"text/calendar");
+}
+function icsStamp(day,p){
+  const index=db.settings.days.indexOf(day);const base=new Date();const diff=(index<0?0:index)-((base.getDay()+6)%7);
+  const d=new Date(base);d.setDate(base.getDate()+diff);const t=timeSlots()[p]||{start:"09:00"};const [h,m]=t.start.split(":").map(Number);
+  d.setHours(h,m,0,0);return d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
+}
+async function exportDOCX(){
+  if(!window.docx)return alert("DOCX library unavailable.");
+  const {Document,Paragraph,TextRun,Packer}=window.docx;
+  const children=[new Paragraph({children:[new TextRun({text:db.organization.name,bold:true,size:28})]}),new Paragraph({children:[new TextRun({text:db.settings.title,size:20})]})];
+  db.classes.forEach(cl=>{children.push(new Paragraph({children:[new TextRun({text:cl.name,bold:true,size:22})]}));db.settings.days.forEach(day=>{const cells=[];for(let p=0;p<db.settings.periods;p++){if(currentBreakType(p)){cells.push("P"+(p+1)+": "+currentBreakType(p));continue}const e=entryAt(db,day,p,cl.id);if(e)cells.push("P"+(p+1)+" "+findCourse(e.courseId)?.code+" / "+findRoom(e.roomId)?.name);};children.push(new Paragraph(dayLabel(day)+": "+cells.join(" | ")))})});
+  const doc=new Document({sections:[{children}]});const blob=await Packer.toBlob(doc);const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="unischedule-timetable.docx";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
 function render(){
   syncHeader();renderCurrentPage();
 }
@@ -311,7 +405,7 @@ function navigate(id){
   renderCurrentPage();
 }
 function renderCurrentPage(){
-  renderDashboard();renderMaster();renderConstraints();renderGenerate();renderPreflight();renderPublish();renderCourses();renderClasses();renderFaculty();renderRooms();renderCalendar();renderCompare();renderScenarios();renderReports();renderVersions();renderIntelligence();renderSettings();renderWorkflow();
+  renderDashboard();renderMaster();renderConstraints();renderGenerate();renderPreflight();renderPublish();renderCourses();renderClasses();renderFaculty();renderRooms();renderCalendar();renderCompare();renderScenarios();renderReports();renderVersions();renderIntelligence();renderSettings();renderImport();renderWorkflow();
 }
 function renderWorkflow(){
   const pf=preflight(), stages=[true,db.settings.days.length>0&&db.faculty.length>0,db.schedule.length>0,pf.ok,db.versions.some(v=>v.status==="Published")];
@@ -366,7 +460,7 @@ function renderConstraints(){
 function renderGenerate(){
   q("classSelector").innerHTML=db.classes.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.name)+"</option>").join("");
   const cid=q("classSelector").value||db.classes[0]?.id;if(q("gridTitle"))q("gridTitle").textContent=(findClass(cid)?.name||"Section K")+" timetable";
-  q("builderTable").innerHTML=cid?tableForClass(cid,true):"<div class='empty-state'>Add a class first.</div>";
+  q("builderTable").innerHTML=cid?tableForClass(cid,!sharedSnap):"<div class='empty-state'>Add a class first.</div>";
   q("qualityPanel").innerHTML=qualityHTML(scheduleScore(db));
   const acts=activityList(db),uns=acts.filter(a=>db.schedule.filter(e=>e.activityId===a.id).length<(a.duration===2?2:1));
   q("unscheduledList").innerHTML=uns.length?uns.slice(0,25).map(a=>"<div class='issue-row'><b>"+esc(findCourse(a.courseId)?.code)+"</b><span>"+esc(findClass(a.classId)?.name)+" · "+esc(a.type)+" · no feasible slot</span></div>").join(""):"<div class='empty-state'><strong>All activities scheduled.</strong><span>No unscheduled activity is currently detected.</span></div>";
@@ -386,7 +480,7 @@ function renderPublish(){
   q("publishReadiness").innerHTML=pf.ok?"<div class='release-ready'><span class='status-dot'></span><div><b>Ready to publish</b><span>0 hard conflicts and complete activity coverage.</span></div></div>":"<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing blocked</b><span>Resolve preflight issues before releasing this timetable.</span></div></div>";
   q("publishBtn").disabled=!pf.ok;
   q("copyShare").disabled=!latest;
-  q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";
+  q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";renderShareHistory();
 }
 function renderCourses(){
   q("combinedList").innerHTML=db.combinedGroups.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.map(id=>esc(findClass(id)?.section||id)).join(" + ")+" · "+esc(findRoom(g.roomId)?.name||"")+"</small></div></div>").join("")||"<div class='empty-state'><strong>No combined groups.</strong><span>Use this for common lectures or seminars.</span></div>";
@@ -514,7 +608,7 @@ function createShare(){
   if(scope==="department"){const cls=new Set(db.classes.filter(c=>c.department===db.departments[0]?.id).map(c=>c.id));schedule=schedule.filter(e=>cls.has(e.classId))}
   const snap={shared:true,version:latest.name,settings:copy(db.settings),organization:copy(db.organization),classes:copy(db.classes),courses:copy(db.courses),faculty:copy(db.faculty),rooms:copy(db.rooms),schedule};
   const url=location.origin+location.pathname+"#shared="+btoa(unescape(encodeURIComponent(JSON.stringify(snap))));
-  db.shareLinks.unshift({id:uid("SHARE"),scope,url,version:latest.name,at:now(),active:true});log("Share link created",scope);save();q("copyShare").disabled=false;q("copyShare").dataset.url=url;q("shareResult").innerHTML="<div class='share-box'><span>VIEW-ONLY LINK</span><input readonly value='"+esc(url)+"'><button class='btn small' id='copyInline'>Copy</button></div>";q("copyInline").onclick=()=>copyShare(url);
+  db.shareLinks.unshift({id:uid("SHARE"),scope,url,version:latest.name,at:now(),active:true});log("Share link created",scope);save();q("copyShare").disabled=false;q("copyShare").dataset.url=url;q("shareResult").innerHTML="<div class='share-box'><span>VIEW-ONLY LINK</span><input readonly value='"+esc(url)+"'><button class='btn small' id='copyInline'>Copy</button></div>";q("copyInline").onclick=()=>copyShare(url);if(q("shareQr")){q("shareQr").innerHTML="";if(window.QRCode)new QRCode(q("shareQr"),{text:url,width:128,height:128})};
 }
 function copyShare(url){navigator.clipboard?navigator.clipboard.writeText(url).then(()=>q("copyShare").textContent="Copied"):alert(url)}
 function getShared(){
@@ -601,7 +695,10 @@ document.addEventListener("click",e=>{
   if(e.target.id==="reportPdf")exportPDF();
   if(e.target.id==="reportExcel")exportExcel();
   if(e.target.id==="reportCsv")exportCSV();
-  if(e.target.id==="reportPrint")printReport();
+  const ex=e.target.closest("[data-export]");if(ex)exportAction(ex.dataset.export);
+  if(e.target.id==="downloadTemplate")downloadImportTemplate();
+  if(e.target.id==="validateImport"){const file=q("importFile").files?.[0];if(file)readImportFile(file);else alert("Choose an Excel file first.");}
+  if(e.target.id==="applyImport")applyImport();
   const slot=e.target.closest(".editable");if(slot){
     if(lockMode&&slot.dataset.slot){const en=db.schedule.find(x=>x.id===slot.dataset.slot);if(en){en.locked=!en.locked;log(en.locked?"Timetable entry locked":"Timetable entry unlocked",findCourse(en.courseId)?.code||"");save()}return}
     editSlotElement(slot);
@@ -610,6 +707,7 @@ document.addEventListener("click",e=>{
   const sol=e.target.closest("[data-apply-solution]");if(sol)applySolution(+sol.dataset.applySolution);
   const ver=e.target.closest("[data-restore-version]");if(ver)restoreVersion(ver.dataset.restoreVersion);
   const rc=e.target.closest("[data-report-class]");if(rc){q("classSelector").value=rc.dataset.reportClass;navigate("generate")}
+  const rv=e.target.closest("[data-revoke-share]");if(rv){const s=db.shareLinks.find(x=>x.id===rv.dataset.revokeShare);if(s){s.active=false;log("Share link revoked",s.id);save()}}
 });
 
 document.addEventListener("input",e=>{
