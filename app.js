@@ -142,8 +142,10 @@ function normalizeState(x){
   const old=arr(x.schedule);
   x.schedule=old.map(e=>Array.isArray(e)?{id:uid("SCH"),day:e[0],period:e[1],courseId:e[2],facultyId:e[3],roomId:e[4],classId:e[5],duration:1,locked:false}:Object.assign({id:uid("SCH"),duration:1,locked:false},e));
   x.courses.forEach(c=>{if(!c.classIds)c.classIds=x.classes.map(cl=>cl.id);});
+  ensureJoyDemoData(x);
   if(!x.schedule.length)seedSchedule(x);
-  x.activities.forEach(a=>{if(!a.classId)a.classId=x.classIds?.[0]});
+  else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
+  x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
   return x;
 }
 function sanitizeBreaks(s){
@@ -153,6 +155,45 @@ function sanitizeBreaks(s){
   s.lunchBreaks=clean(s.lunchBreaks).filter((n,i,a)=>a.indexOf(n)===i);
   s.lunchBreaks=s.lunchBreaks.filter(n=>!s.shortBreaks.includes(n));
   s.breaks=[...s.shortBreaks,...s.lunchBreaks].sort((a,b)=>a-b);
+}
+function ensureJoyDemoData(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=2)return;
+  const add=(list,obj)=>{if(!list.some(x=>x.id===obj.id))list.push(obj)};
+  const dep=state.departments.find(d=>d.id==="SOCI")||state.departments[0];
+  if(!dep){state.__joyDemoSeedVersion=2;return}
+  const btech=state.programs.find(p=>p.id==="BTECH-CSE"); if(btech)btech.durationYears=4;
+  add(state.programs,{id:"BCA-CYBER",name:"BCA Cyber Security",department:dep.id,durationYears:3});
+  add(state.sections,{id:"SEC-BCA5A",name:"Section A",code:"A",department:dep.id,program:"BCA-CYBER",semester:"SEM5",strength:45});
+  add(state.classes,{id:"BCAC5A",name:"BCA Cyber · Semester V · A",section:"A",department:dep.id,program:"BCA-CYBER",semester:"SEM5",strength:45,incharge:"Ms. NITHYA"});
+  [
+    {id:"F7",name:"Dr. PRIYA SHARMA",department:dep.id,designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F8",name:"Dr. VIVEK RAMAN",department:dep.id,designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F9",name:"Dr. ARUN KUMAR",department:dep.id,designation:"Associate Professor",maxDay:4,maxWeek:18},
+    {id:"F10",name:"Ms. NITHYA",department:dep.id,designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F11",name:"Mr. RAHUL DEV",department:dep.id,designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F12",name:"Dr. MEERA JOSEPH",department:dep.id,designation:"Assistant Professor",maxDay:4,maxWeek:18}
+  ].forEach(f=>add(state.faculty,f));
+  [
+    {id:"R204",name:"Room 204",code:"R204",type:"Classroom",capacity:60,building:"Joveena Block",floor:2,features:["projector","smart-board","internet"]},
+    {id:"DFL",name:"Digital Forensics Lab",code:"DFL",type:"Lab",capacity:50,building:"Cyber Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true},
+    {id:"NSL",name:"Network Security Lab",code:"NSL",type:"Lab",capacity:50,building:"Cyber Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true}
+  ].forEach(room=>add(state.rooms,room));
+  [
+    {id:"UNI501",code:"UNI501",name:"Professional English & Communication",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F7",room:"SAK2",classIds:["CSE5K","BCAC5A"],sessionPattern:"2 × 1",shared:true,combinedGroupId:"CG-COMMON-01"},
+    {id:"UNI502",code:"UNI502",name:"Environmental Studies & Sustainability",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F8",room:"SAK2",classIds:["CSE5K","BCAC5A"],sessionPattern:"2 × 1",shared:true,combinedGroupId:"CG-COMMON-02"},
+    {id:"BCA501",code:"BCA501",name:"Computer Networks",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F9",room:"R204",classIds:["BCAC5A"],sessionPattern:"3 × 1"},
+    {id:"BCA502",code:"BCA502",name:"Digital Forensics",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F10",room:"R204",classIds:["BCAC5A"],sessionPattern:"3 × 1"},
+    {id:"BCA503",code:"BCA503",name:"Cyber Law & Ethics",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F11",room:"R204",classIds:["BCAC5A"],sessionPattern:"2 × 1"},
+    {id:"BCA504",code:"BCA504",name:"Python for Cyber Security",type:"Theory",credits:2,l:2,t:0,p:0,faculty:"F12",room:"R204",classIds:["BCAC5A"],sessionPattern:"2 × 1"},
+    {id:"BCAL501",code:"BCAL501",name:"Digital Forensics Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F10",room:"DFL",lab:true,classIds:["BCAC5A"],sessionPattern:"1 × 2"},
+    {id:"BCAL502",code:"BCAL502",name:"Network Security Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F9",room:"NSL",lab:true,classIds:["BCAC5A"],sessionPattern:"1 × 2"}
+  ].forEach(c=>add(state.courses,c));
+  [
+    {id:"CG-COMMON-01",name:"Common: Professional English · CSE + BCA Cyber",classIds:["CSE5K","BCAC5A"],roomId:"SAK2",courseId:"UNI501"},
+    {id:"CG-COMMON-02",name:"Common: Environmental Studies · CSE + BCA Cyber",classIds:["CSE5K","BCAC5A"],roomId:"SAK2",courseId:"UNI502"}
+  ].forEach(g=>add(state.combinedGroups,g));
+  state.__joyDemoSeedVersion=2;
 }
 function seedSchedule(state){
   const s=state.settings;
@@ -167,7 +208,20 @@ function seedSchedule(state){
     ["THU",0,"24BTCY851","F5","R103",1],["THU",1,"24BTCY151","F1","R103",1],["THU",3,"24BTCY153","F2","R103",1],["THU",4,"24BTCY152","F1","R103",1],["THU",6,"24BTCY154","F3","R103",1],["THU",7,"24BTCY156","F6","R103",1],
     ["FRI",0,"24BTCY252","F1","CCL",2],["FRI",3,"24BTCY152","F1","R103",1],["FRI",4,"24BTCY154","F3","R103",1],["FRI",6,"24BTCY155","F4","R103",1]
   ];
-  state.schedule=fixed.map(v=>({id:uid("SCH"),day:v[0],period:v[1],courseId:v[2],facultyId:v[3],roomId:v[4],classId,vduration:v[5],duration:v[5],locked:false}));
+  state.schedule=fixed.map(v=>({id:uid("SCH"),day:v[0],period:v[1],courseId:v[2],facultyId:v[3],roomId:v[4],classId,vduration:v[5],duration:v[5],locked:false,activityId:uid("SEED")}));
+  appendJoyBcaDemoSchedule(state);
+}
+function appendJoyBcaDemoSchedule(state){
+  if(state.organization?.code!=="JU001"||!state.classes.some(c=>c.id==="BCAC5A")||state.schedule.some(e=>e.classId==="BCAC5A"))return;
+  const add=(day,period,courseId,facultyId,roomId,duration=1)=>{
+    const course=state.courses.find(c=>c.id===courseId),shared=!!course?.shared,ids=shared?arr(course.classIds):["BCAC5A"],activityId=uid("SEEDACT");
+    ids.forEach(cid=>state.schedule.push({id:uid("SCH"),day,period,courseId,facultyId,roomId,classId:cid,duration,locked:false,activityId,shared}));
+    if(duration===2)ids.forEach(cid=>state.schedule.push({id:uid("SCH"),day,period:period+1,courseId,facultyId,roomId,classId:cid,duration,locked:false,activityId,shared}));
+  };
+  add("MON",0,"UNI501","F7","SAK2"); add("MON",1,"BCA501","F9","R204"); add("MON",3,"BCA502","F10","R204"); add("MON",4,"BCA503","F11","R204"); add("MON",6,"BCA504","F12","R204");
+  add("TUE",0,"UNI502","F8","SAK2"); add("TUE",1,"BCA501","F9","R204"); add("TUE",3,"BCA502","F10","R204"); add("TUE",4,"BCA503","F11","R204"); add("TUE",6,"BCA504","F12","R204");
+  add("WED",0,"UNI501","F7","SAK2"); add("WED",1,"BCA501","F9","R204"); add("WED",3,"BCA502","F10","R204"); add("WED",6,"BCAL501","F10","DFL",2);
+  add("THU",0,"UNI502","F8","SAK2"); add("THU",1,"BCA504","F12","R204"); add("THU",3,"BCA503","F11","R204"); add("THU",6,"BCAL502","F9","NSL",2);
 }
 let db=normalizeState(loadLocal());
 
@@ -220,10 +274,17 @@ function courseSessions(c){
   return Math.max(1,(Number(c.l)||0)+(Number(c.t)||0)+(Number(c.p)||0));
 }
 function activityList(state=db){
-  const out=[];
+  const out=[],sharedSeen=new Set();
   state.classes.forEach(cl=>{
     state.courses.filter(c=>arr(c.classIds).includes(cl.id)).forEach(c=>{
-      for(let i=0;i<courseSessions(c);i++)out.push({id:uid("ACTV"),classId:cl.id,courseId:c.id,index:i,duration:c.lab?2:1,type:c.lab?"LAB":"CLASS"});
+      const shared=!!c.shared&&arr(c.classIds).length>1;
+      if(shared){
+        if(sharedSeen.has(c.id))return;
+        sharedSeen.add(c.id);
+        for(let i=0;i<courseSessions(c);i++)out.push({id:uid("ACTV"),classId:arr(c.classIds)[0],classIds:copy(c.classIds),shared:true,courseId:c.id,index:i,duration:c.lab?2:1,type:c.lab?"LAB":"CLASS"});
+      }else{
+        for(let i=0;i<courseSessions(c);i++)out.push({id:uid("ACTV"),classId:cl.id,classIds:[cl.id],shared:false,courseId:c.id,index:i,duration:c.lab?2:1,type:c.lab?"LAB":"CLASS"});
+      }
     });
   });
   return out;
@@ -238,7 +299,9 @@ function roomBlocked(state,rid,day,p){return state.roomBlocks.some(a=>a.roomId==
 function roomFits(state,rid,cid,courseId){
   const r=state.rooms.find(x=>x.id===rid),cl=state.classes.find(x=>x.id===cid),c=state.courses.find(x=>x.id===courseId);
   if(!r||!cl||!c)return false;
-  if(r.capacity<(cl.strength||0))return false;
+  const ids=c.shared&&arr(c.classIds).length>1?arr(c.classIds):[cid];
+  const strength=ids.reduce((sum,id)=>sum+(Number(state.classes.find(x=>x.id===id)?.strength)||0),0);
+  if(r.capacity<strength)return false;
   if(c.lab&&!r.lab)return false;
   const req=arr(c.requiredFeatures).map(x=>String(x).toLowerCase());
   const have=arr(r.features).map(x=>String(x).toLowerCase());
@@ -250,17 +313,23 @@ function hardCheck(state,a,day,p,roomId,ignoreIds=[]){
   if(!c||!f)return "Missing course/faculty";
   if(state.settings.breaks.includes(p))return "Break period";
   if(!state.settings.days.includes(day))return "Non-working day";
+  const classIds=a.shared?arr(a.classIds):[a.classId];
   if(facultyBlocked(state,f.id,day,p))return "Faculty unavailable";
-  if(classBlocked(state,a.classId,day,p))return "Class blocked";
-  if(roomBlocked(state,roomId,day,p))return "Room unavailable";
-  if(occupied(state,day,p,"classId",a.classId,ignoreIds))return "Class collision";
+  for(const cid of classIds){
+    if(classBlocked(state,cid,day,p))return "Class blocked";
+    if(occupied(state,day,p,"classId",cid,ignoreIds))return "Class collision";
+  }
   if(occupied(state,day,p,"facultyId",f.id,ignoreIds))return "Faculty collision";
   if(occupied(state,day,p,"roomId",roomId,ignoreIds))return "Room collision";
   if(!roomFits(state,roomId,a.classId,a.courseId))return "Room capacity/feature mismatch";
   if(a.duration===2){
     if(p+1>=state.settings.periods||state.settings.breaks.includes(p+1)||!state.settings.days.includes(day))return "Lab needs consecutive periods";
-    if(facultyBlocked(state,f.id,day,p+1)||classBlocked(state,a.classId,day,p+1)||roomBlocked(state,roomId,day,p+1))return "Consecutive period blocked";
-    if(occupied(state,day,p+1,"classId",a.classId,ignoreIds)||occupied(state,day,p+1,"facultyId",f.id,ignoreIds)||occupied(state,day,p+1,"roomId",roomId,ignoreIds))return "Consecutive period collision";
+    if(facultyBlocked(state,f.id,day,p+1))return "Consecutive period blocked";
+    for(const cid of classIds){
+      if(classBlocked(state,cid,day,p+1))return "Consecutive period blocked";
+      if(occupied(state,day,p+1,"classId",cid,ignoreIds))return "Consecutive period collision";
+    }
+    if(occupied(state,day,p+1,"facultyId",f.id,ignoreIds)||occupied(state,day,p+1,"roomId",roomId,ignoreIds))return "Consecutive period collision";
   }
   return "";
 }
@@ -300,6 +369,7 @@ function allConflicts(state=db){
   const out=[];const seen=new Set();
   for(let i=0;i<state.schedule.length;i++)for(let j=i+1;j<state.schedule.length;j++){
     const a=state.schedule[i],b=state.schedule[j];if(a.day!==b.day||a.period!==b.period)continue;
+    if(a.activityId&&b.activityId&&a.activityId===b.activityId)continue;
     [["classId","Class"],["facultyId","Faculty"],["roomId","Room"]].forEach(([f,t])=>{
       if(a[f]&&a[f]===b[f]){const k=t+"|"+a.day+"|"+a.period+"|"+a[f];if(!seen.has(k)){seen.add(k);out.push({type:t,day:a.day,period:a.period,resource:a[f],a:a.id,b:b.id})}}
     });
@@ -335,16 +405,18 @@ function generateCandidate(mode="balanced",trial=1,source=db){
       if(source.settings.breaks.includes(p))continue;
       for(const r of rooms){
         const reason=hardCheck(state,a,day,p,r.id);
-        if(!reason){const temp={id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:c.faculty,roomId:r.id,classId:a.classId,duration:a.duration,locked:false,activityId:a.id};
-          const cost=softPenalty(state,temp,trial)+(mode==="fast"?deterministicNoise(p+trial):0)+(mode==="best"?deterministicNoise(p*19+trial)*0.15:deterministicNoise(p*31+trial)*1.1);
-          candidates.push({temp,cost});
+        if(!reason){
+          const classIds=a.shared?arr(a.classIds):[a.classId];
+          const temps=classIds.map(cid=>({id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:c.faculty,roomId:r.id,classId:cid,duration:a.duration,locked:false,activityId:a.id,shared:!!a.shared}));
+          const cost=softPenalty(state,temps[0],trial)+(mode==="fast"?deterministicNoise(p+trial):0)+(mode==="best"?deterministicNoise(p*19+trial)*0.15:deterministicNoise(p*31+trial)*1.1);
+          candidates.push({temps,cost});
         }
       }
     }});
     candidates.sort((x,y)=>x.cost-y.cost);
     if(candidates[0]){
-      state.schedule.push(candidates[0].temp);
-      if(a.duration===2)state.schedule.push(Object.assign({},candidates[0].temp,{id:uid("SCH"),period:a.period+1,activityId:a.id}));
+      state.schedule.push(...candidates[0].temps);
+      if(a.duration===2)candidates[0].temps.forEach(temp=>state.schedule.push(Object.assign({},temp,{id:uid("SCH"),period:a.period+1,activityId:a.id,shared:!!a.shared})));
       placedIds.add(a.id);
     }else unscheduled.push({activity:a,reason:"No feasible day/period/room combination"});
   }
@@ -377,8 +449,8 @@ function preflight(){
   const d=preflightData(), conflicts=allConflicts(db), coverage=[];
   db.classes.forEach(cl=>{
     db.courses.filter(cr=>arr(cr.classIds).includes(cl.id)).forEach(cr=>{
-      const need=courseSessions(cr), got=db.schedule.filter(e=>e.classId===cl.id&&e.courseId===cr.id).length;
-      const requiredRows=cr.lab?need*2:need;
+      const need=courseSessions(cr),requiredRows=cr.lab?need*2:need,rows=db.schedule.filter(e=>e.courseId===cr.id);
+      const got=cr.shared?new Set(rows.map(e=>(e.activityId||e.id)+"|"+e.day+"|"+e.period)).size:rows.filter(e=>e.classId===cl.id).length;
       if(got<requiredRows)coverage.push(cl.name+" / "+cr.code+" needs "+requiredRows+" scheduled period(s); "+got+" currently placed.");
     });
   });
@@ -532,7 +604,7 @@ function renderGenerate(){
   const cid=q("classSelector").value||db.classes[0]?.id;if(q("gridTitle"))q("gridTitle").textContent=(findClass(cid)?.name||"Section K")+" timetable";
   q("builderTable").innerHTML=cid?tableForClass(cid,!sharedSnap):"<div class='empty-state'>Add a class first.</div>";
   q("qualityPanel").innerHTML=qualityHTML(scheduleScore(db));
-  const acts=activityList(db),uns=acts.filter(a=>db.schedule.filter(e=>e.activityId===a.id).length<(a.duration===2?2:1));
+  const acts=activityList(db),uns=acts.filter(a=>db.schedule.filter(e=>e.activityId===a.id).length<(a.shared?(a.classIds.length*(a.duration===2?2:1)):(a.duration===2?2:1)));
   q("unscheduledList").innerHTML=uns.length?uns.slice(0,25).map(a=>"<div class='issue-row'><b>"+esc(findCourse(a.courseId)?.code)+"</b><span>"+esc(findClass(a.classId)?.name)+" · "+esc(a.type)+" · no feasible slot</span></div>").join(""):"<div class='empty-state'><strong>All activities scheduled.</strong><span>No unscheduled activity is currently detected.</span></div>";
   q("coverageList").innerHTML=db.courses.filter(c=>arr(c.classIds).includes(cid||"")).map(c=>{const need=courseSessions(c),got=db.schedule.filter(e=>e.classId===cid&&e.courseId===c.id).length;return "<div class='coverage-row'><span><b>"+esc(c.code)+"</b><small>"+esc(c.name)+"</small></span><strong>"+Math.min(need,Math.ceil(got/(c.lab?2:1)))+"/"+need+"</strong></div>"}).join("");
 }
@@ -555,7 +627,7 @@ function renderPublish(){
 function renderCourses(){
   q("combinedList").innerHTML=db.combinedGroups.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.map(id=>esc(findClass(id)?.section||id)).join(" + ")+" · "+esc(findRoom(g.roomId)?.name||"")+"</small></div></div>").join("")||"<div class='empty-state'><strong>No combined groups.</strong><span>Use this for common lectures or seminars.</span></div>";
   q("electiveList").innerHTML=db.electives.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.length+" class(es) · "+g.courseIds.length+" option(s)</small></div></div>").join("")||"<div class='empty-state'><strong>No elective groups.</strong><span>Create one when students choose between common course options.</span></div>";
-  q("coursesTable").innerHTML="<table><thead><tr><th>Code</th><th>Course</th><th>Type</th><th>L</th><th>T</th><th>P</th><th>Pattern</th><th>Faculty</th><th>Room</th><th>Classes</th></tr></thead><tbody>"+db.courses.map(c=>"<tr><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+esc(c.type||"Theory")+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+esc(c.sessionPattern||"—")+"</td><td>"+esc(findFaculty(c.faculty)?.name||"—")+"</td><td>"+esc(findRoom(c.room)?.name||"—")+"</td><td>"+arr(c.classIds).map(id=>esc(findClass(id)?.section||id)).join(", ")+"</td></tr>").join("")+"</tbody></table>";
+  q("coursesTable").innerHTML="<table><thead><tr><th>Code</th><th>Course</th><th>Type</th><th>L</th><th>T</th><th>P</th><th>Pattern</th><th>Faculty</th><th>Room</th><th>Classes</th></tr></thead><tbody>"+db.courses.map(c=>"<tr><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+esc(c.type||"Theory")+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+esc(c.sessionPattern||"—")+"</td><td>"+esc(findFaculty(c.faculty)?.name||"—")+"</td><td>"+esc(findRoom(c.room)?.name||"—")+"</td><td>"+(c.shared?"<span class='badge neutral'>SHARED · "+arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(" + ")+"</span>":arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(", "))+"</td></tr>").join("")+"</tbody></table>";
 }
 function renderClasses(){
   q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(c.department)+"</td></tr>").join("")+"</tbody></table>";
