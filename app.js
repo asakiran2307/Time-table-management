@@ -218,10 +218,10 @@ function appendJoyBcaDemoSchedule(state){
     ids.forEach(cid=>state.schedule.push({id:uid("SCH"),day,period,courseId,facultyId,roomId,classId:cid,duration,locked:false,activityId,shared}));
     if(duration===2)ids.forEach(cid=>state.schedule.push({id:uid("SCH"),day,period:period+1,courseId,facultyId,roomId,classId:cid,duration,locked:false,activityId,shared}));
   };
-  add("MON",0,"UNI501","F7","SAK2"); add("MON",1,"BCA501","F9","R204"); add("MON",3,"BCA502","F10","R204"); add("MON",4,"BCA503","F11","R204"); add("MON",6,"BCA504","F12","R204");
-  add("TUE",0,"UNI502","F8","SAK2"); add("TUE",1,"BCA501","F9","R204"); add("TUE",3,"BCA502","F10","R204"); add("TUE",4,"BCA503","F11","R204"); add("TUE",6,"BCA504","F12","R204");
-  add("WED",0,"UNI501","F7","SAK2"); add("WED",1,"BCA501","F9","R204"); add("WED",3,"BCA502","F10","R204"); add("WED",6,"BCAL501","F10","DFL",2);
-  add("THU",0,"UNI502","F8","SAK2"); add("THU",1,"BCA504","F12","R204"); add("THU",3,"BCA503","F11","R204"); add("THU",6,"BCAL502","F9","NSL",2);
+  add("MON",7,"UNI501","F7","SAK2"); add("MON",1,"BCA501","F9","R204"); add("MON",3,"BCA502","F10","R204"); add("MON",4,"BCA503","F11","R204"); add("MON",6,"BCA504","F12","R204");
+  add("TUE",7,"UNI502","F8","SAK2"); add("TUE",1,"BCA501","F9","R204"); add("TUE",3,"BCA502","F10","R204"); add("TUE",4,"BCA503","F11","R204"); add("TUE",6,"BCA504","F12","R204");
+  add("WED",7,"UNI501","F7","SAK2"); add("WED",1,"BCA501","F9","R204"); add("WED",3,"BCA502","F10","R204"); add("THU",6,"BCAL501","F10","DFL",2);
+  add("FRI",1,"UNI502","F8","SAK2"); add("THU",1,"BCA504","F12","R204"); add("THU",3,"BCA503","F11","R204"); add("FRI",6,"BCAL502","F9","NSL",2);
 }
 let db=normalizeState(loadLocal());
 
