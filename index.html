@@ -102,8 +102,8 @@
   <div id="dashboardStats" class="stats"></div>
   <div class="dashboard-table-panel panel">
     <div class="panel-head">
-      <div><span class="eyebrow">CURRENT RELEASE · SECTION K</span><h3 id="releaseTitle">Draft timetable</h3></div>
-      <div class="grid-tools"><span id="releaseBadge" class="badge">DRAFT</span><button class="btn small" data-go="generate">Open full timetable</button></div>
+      <div><span class="eyebrow">CURRENT RELEASE · CLASS VIEW</span><h3 id="releaseTitle">Draft timetable</h3></div>
+      <div class="grid-tools"><label class="inline-select">Class <select id="dashboardClassSelector"></select></label><span id="releaseBadge" class="badge">DRAFT</span><button class="btn small" data-go="generate">Open full timetable</button></div>
     </div>
     <div class="dashboard-table-fit"><div id="dashboardTable"></div></div>
   </div>
@@ -174,7 +174,7 @@
 </section>
 
 <section id="courses" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Courses & Activities</h2><p>Separate course catalog, offering details, session patterns, combined groups and electives.</p></div><div class="section-actions"><button class="btn" id="addCombinedBtn">+ Combined group</button><button class="btn" id="addElectiveBtn">+ Elective group</button><button class="btn primary" id="addCourseBtn">+ Add course</button></div></div><div class="panel"><div id="coursesTable"></div></div><div class="two-col"><div class="panel"><div class="panel-head"><h3>Combined classes</h3></div><div id="combinedList"></div></div><div class="panel"><div class="panel-head"><h3>Elective groups</h3></div><div id="electiveList"></div></div></div></section>
-<section id="classes" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Classes & Sections</h2><p>Store class strength, program, semester and section data. Students do not log in.</p></div><button class="btn primary" id="addClassBtn">+ Add class</button></div><div class="panel"><div id="classesTable"></div></div></section>
+<section id="classes" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Classes & Sections</h2><p>Every seeded class/section has an editable record and a direct timetable view.</p></div><button class="btn primary" id="addClassBtn">+ Add class</button></div><div class="panel"><div id="classesTable"></div></div></section>
 <section id="faculty" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Faculty Records</h2><p>Faculty are scheduling resources, not application users.</p></div><button class="btn primary" id="addFacultyBtn">+ Add faculty</button></div><div class="panel"><div id="facultyTable"></div></section>
 <section id="rooms" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Rooms & Labs</h2><p>Capacity, building, floor, features and availability drive room assignment.</p></div><button class="btn primary" id="addRoomBtn">+ Add room/lab</button></div><div class="panel"><div id="roomsTable"></div></section>
 <section id="calendar" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Calendar & Breaks</h2><p>Choose working days, period structure and the number of short/lunch breaks.</p></div><button class="btn primary" id="saveCalendarBtn">Save calendar</button></div><div class="calendar-editor">
