@@ -1,105 +1,94 @@
-# UniSchedule — University Timetable Management
+# UniSchedule — Intelligent University Timetable Management
 
-A professional, browser-based university timetable management application based on the supplied Joy University B.Tech timetable reference.
+A professional university timetable planning and optimization workspace for a single authorized user per university. Faculty and students are scheduling data only; they do not receive application logins.
 
-## Vercel deployment
+## Product flow
 
-This repository is a static web application: the production entry point is `index.html`, with no Node.js server or build step required. Vercel can deploy the repository directly and serve the static files from its CDN. Git-connected projects can then redeploy automatically when the main branch changes.
+Master Admin → University → One Owner Account → Prepare Data → Constraints → Build Timetable → Preflight → Compare/Repair → Validate → Publish → Export/Share.
 
-### Deploy from GitHub
+The workflow follows the scheduling blueprint in the supplied specification: hard/soft constraints, multiple candidate solutions, lock/repair, versioned releases, owner-only exports and view-only sharing. fileciteturn100file0L2135-L2180
 
-1. Sign in to Vercel.
-2. Choose **Add New → Project**.
-3. Import **`asakiran2307/Time-table-management`**.
-4. Keep the **Root Directory** as `./`.
-5. Leave the **Build Command** empty.
-6. Leave the **Output Directory** empty/default for a static site.
-7. Click **Deploy**.
+## Implemented in the current branch
 
-The repository includes `vercel.json` with production response headers, plus a favicon, web manifest, robots.txt and sitemap.
+### Owner workspace
+- One university / one authorized application-user model
+- Owner-only timetable management, publish, export and share
+- Faculty/student records are never treated as login accounts
+- Institutional branding and active-term context
 
-### Deploy with Vercel Drop
+### Academic setup
+- University, code, school, academic year and semester
+- Departments, programs, sections and classes
+- Student strength by class
+- Faculty records with day/week workload limits
+- Rooms/labs with capacity, building, floor and features
+- Course catalogue with L/T/P, credits, session patterns, faculty and room requirements
+- Combined class groups and elective groups
 
-The complete repository folder can also be deployed through Vercel Drop. The project already contains `index.html` at the root, so no framework conversion is required.
+### Calendar
+- Working days
+- Up to 16 periods/day
+- Configurable start time and period duration
+- 0–4 short breaks
+- 0–2 lunch breaks
+- Unique break-period validation
+- Breaks automatically excluded from scheduling
 
-## Features
+### Scheduling engine
+- Global multi-class activity generation
+- Hard constraints: class/faculty/room collision, availability, capacity, lab features, consecutive labs, working days and breaks
+- Soft scoring: class gaps, faculty gaps, repeated-course spread, room waste and edge-period use
+- Fast, balanced, best-quality, repair and manual+optimize modes
+- Three candidate solutions with score comparison
+- Locked timetable cells
+- Repair mode that preserves valid existing assignments where possible
+- Human-readable unscheduled/coverage explanations
 
-- Dashboard with timetable health checks
-- Departments and academic sections
-- Faculty management
-- Course catalogue with L/T/P, credits and weekly workload
-- Classroom, lab and seminar-hall resources
-- Manual timetable cell editing
-- Constraint-aware automatic generation
-- Class and faculty timetable views
-- Class, faculty and room collision detection
-- Working-day, period, break and academic-year settings
-- Browser LocalStorage persistence
-- JSON backup
-- PDF export
-- Excel workbook export
-- CSV export
-- Word-compatible DOC export
-- PNG export
-- Print-ready landscape layout
-- Responsive professional UI
-- No animations or transforms
+### Validation and release
+- Preflight data readiness
+- Hard-conflict report
+- Coverage report
+- Explicit Validated state
+- Draft → Validated → Published → Archived lifecycle
+- Published snapshots
+- Version restore/history
 
-## Run locally
+### Sharing and export
+- Owner-only PDF, Excel, CSV, DOCX, ICS and print export
+- View-only snapshot share links
+- QR code generation
+- Share-link history in the owner workspace
 
-Open `index.html` in a current browser. No server is required for the base application.
+### Operations and analysis
+- Faculty availability editor
+- Room availability blocks
+- Class restrictions
+- What-if scenario simulation
+- Faculty workload report
+- Room utilization report
+- Course coverage report
+- Scheduling quality breakdown
+- Scheduling Intelligence recommendations
+- Excel import with workbook preview/validation
+- Downloadable import template
 
-The export libraries are loaded from public CDNs:
-- SheetJS
-- jsPDF
-- html2canvas
+## Seed data
 
-## Scheduling constraints
+The default demo is populated for Joy University, Section K, Semester V, including departments, courses, faculty, Room 103, Cloud Computing Lab and a seeded weekly timetable. The Calendar screen also exposes the break counts and their period positions.
 
-1. A class cannot have two subjects in one period.
-2. A faculty member cannot teach two classes at the same time.
-3. A room cannot host two sessions at the same time.
-4. Break periods are blocked.
-5. Practical subjects are preferentially scheduled in consecutive periods.
+Use Restore Section K seed to return the complete demo dataset.
 
-The generator is deliberately simple and transparent. For a large multi-department production deployment, the data model can later be moved to a backend with a CP-SAT/constraint-optimization scheduler.
+## Production backend
 
-## Data and deployment limitation
+The browser workspace is intentionally usable without credentials for the demo. Production authentication and tenant isolation are prepared under 'supabase/':
+- supabase/migrations/001_single_owner.sql
+- supabase/migrations/003_production_relational_model.sql
+- supabase/seeds/001_joy_section_k.sql
 
-The current application stores workspace data in the browser's LocalStorage. That means each browser/device has its own data; Vercel deployment does **not** create a shared university database.
+The relational model uses PostgreSQL RLS with one organization owner. Supabase recommends enabling RLS on exposed tables and using ownership predicates with auth.uid()/secure helper functions for row-level isolation. citeturn547338search0turn547338search4
 
-For multi-user production use, add:
-- PostgreSQL/MySQL database
-- Admin, department, faculty and viewer roles
-- Authentication and password reset
-- Audit trail and versioned timetable releases
-- Bulk Excel import
-- Multiple semesters and academic years
-- Faculty availability/preferences
-- Room capacity and equipment constraints
-- Combined classes / common electives
-- Saturday working rules
-- Server-side PDF/Excel generation
-- Advanced optimization for very large schedules
-- REST API and institutional integration
+The current connected Supabase project is inactive, so the migration is committed but has not been applied to that live project.
 
-## Export scopes
+## Deploy
 
-The Export Centre supports selected-class and complete-university PDF outputs, plus schedule exports to Excel, CSV, Word-compatible DOC, PNG, JSON and browser print.
-
-## Initial sample
-
-The sample workspace is populated using the structure visible in the supplied Joy University timetable: 2025–26 academic year, Monday–Friday schedule, 8 periods, break slots, CSE III/V Section K, course codes 24BTCY151–156 and 24BTCY851 plus the two lab courses, faculty and room information.
-
-
-## Single-owner university model
-
-This release changes the product direction to **one authorized application user per university/school**. Faculty and students remain timetable records only and do not receive application accounts. The university owner is the only user who can manage, validate, export and publish/share the timetable.
-
-Production rollout is documented in `docs/ARCHITECTURE.md` and `supabase/migrations/001_single_owner.sql`.
-
-## SaaS development
-
-The repository contains a Supabase schema foundation and the new single-owner migration. The browser demo remains LocalStorage-backed until the active Supabase project and authentication integration are connected.
-
-For production, use Supabase Auth + PostgreSQL RLS and keep the service-role/secret key server-side only.
+The repo is linked to Vercel and deploys from main.
