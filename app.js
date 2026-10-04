@@ -492,14 +492,12 @@ function renderDashboard(){
   const sc=scheduleScore(db);
   q("heroScore").textContent=sc.score+"%";
   q("dashboardStats").innerHTML=[["Classes",db.classes.length],["Courses",db.courses.length],["Faculty",db.faculty.length],["Rooms",db.rooms.length],["Scheduled",db.schedule.length],["Hard conflicts",sc.hardN]].map(x=>"<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>").join("");
-  const cls=db.classes[0];q("dashboardTable").innerHTML=cls?tableForClass(cls.id,false):"<div class='empty-state'><strong>No class yet.</strong></div>";
-  const pf=preflight();q("dashboardChecks").innerHTML=[
-    "<div class='check "+(pf.d.issues.length?"bad":"good")+"'><b>Data readiness</b><span>"+(pf.d.issues.length?pf.d.issues.length+" issue(s)":"Master data ready")+"</span></div>",
-    "<div class='check "+(pf.conflicts.length?"bad":"good")+"'><b>Hard conflicts</b><span>"+pf.conflicts.length+"</span></div>",
-    "<div class='check "+(pf.coverage.length?"bad":"good")+"'><b>Coverage</b><span>"+(pf.coverage.length?pf.coverage.length+" activity gaps":"Complete")+"</span></div>",
-    "<div class='check'><b>Calendar</b><span>"+db.settings.days.length+" days · "+db.settings.periods+" periods · "+db.settings.shortBreaks.length+" short · "+db.settings.lunchBreaks.length+" lunch</span></div>"
-  ].join("");
-  const latest=db.versions.find(v=>v.status==="Published");q("releaseTitle").textContent=latest?latest.name:"Draft timetable";q("releaseBadge").textContent=latest?"PUBLISHED":"DRAFT";q("releaseBadge").className="badge "+(latest?"good":"neutral");
+  const cls=db.classes[0];
+  q("dashboardTable").innerHTML=cls?tableForClass(cls.id,false):"<div class='empty-state'><strong>No class yet.</strong><span>Add a class to preview its timetable.</span></div>";
+  const latest=db.versions.find(v=>v.status==="Published");
+  q("releaseTitle").textContent=latest?latest.name:"Draft timetable";
+  q("releaseBadge").textContent=latest?"PUBLISHED":"DRAFT";
+  q("releaseBadge").className="badge "+(latest?"good":"neutral");
 }
 function tableForClass(classId,editable=false,state=db){
   const ts=timeSlots(state),h=["<table class='timetable'><thead><tr><th>DAY</th>"];
