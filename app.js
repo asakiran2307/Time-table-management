@@ -288,10 +288,15 @@ function preflightData(state=db){
 }
 function preflight(){
   const d=preflightData(), conflicts=allConflicts(db), coverage=[];
-  activityList(db).forEach(a=>{if(!db.schedule.some(e=>e.activityId===a.id&&e.classId===a.classId)||db.schedule.filter(e=>e.activityId===a.id&&e.classId===a.classId).length<(a.duration===2?2:1))coverage.push(a.classId+" / "+findCourse(a.courseId)?.code+" is not fully scheduled.")});
+  db.classes.forEach(cl=>{
+    db.courses.filter(cr=>arr(cr.classIds).includes(cl.id)).forEach(cr=>{
+      const need=courseSessions(cr), got=db.schedule.filter(e=>e.classId===cl.id&&e.courseId===cr.id).length;
+      const requiredRows=cr.lab?need*2:need;
+      if(got<requiredRows)coverage.push(cl.name+" / "+cr.code+" needs "+requiredRows+" scheduled period(s); "+got+" currently placed.");
+    });
+  });
   return {d,conflicts,coverage,ok:d.issues.length===0&&conflicts.length===0&&coverage.length===0};
 }
-
 function render(){
   syncHeader();renderCurrentPage();
 }
@@ -355,6 +360,7 @@ function renderConstraints(){
   let h="<div class='table-wrap'><table class='availability'><thead><tr><th>Faculty</th>"+db.settings.days.map(d=>"<th>"+dayLabel(d)+"</th>").join("")+"</tr></thead><tbody>";
   db.faculty.forEach(f=>{h+="<tr><th>"+esc(f.name)+"</th>";db.settings.days.forEach(d=>{let blocked=db.settings.periods?db.availability.filter(a=>a.faculty===f.id&&(a.day===d||a.day==="ALL")&&a.blocked).length:0;h+="<td><button class='availability-cell "+(blocked?"blocked":"")+"' data-avail-f='"+f.id+"' data-avail-d='"+d+"'>"+blocked+" blocked</button></td>"});h+="</tr>"});h+="</tbody></table></div>";
   wrap.innerHTML=h;
+  wrap.insertAdjacentHTML("beforebegin","<div class='constraint-actions'><button class='btn small' id='addRoomBlockInline'>+ Room availability rule</button><button class='btn small' id='addClassBlockInline'>+ Class restriction</button></div>");
   ["classGaps","facultyGaps","spread","rooms","edges","workload"].forEach(k=>{const el=q("pref"+k.charAt(0).toUpperCase()+k.slice(1)),v=q("pref"+k.charAt(0).toUpperCase()+k.slice(1)+"Val");if(el){el.value=db.preferences[k];if(v)v.textContent=el.value}});
 }
 function renderGenerate(){
@@ -464,6 +470,19 @@ function editSlotElement(el){
   }
 }
 
+function editFacultyAvailability(fid,day){
+  const f=findFaculty(fid);if(!f)return;
+  const existing=new Set(db.availability.filter(a=>a.faculty===fid&&a.day===day&&a.blocked).map(a=>Number(a.period)));
+  const checks=Array.from({length:db.settings.periods},(_,p)=>{
+    const bt=currentBreakType(p);
+    return "<label class='period-check "+(bt?"disabled":"")+"'><input type='checkbox' name='p' value='"+p+"' "+(existing.has(p)?"checked":"")+" "+(bt?"disabled":"")+"><span>Period "+(p+1)+"</span><small>"+timeSlots()[p].start+"–"+timeSlots()[p].end+(bt?" · "+bt:"")+"</small></label>";
+  }).join("");
+  openModal("Availability · "+f.name+" · "+dayLabel(day),"<p class='muted'>Checked periods are unavailable to this faculty member.</p><div class='period-check-grid'>"+checks+"</div><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save availability</button></div>",form=>{
+    db.availability=db.availability.filter(a=>!(a.faculty===fid&&a.day===day));
+    Array.from(q("modalForm").querySelectorAll("input[name=p]:checked")).forEach(x=>db.availability.push({id:uid("AV"),faculty:fid,day,period:+x.value,blocked:true}));
+    log("Faculty availability changed",f.name+" · "+dayLabel(day));save();
+  });
+}
 function runGenerate(){
   const mode=q("generationMode").value;solutionCandidates=[];
   const candidates=[1,2,3].map(t=>generateCandidate(mode,t,db)).sort((a,b)=>b.score.score-a.score.score);
@@ -519,6 +538,12 @@ function printReport(){window.print()}
 function download(name,data,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
 
+function addRoomBlock(){
+  openModal("Block a room","<label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><label>Day<select name='day'><option value='ALL'>All days</option>"+db.settings.days.map(d=>"<option value='"+d+"'>"+dayLabel(d)+"</option>").join("")+"</select></label><label>Period<select name='period'><option value='-1'>All periods</option>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"'>Period "+(i+1)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save</button></div>",f=>{db.roomBlocks.push({id:uid("RB"),roomId:f.get("room"),day:f.get("day"),period:+f.get("period"),blocked:true});log("Room availability rule added",findRoom(f.get("room")).name);save()})
+}
+function addClassBlock(){
+  openModal("Restrict a class","<label>Class<select name='classId'>"+db.classes.map(c=>"<option value='"+c.id+"'>"+esc(c.name)+"</option>").join("")+"</select></label><label>Day<select name='day'><option value='ALL'>All days</option>"+db.settings.days.map(d=>"<option value='"+d+"'>"+dayLabel(d)+"</option>").join("")+"</select></label><label>Period<select name='period'><option value='-1'>All periods</option>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"'>Period "+(i+1)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save</button></div>",f=>{db.classBlocks.push({id:uid("CB"),classId:f.get("classId"),day:f.get("day"),period:+f.get("period"),blocked:true});log("Class restriction added",findClass(f.get("classId")).name);save()})
+}
 function runScenario(){
   const s=copy(db);if(q("scenarioSaturday").checked)s.settings.days=s.settings.days.filter(d=>d!=="SAT");
   if(q("scenarioRoom").checked)s.roomBlocks.push({id:uid("RB"),roomId:"CCL",day:"ALL",period:-1,blocked:true});
@@ -552,14 +577,14 @@ document.addEventListener("click",e=>{
   if(e.target.id==="saveInstitution")updateInstitution();
   if(e.target.id==="addDepartment")addDepartment();if(e.target.id==="addProgram")addProgram();if(e.target.id==="addSection")addSection();if(e.target.id==="addClass"||e.target.id==="addClassBtn")addClass();
   if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
-  if(e.target.id==="generateBtn"||e.target.id==="headerGenerate")runGenerate();
+  if(e.target.id==="generateBtn")runGenerate();if(e.target.id==="headerGenerate")navigate("generate");
   if(e.target.id==="lockModeBtn")toggleLockMode();
   if(e.target.id==="clearScheduleBtn")clearUnlocked();
   if(e.target.id==="runPreflight")navigate("preflight");
   if(e.target.id==="publishBtn")publishCurrent();
   if(e.target.id==="createShare")createShare();if(e.target.id==="copyShare")copyShare(e.target.dataset.url);
   if(e.target.id==="compareGenerate")runGenerate();
-  if(e.target.id==="runScenario")runScenario();
+  if(e.target.id==="runScenario")runScenario();if(e.target.id==="addRoomBlockInline")addRoomBlock();if(e.target.id==="addClassBlockInline")addClassBlock();
   if(e.target.id==="saveCalendarBtn")saveCalendar();
   if(e.target.id==="saveVersionBtn")saveDraftVersion();
   if(e.target.id==="refreshInsights")renderIntelligence();
@@ -573,7 +598,7 @@ document.addEventListener("click",e=>{
     if(lockMode&&slot.dataset.slot){const en=db.schedule.find(x=>x.id===slot.dataset.slot);if(en){en.locked=!en.locked;log(en.locked?"Timetable entry locked":"Timetable entry unlocked",findCourse(en.courseId)?.code||"");save()}return}
     editSlotElement(slot);
   }
-  const av=e.target.closest("[data-avail-f]");if(av){const fid=av.dataset.availF,day=av.dataset.availD,idx=db.availability.findIndex(a=>a.faculty===fid&&a.day===day&&a.period===0);if(idx>=0)db.availability.splice(idx,1);else db.availability.push({id:uid("AV"),faculty:fid,day,period:0,blocked:true});log("Faculty availability changed",dayLabel(day));save()}
+  const av=e.target.closest("[data-avail-f]");if(av){editFacultyAvailability(av.dataset.availF,av.dataset.availD);}
   const sol=e.target.closest("[data-apply-solution]");if(sol)applySolution(+sol.dataset.applySolution);
   const ver=e.target.closest("[data-restore-version]");if(ver)restoreVersion(ver.dataset.restoreVersion);
   const rc=e.target.closest("[data-report-class]");if(rc){q("classSelector").value=rc.dataset.reportClass;navigate("generate")}
@@ -595,4 +620,4 @@ if(sharedSnap){
   q("pageTitle").textContent="Shared Timetable";
 }
 render();
-cloudLoad();
+if(!sharedSnap)cloudLoad();
