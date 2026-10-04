@@ -15,6 +15,43 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
+<div id="loginGate" class="login-gate">
+  <div class="login-shell">
+    <div class="login-brand"><div class="login-mark">U</div><div><b>UniSchedule</b><small>Intelligent University Timetable Management</small></div></div>
+    <div class="login-card">
+      <div class="login-tabs"><button class="login-tab active" data-login-role="university">University Owner</button><button class="login-tab" data-login-role="master">Master Admin</button></div>
+      <div id="universityLogin" class="login-form">
+        <span class="eyebrow">UNIVERSITY WORKSPACE</span><h1>Sign in to your university</h1><p>One authorized account controls the university timetable. Faculty and students do not have application logins.</p>
+        <label>University<select id="loginUniversity"></select></label>
+        <label>Username<input id="loginUsername" autocomplete="username" placeholder="University owner username"></label>
+        <label>Password<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password"></label>
+        <button class="btn primary login-submit" id="universityLoginBtn">Sign in</button>
+        <div id="loginError" class="login-error"></div>
+        <div class="demo-note">Demo owner: <b>joyadmin</b> / <b>JU@2026</b></div>
+      </div>
+      <div id="masterLogin" class="login-form hidden">
+        <span class="eyebrow">PLATFORM CONTROL</span><h1>Master Admin</h1><p>Manage universities, create the single owner account for each institution, and suspend or activate access.</p>
+        <label>Username<input id="masterUsername" autocomplete="username" value="masteradmin"></label>
+        <label>Password<input id="masterPassword" type="password" autocomplete="current-password" placeholder="Master password"></label>
+        <button class="btn primary login-submit" id="masterLoginBtn">Enter platform</button>
+        <div id="masterError" class="login-error"></div>
+        <div class="demo-note">Demo master: <b>masteradmin</b> / <b>Master@2026</b></div>
+      </div>
+    </div>
+    <div class="login-foot">Production authentication: Supabase Auth + PostgreSQL RLS · Demo mode is local to this browser.</div>
+  </div>
+</div>
+<div id="masterConsole" class="master-console hidden">
+  <div class="master-top"><div><span class="eyebrow">UNISCHEDULE PLATFORM</span><h1>Master Admin</h1><p>Create and control one owner account per university.</p></div><button class="btn" id="masterLogout">Sign out</button></div>
+  <div class="master-grid">
+    <div class="panel"><div class="panel-head"><h3>Platform overview</h3><span class="badge good">MASTER</span></div><div id="masterStats" class="stats"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Create university</h3></div>
+      <div class="mini-form"><label>University name<input id="newUniName"></label><label>University code<input id="newUniCode"></label><label>Owner username<input id="newOwnerUser"></label><label>Owner password<input id="newOwnerPass" type="password"></label><label>School / unit<input id="newUniSchool"></label><label>Timezone<input id="newUniTimezone" value="Asia/Kolkata"></label></div>
+      <button class="btn primary" id="createUniversityBtn">Create university + owner</button><div id="createUniResult"></div>
+    </div>
+  </div>
+  <div class="panel"><div class="panel-head"><h3>Universities</h3></div><div id="masterUniversities"></div></div>
+</div>
 <div id="app">
 <aside class="sidebar">
   <div class="brand"><div class="brand-mark">U</div><div><b>UniSchedule</b><small>Academic Planning</small></div></div>
@@ -50,7 +87,7 @@
 <header class="topbar">
   <div class="topbar-title"><span class="eyebrow">ACADEMIC SCHEDULING WORKSPACE</span><h1 id="pageTitle">Dashboard</h1></div>
   <div class="topbar-context"><span id="termLabel">2026–27 · Semester V</span><small id="syncStatus">Local workspace</small></div>
-  <div class="top-actions"><span class="access-pill">OWNER ONLY</span><button id="backupBtn">Backup</button><button class="btn primary" id="headerGenerate">Generate timetable</button></div>
+  <div class="top-actions"><span class="access-pill">UNIVERSITY OWNER</span><button id="backupBtn">Backup</button><button class="btn" id="logoutBtn">Sign out</button><button class="btn primary" id="headerGenerate">Generate timetable</button></div>
 </header>
 
 <section id="dashboard" class="page active">
