@@ -1,7 +1,7 @@
 const KEY="unisched-v3";
 const CLOUD_API="/api/state";
 const CLOUD_ENABLED=false;
-let cloudTimer=null,lockMode=false,solutionCandidates=[];
+let cloudTimer=null,lockMode=false,solutionCandidates=[],selectedClassId=null;
 
 function q(id){return document.getElementById(id)}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -143,6 +143,7 @@ function normalizeState(x){
   x.schedule=old.map(e=>Array.isArray(e)?{id:uid("SCH"),day:e[0],period:e[1],courseId:e[2],facultyId:e[3],roomId:e[4],classId:e[5],duration:1,locked:false}:Object.assign({id:uid("SCH"),duration:1,locked:false},e));
   x.courses.forEach(c=>{if(!c.classIds)c.classIds=x.classes.map(cl=>cl.id);});
   ensureJoyDemoData(x);
+  ensureJoyDemoDatasetV4(x);
   if(!x.schedule.length)seedSchedule(x);
   else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
@@ -194,6 +195,99 @@ function ensureJoyDemoData(state){
     {id:"CG-COMMON-02",name:"Common: Environmental Studies · CSE + BCA Cyber",classIds:["CSE5K","BCAC5A"],roomId:"SAK2",courseId:"UNI502"}
   ].forEach(g=>add(state.combinedGroups,g));
   state.__joyDemoSeedVersion=2;
+}
+function ensureJoyDemoDatasetV4(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=4)return;
+  const dep=state.departments.find(d=>d.id==="SOCI")||state.departments[0];
+  const add=(list,obj)=>{if(!list.some(x=>x.id===obj.id))list.push(obj)};
+  const ensureClass=(id,name,section,program,strength,incharge)=>{
+    add(state.sections,{id:"SEC-"+id,name:"Section "+section,code:section,department:dep?.id||"SOCI",program,semester:"SEM5",strength});
+    add(state.classes,{id,name,section,department:dep?.id||"SOCI",program,semester:"SEM5",strength,incharge});
+  };
+  ensureClass("CSE5A","B.Tech CSE · Semester V · A","A","BTECH-CSE",60,"Ms. S. AMBIKA");
+  ensureClass("CSE5B","B.Tech CSE · Semester V · B","B","BTECH-CSE",60,"Ms. S. AMBIKA");
+  ensureClass("BCAC5B","BCA Cyber · Semester V · B","B","BCA-CYBER",45,"Ms. NITHYA");
+  const cseIds=["CSE5K","CSE5A","CSE5B"],bcaIds=["BCAC5A","BCAC5B"],allIds=[...cseIds,...bcaIds];
+  const btech=state.programs.find(p=>p.id==="BTECH-CSE");if(btech)btech.durationYears=4;
+  const bca=state.programs.find(p=>p.id==="BCA-CYBER");if(bca)bca.durationYears=3;
+  add(state.rooms,{id:"R104",name:"Room 104",code:"R104",type:"Classroom",capacity:70,building:"Joveena Block",floor:1,features:["projector","smart-board","internet"]});
+  add(state.rooms,{id:"R105",name:"Room 105",code:"R105",type:"Classroom",capacity:70,building:"Joveena Block",floor:1,features:["projector","smart-board","internet"]});
+  add(state.rooms,{id:"R205",name:"Room 205",code:"R205",type:"Classroom",capacity:60,building:"Joveena Block",floor:2,features:["projector","smart-board","internet"]});
+  add(state.rooms,{id:"JUH300",name:"University Central Lecture Hall",code:"JUH300",type:"Lecture Hall",capacity:300,building:"Main Academic Block",floor:0,features:["projector","smart-board","internet","audio"]});
+  const ccl=state.rooms.find(r=>r.id==="CCL");if(ccl)ccl.capacity=Math.max(ccl.capacity,60);
+  [
+    {id:"F13",name:"Dr. RAVI MENON",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F14",name:"Dr. AISHWARYA RAO",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F15",name:"Mr. KIRAN RAJ",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F16",name:"Ms. DIVYA NAIR",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18}
+  ].forEach(f=>add(state.faculty,f));
+
+  const cseCourseIds=["24BTCY151","24BTCY152","24BTCY153","24BTCY154","24BTCY155","24BTCY156","24BTCY851","24BTCY251","24BTCY252"];
+  cseCourseIds.forEach(id=>{const c=state.courses.find(x=>x.id===id);if(c&&!c.shared)c.classIds=copy(cseIds)});
+  const bcaUpdates=[
+    ["BCA501","BCCY1311","Computer Graphics and Multimedia",3,0,2,5],
+    ["BCA502","BCCY1312","Computer Networks",3,0,0,3],
+    ["BCA503","BCCY1313","Management Information Systems",3,0,0,3],
+    ["BCA504","BCCY1314","Database Security and Access Control",3,0,1,4]
+  ];
+  bcaUpdates.forEach(([id,code,name,l,t,p,credits])=>{const c=state.courses.find(x=>x.id===id);if(c)Object.assign(c,{code,name,l,t,p,credits,type:"Theory",lab:false,classIds:copy(bcaIds),sessionPattern:l+" × 1"+(p?" + "+p+" × 1":"")})});
+  add(state.courses,{id:"BCA505",code:"PECY131A",name:"Program Elective I",type:"Theory",credits:4,l:3,t:0,p:1,faculty:"F13",room:"R204",classIds:copy(bcaIds),sessionPattern:"3 × 1 + 1 × 1"});
+  add(state.courses,{id:"BCA506",code:"PECY131B",name:"Program Elective II",type:"Theory",credits:4,l:3,t:0,p:1,faculty:"F14",room:"R204",classIds:copy(bcaIds),sessionPattern:"3 × 1 + 1 × 1"});
+  add(state.courses,{id:"BCA507",code:"GE131",name:"Generic Elective",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F15",room:"R204",classIds:copy(bcaIds),sessionPattern:"3 × 1"});
+  add(state.courses,{id:"BCA508",code:"SECY231",name:"SEC III",type:"Theory",credits:2,l:0,t:0,p:2,faculty:"F16",room:"R204",classIds:copy(bcaIds),sessionPattern:"2 × 1"});
+
+  // Shared common subjects: one activity, one room, all five demo classes.
+  ["UNI501","UNI502"].forEach(id=>{const c=state.courses.find(x=>x.id===id);if(c){c.classIds=copy(allIds);c.shared=true;c.room="JUH300"}});
+  const commonGroups=[
+    {id:"CG-COMMON-01",name:"Common: Professional English · CSE + BCA Cyber",classIds:copy(allIds),roomId:"JUH300",courseId:"UNI501"},
+    {id:"CG-COMMON-02",name:"Common: Environmental Studies · CSE + BCA Cyber",classIds:copy(allIds),roomId:"JUH300",courseId:"UNI502"}
+  ];
+  commonGroups.forEach(g=>{const idx=state.combinedGroups.findIndex(x=>x.id===g.id);if(idx<0)state.combinedGroups.push(g);else state.combinedGroups[idx]=g});
+
+  // Remove the older demo-only BCA lab records so the BCA V-semester list matches the official programme structure.
+  ["BCAL501","BCAL502"].forEach(id=>{state.courses=state.courses.filter(c=>c.id!==id);state.schedule=state.schedule.filter(e=>e.courseId!==id)});
+
+  state.schedule=state.schedule.filter(e=>e.courseId!=="UNI501"&&e.courseId!=="UNI502");
+  const addShared=(courseId,day,period)=>{
+    const activityId="JOYC-"+courseId+"-"+day+"-"+period;
+    allIds.forEach(cid=>state.schedule.push({id:uid("SCH"),day,period,courseId,facultyId:state.courses.find(c=>c.id===courseId).faculty,roomId:"JUH300",classId:cid,duration:1,locked:false,activityId,shared:true}));
+  };
+  addShared("UNI501","MON",7);addShared("UNI501","WED",7);
+  addShared("UNI502","TUE",7);addShared("UNI502","FRI",7);
+
+  seedJoyClassMissingCourses(state,"CSE5K","R103");
+  seedJoyClassMissingCourses(state,"CSE5A","R104");
+  seedJoyClassMissingCourses(state,"CSE5B","R105");
+  seedJoyClassMissingCourses(state,"BCAC5A","R204");
+  seedJoyClassMissingCourses(state,"BCAC5B","R205");
+  state.__joyDemoSeedVersion=4;
+}
+function seedJoyClassMissingCourses(state,classId,classRoomId){
+  const isBca=classId.startsWith("BCA");
+  const courses=state.courses.filter(c=>!c.shared&&arr(c.classIds).includes(classId));
+  for(const c of courses){
+    const required=courseSessions(c);
+    let got=state.schedule.filter(e=>e.classId===classId&&e.courseId===c.id).length;
+    while(got<required){
+      const duration=c.lab?2:1;
+      const roomId=c.lab?(isBca?(c.id==="BCAL501"?"DFL":"NSL"):"CCL"):classRoomId;
+      let placed=false;
+      for(const day of state.settings.days){
+        if(placed)break;
+        for(let p=0;p<state.settings.periods;p++){
+          const a={classId,courseId:c.id,duration,shared:false,classIds:[classId]};
+          if(hardCheck(state,a,day,p,roomId))continue;
+          const activityId=uid("SEEDACT");
+          state.schedule.push({id:uid("SCH"),day,period:p,courseId:c.id,facultyId:c.faculty,roomId,classId,duration,locked:false,activityId,shared:false});
+          if(duration===2){state.schedule.push({id:uid("SCH"),day,period:p+1,courseId:c.id,facultyId:c.faculty,roomId,classId,duration,locked:false,activityId,shared:false});got+=2}
+          else got+=1;
+          placed=true;break;
+        }
+      }
+      if(!placed)break;
+    }
+  }
 }
 function seedSchedule(state){
   const s=state.settings;
@@ -570,7 +664,9 @@ function renderDashboard(){
   const sc=scheduleScore(db);
   q("heroScore").textContent=sc.score+"%";
   q("dashboardStats").innerHTML=[["Classes",db.classes.length],["Courses",db.courses.length],["Faculty",db.faculty.length],["Rooms",db.rooms.length],["Scheduled",db.schedule.length],["Hard conflicts",sc.hardN]].map(x=>"<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>").join("");
-  const cls=db.classes[0];
+  const previous=selectedClassId||q("dashboardClassSelector")?.value||db.classes[0]?.id;
+  if(q("dashboardClassSelector")){q("dashboardClassSelector").innerHTML=db.classes.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.name)+"</option>").join("");selectedClassId=db.classes.some(c=>c.id===previous)?previous:db.classes[0]?.id;q("dashboardClassSelector").value=selectedClassId||"";}
+  const cls=findClass(selectedClassId)||db.classes[0];
   q("dashboardTable").innerHTML=cls?tableForClass(cls.id,false):"<div class='empty-state'><strong>No class yet.</strong><span>Add a class to preview its timetable.</span></div>";
   const latest=db.versions.find(v=>v.status==="Published");
   q("releaseTitle").textContent=latest?latest.name:"Draft timetable";
@@ -606,8 +702,12 @@ function renderConstraints(){
   ["classGaps","facultyGaps","spread","rooms","edges","workload"].forEach(k=>{const el=q("pref"+k.charAt(0).toUpperCase()+k.slice(1)),v=q("pref"+k.charAt(0).toUpperCase()+k.slice(1)+"Val");if(el){el.value=db.preferences[k];if(v)v.textContent=el.value}});
 }
 function renderGenerate(){
-  q("classSelector").innerHTML=db.classes.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.name)+"</option>").join("");
-  const cid=q("classSelector").value||db.classes[0]?.id;if(q("gridTitle"))q("gridTitle").textContent=(findClass(cid)?.name||"Section K")+" timetable";
+  const previous=selectedClassId||q("classSelector").value||db.classes[0]?.id;
+  q("classSelector").innerHTML=db.classes.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.name)+" · "+esc(db.programs.find(p=>p.id===c.program)?.name||"")+"</option>").join("");
+  const cid=db.classes.some(c=>c.id===previous)?previous:db.classes[0]?.id;
+  selectedClassId=cid;
+  q("classSelector").value=cid||"";
+  if(q("gridTitle"))q("gridTitle").textContent=(findClass(cid)?.name||"Timetable")+" · timetable";
   q("builderTable").innerHTML=cid?tableForClass(cid,!sharedSnap):"<div class='empty-state'>Add a class first.</div>";
   q("qualityPanel").innerHTML=qualityHTML(scheduleScore(db));
   const acts=activityList(db),uns=acts.filter(a=>db.schedule.filter(e=>e.activityId===a.id).length<(a.shared?(a.classIds.length*(a.duration===2?2:1)):(a.duration===2?2:1)));
@@ -633,13 +733,13 @@ function renderPublish(){
 function renderCourses(){
   q("combinedList").innerHTML=db.combinedGroups.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.map(id=>esc(findClass(id)?.section||id)).join(" + ")+" · "+esc(findRoom(g.roomId)?.name||"")+"</small></div></div>").join("")||"<div class='empty-state'><strong>No combined groups.</strong><span>Use this for common lectures or seminars.</span></div>";
   q("electiveList").innerHTML=db.electives.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.length+" class(es) · "+g.courseIds.length+" option(s)</small></div></div>").join("")||"<div class='empty-state'><strong>No elective groups.</strong><span>Create one when students choose between common course options.</span></div>";
-  q("coursesTable").innerHTML="<table><thead><tr><th>Code</th><th>Course</th><th>Type</th><th>L</th><th>T</th><th>P</th><th>Pattern</th><th>Faculty</th><th>Room</th><th>Classes</th></tr></thead><tbody>"+db.courses.map(c=>"<tr><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+esc(c.type||"Theory")+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+esc(c.sessionPattern||"—")+"</td><td>"+esc(findFaculty(c.faculty)?.name||"—")+"</td><td>"+esc(findRoom(c.room)?.name||"—")+"</td><td>"+(c.shared?"<span class='badge neutral'>SHARED · "+arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(" + ")+"</span>":arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(", "))+"</td></tr>").join("")+"</tbody></table>";
+  q("coursesTable").innerHTML="<table><thead><tr><th>Code</th><th>Course</th><th>Type</th><th>L</th><th>T</th><th>P</th><th>Credits</th><th>Pattern</th><th>Faculty</th><th>Room</th><th>Classes</th><th>Actions</th></tr></thead><tbody>"+db.courses.map(c=>"<tr><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+esc(c.type||"Theory")+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+(c.credits||0)+"</td><td>"+esc(c.sessionPattern||"—")+"</td><td>"+esc(findFaculty(c.faculty)?.name||"—")+"</td><td>"+esc(findRoom(c.room)?.name||"—")+"</td><td>"+(c.shared?"<span class='badge neutral'>SHARED · "+arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(" + ")+"</span>":arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(", "))+"</td><td><button class='btn small' data-edit-course='"+c.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>";
 }
 function renderClasses(){
-  q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(c.department)+"</td></tr>").join("")+"</tbody></table>";
+  q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th><th>Actions</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(db.departments.find(d=>d.id===c.department)?.code||c.department||"—")+"</td><td><button class='btn small' data-edit-class='"+c.id+"'>Edit</button> <button class='btn small' data-view-class='"+c.id+"'>Timetable</button></td></tr>").join("")+"</tbody></table>";
 }
-function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td></tr>").join("")+"</tbody></table>"}
-function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td></tr>").join("")+"</tbody></table>"}
+function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td><button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
+function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th><th>Actions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td><td><button class='btn small' data-edit-room='"+r.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
 function breakSelectors(){
   const sc=+q("shortBreakCount").value||0,lc=+q("lunchBreakCount").value||0;
   const opts="<option value='-1'>None</option>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"'>Period "+(i+1)+"</option>").join("");
@@ -711,15 +811,49 @@ function addCourse(){openModal("Add Course / Activity","<label>Course code<input
 function editSlotElement(el){
   if(el.dataset.slot){
     const e=db.schedule.find(s=>s.id===el.dataset.slot);if(!e)return;
-    const c=findCourse(e.courseId),f=findFaculty(e.facultyId);
-    openModal("Timetable Entry","<div class='selected-entry'><b>"+esc(c?.code)+"</b><span>"+esc(c?.name)+"</span><small>"+dayLabel(e.day)+" · Period "+(e.period+1)+"</small></div><label>Course<select name='course'>"+db.courses.map(x=>"<option value='"+x.id+"'>"+esc(x.code+" — "+x.name)+"</option>").join("")+"</select></label><label>Faculty<select name='faculty'>"+db.faculty.map(x=>"<option value='"+x.id+"'>"+esc(x.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(x=>"<option value='"+x.id+"'>"+esc(x.name)+"</option>").join("")+"</select></label><label><input name='locked' type='checkbox' "+(e.locked?"checked":"")+"> Lock this assignment</label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Apply</button></div>",fdata=>{e.courseId=fdata.get("course");e.facultyId=fdata.get("faculty");e.roomId=fdata.get("room");e.locked=fdata.get("locked")==="on";log("Timetable entry edited",c?.code||"entry");save()});
-    q("modalForm").course.value=c?.id||"";q("modalForm").faculty.value=f?.id||"";q("modalForm").room.value=e.roomId;return;
+    const c=findCourse(e.courseId),related=db.schedule.filter(x=>x.activityId&&e.activityId&&x.activityId===e.activityId);
+    const targetIds=related.length?related.map(x=>x.id):[e.id];
+    const currentShared=!!c?.shared||related.some(x=>x.shared);
+    openModal("Timetable Entry","<div class='selected-entry'><b>"+esc(c?.code)+"</b><span>"+esc(c?.name)+"</span><small>"+dayLabel(e.day)+" · Period "+(e.period+1)+(currentShared?" · SHARED ACTIVITY":"")+"</small></div><label>Day<select name='day'>"+db.settings.days.map(d=>"<option value='"+d+"' "+(d===e.day?"selected":"")+">"+dayLabel(d)+"</option>").join("")+"</select></label><label>Period<select name='period'>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"' "+(i===e.period?"selected":"")+">Period "+(i+1)+" · "+timeSlots()[i].start+"</option>").join("")+"</select></label><label>Course<select name='course'>"+db.courses.map(x=>"<option value='"+x.id+"' "+(x.id===e.courseId?"selected":"")+">"+esc(x.code+" — "+x.name)+"</option>").join("")+"</select></label><label>Faculty<select name='faculty'>"+db.faculty.map(x=>"<option value='"+x.id+"' "+(x.id===e.facultyId?"selected":"")+">"+esc(x.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(x=>"<option value='"+x.id+"' "+(x.id===e.roomId?"selected":"")+">"+esc(x.name)+"</option>").join("")+"</select></label><label><input name='locked' type='checkbox' "+(e.locked?"checked":"")+"> Lock this assignment</label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Apply</button></div>",fdata=>{
+      const nextCourse=findCourse(fdata.get("course")),day=fdata.get("day"),period=+fdata.get("period"),room=fdata.get("room"),faculty=fdata.get("faculty"),idsForCourse=nextCourse?.shared?arr(nextCourse.classIds):[e.classId],checkIds=Array.from(new Set([...targetIds,...db.schedule.filter(x=>nextCourse?.shared&&arr(nextCourse.classIds).includes(x.classId)&&x.courseId===nextCourse.id).map(x=>x.id)]));
+      const tempState=copy(db);tempState.schedule=tempState.schedule.filter(x=>!checkIds.includes(x.id));
+      const a={classId:e.classId,classIds:idsForCourse,shared:!!nextCourse?.shared,courseId:nextCourse?.id,duration:nextCourse?.lab?2:1};
+      const oldFaculty=nextCourse?.faculty; if(nextCourse&&faculty)nextCourse.faculty=faculty;
+      const reason=nextCourse?hardCheck(Object.assign(tempState,{courses:tempState.courses.map(x=>x.id===nextCourse.id?Object.assign({},x,{faculty}):x)}),a,day,period,room):"Missing course";
+      if(nextCourse)nextCourse.faculty=oldFaculty;
+      if(reason){alert(reason);return}
+      db.schedule=db.schedule.filter(x=>!checkIds.includes(x.id));
+      const activityId=uid("EDITACT");
+      idsForCourse.forEach(cid=>db.schedule.push({id:uid("SCH"),day,period,courseId:nextCourse.id,facultyId:faculty,roomId:room,classId:cid,duration:a.duration,locked:fdata.get("locked")==="on",activityId,shared:!!nextCourse.shared}));
+      if(a.duration===2)idsForCourse.forEach(cid=>db.schedule.push({id:uid("SCH"),day,period:period+1,courseId:nextCourse.id,facultyId:faculty,roomId:room,classId:cid,duration:a.duration,locked:fdata.get("locked")==="on",activityId,shared:!!nextCourse.shared}));
+      log("Timetable entry edited",nextCourse.code);save();
+    });return;
   }
   if(el.dataset.day){
-    openModal("Add timetable entry","<label>Course<select name='course'>"+db.courses.map(c=>"<option value='"+c.id+"'>"+esc(c.code+" — "+c.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const cid=q("classSelector").value,course=findCourse(f.get("course")),rid=f.get("room"),a={classId:cid,courseId:course.id,duration:course.lab?2:1};const reason=hardCheck(db,a,el.dataset.day,+el.dataset.period,rid);if(reason){alert(reason);return}db.schedule.push({id:uid("SCH"),day:el.dataset.day,period:+el.dataset.period,courseId:course.id,facultyId:course.faculty,roomId:rid,classId:cid,duration:a.duration,locked:false,activityId:uid("ACTV")});log("Timetable slot added",course.code);save()});
+    openModal("Add timetable entry","<label>Course<select name='course'>"+db.courses.map(c=>"<option value='"+c.id+"'>"+esc(c.code+" — "+c.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const cid=selectedClassId||q("classSelector").value,course=findCourse(f.get("course")),rid=f.get("room"),a={classId:cid,classIds:course?.shared?arr(course.classIds):[cid],shared:!!course?.shared,courseId:course.id,duration:course.lab?2:1};const reason=hardCheck(db,a,el.dataset.day,+el.dataset.period,rid);if(reason){alert(reason);return}const activityId=uid("ACTV");for(const classId of a.classIds)db.schedule.push({id:uid("SCH"),day:el.dataset.day,period:+el.dataset.period,courseId:course.id,facultyId:course.faculty,roomId:rid,classId,duration:a.duration,locked:false,activityId,shared:!!a.shared});if(a.duration===2)for(const classId of a.classIds)db.schedule.push({id:uid("SCH"),day:el.dataset.day,period:+el.dataset.period+1,courseId:course.id,facultyId:course.faculty,roomId:rid,classId,duration:a.duration,locked:false,activityId,shared:!!a.shared});log("Timetable slot added",course.code);save()});
   }
 }
 
+function editDepartment(id){
+  const d=db.departments.find(x=>x.id===id);if(!d)return;
+  openModal("Edit Department","<label>Name<input name='name' required value='"+esc(d.name)+"'></label><label>Code<input name='code' required value='"+esc(d.code)+"'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save</button></div>",f=>{d.name=f.get("name").trim();d.code=f.get("code").trim().toUpperCase();log("Department updated",d.name);save()});
+}
+function editClass(id){
+  const c=db.classes.find(x=>x.id===id);if(!c)return;
+  openModal("Edit Class / Section","<label>Class name<input name='name' required value='"+esc(c.name)+"'></label><label>Section code<input name='section' required value='"+esc(c.section)+"'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"' "+(d.id===c.department?"selected":"")+">"+esc(d.name)+"</option>").join("")+"</select></label><label>Program<select name='program'>"+db.programs.map(p=>"<option value='"+p.id+"' "+(p.id===c.program?"selected":"")+">"+esc(p.name)+"</option>").join("")+"</select></label><label>Semester<select name='semester'>"+db.semesters.map(sm=>"<option value='"+sm.id+"' "+(sm.id===c.semester?"selected":"")+">"+esc(sm.name)+"</option>").join("")+"</select></label><label>Strength<input name='strength' type='number' min='1' required value='"+(c.strength||60)+"'></label><label>Class in-charge<input name='incharge' value='"+esc(c.incharge||"")+"'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save class</button></div>",f=>{c.name=f.get("name").trim();c.section=f.get("section").trim().toUpperCase();c.department=f.get("department");c.program=f.get("program");c.semester=f.get("semester");c.strength=+f.get("strength")||1;c.incharge=f.get("incharge").trim();const sec=db.sections.find(sec=>sec.program===c.program&&sec.semester===c.semester&&(sec.code===c.section||sec.id===c.section));if(sec){sec.name="Section "+c.section;sec.code=c.section;sec.strength=c.strength;sec.department=c.department;sec.program=c.program;sec.semester=c.semester}log("Class updated",c.name);save()});
+}
+function editFaculty(id){
+  const f=db.faculty.find(x=>x.id===id);if(!f)return;
+  openModal("Edit Faculty","<label>Name<input name='name' required value='"+esc(f.name)+"'></label><label>Designation<input name='designation' value='"+esc(f.designation||"")+"'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"' "+(d.id===f.department?"selected":"")+">"+esc(d.name)+"</option>").join("")+"</select></label><div class='mini-form'><label>Max hours/day<input name='maxDay' type='number' min='1' value='"+(f.maxDay||4)+"'></label><label>Max hours/week<input name='maxWeek' type='number' min='1' value='"+(f.maxWeek||18)+"'></label></div><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save faculty</button></div>",form=>{f.name=form.get("name").trim();f.designation=form.get("designation").trim();f.department=form.get("department");f.maxDay=+form.get("maxDay")||4;f.maxWeek=+form.get("maxWeek")||18;log("Faculty updated",f.name);save()});
+}
+function editRoom(id){
+  const r=db.rooms.find(x=>x.id===id);if(!r)return;
+  openModal("Edit Room / Lab","<label>Name<input name='name' required value='"+esc(r.name)+"'></label><label>Code<input name='code' required value='"+esc(r.code)+"'></label><label>Type<select name='type'>"+["Classroom","Lab","Seminar Hall","Lecture Hall"].map(t=>"<option "+(t===r.type?"selected":"")+">"+t+"</option>").join("")+"</select></label><label>Capacity<input name='capacity' type='number' min='1' required value='"+(r.capacity||60)+"'></label><label>Building<input name='building' value='"+esc(r.building||"")+"'></label><label>Floor<input name='floor' type='number' value='"+(r.floor||1)+"'></label><label>Features<input name='features' value='"+esc(arr(r.features).join(","))+"'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save room</button></div>",form=>{const oldType=r.type;r.name=form.get("name").trim();r.code=form.get("code").trim().toUpperCase();r.type=form.get("type");r.capacity=+form.get("capacity")||1;r.building=form.get("building").trim();r.floor=+form.get("floor")||1;r.features=form.get("features").split(",").map(x=>x.trim()).filter(Boolean);r.lab=r.type==="Lab";if(oldType!==r.type&&r.type==="Lab")r.lab=true;log("Room updated",r.name);save()});
+}
+function editCourse(id){
+  const c=db.courses.find(x=>x.id===id);if(!c)return;
+  openModal("Edit Course","<label>Course code<input name='code' required value='"+esc(c.code)+"'></label><label>Course name<input name='name' required value='"+esc(c.name)+"'></label><label>Type<select name='type'>"+["Theory","Lab","Tutorial","Elective"].map(t=>"<option "+(t===c.type?"selected":"")+">"+t+"</option>").join("")+"</select></label><div class='mini-form'><label>L<input name='l' type='number' min='0' value='"+(c.l||0)+"'></label><label>T<input name='t' type='number' min='0' value='"+(c.t||0)+"'></label><label>P<input name='p' type='number' min='0' value='"+(c.p||0)+"'></label><label>Credits<input name='credits' type='number' min='0' value='"+(c.credits||0)+"'></label></div><label>Faculty<select name='faculty'>"+db.faculty.map(f=>"<option value='"+f.id+"' "+(f.id===c.faculty?"selected":"")+">"+esc(f.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"' "+(r.id===c.room?"selected":"")+">"+esc(r.name)+"</option>").join("")+"</select></label><label><input type='checkbox' name='shared' "+(c.shared?"checked":"")+"> Shared / combined activity</label><label>Classes<select name='classIds' multiple size='7'>"+db.classes.map(cl=>"<option value='"+cl.id+"' "+(arr(c.classIds).includes(cl.id)?"selected":"")+">"+esc(cl.name)+"</option>").join("")+"</select></label><label>Session pattern<input name='pattern' value='"+esc(c.sessionPattern||"")+"'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save course</button></div>",form=>{c.code=form.get("code").trim().toUpperCase();c.name=form.get("name").trim();c.type=form.get("type");c.l=+form.get("l")||0;c.t=+form.get("t")||0;c.p=+form.get("p")||0;c.credits=+form.get("credits")||0;c.faculty=form.get("faculty");c.room=form.get("room");c.shared=form.get("shared")==="on";c.classIds=Array.from(q("modalForm").querySelector("[name=classIds]").selectedOptions).map(o=>o.value);c.sessionPattern=form.get("pattern").trim();log("Course updated",c.code);save()});
+}
 function editFacultyAvailability(fid,day){
   const f=findFaculty(fid);if(!f)return;
   const existing=new Set(db.availability.filter(a=>a.faculty===fid&&a.day===day&&a.blocked).map(a=>Number(a.period)));
@@ -840,6 +974,12 @@ document.addEventListener("click",e=>{
   if(e.target.id==="saveVersionBtn")saveDraftVersion();
   if(e.target.id==="refreshInsights")renderIntelligence();if(e.target.id==="downloadTemplate")downloadImportTemplate();
   if(e.target.id==="saveBranding")updateBranding();
+  const editDept=e.target.closest("[data-edit-dept]");if(editDept)editDepartment(editDept.dataset.editDept);
+  const editClassBtn=e.target.closest("[data-edit-class]");if(editClassBtn)editClass(editClassBtn.dataset.editClass);
+  const editFacultyBtn=e.target.closest("[data-edit-faculty]");if(editFacultyBtn)editFaculty(editFacultyBtn.dataset.editFaculty);
+  const editRoomBtn=e.target.closest("[data-edit-room]");if(editRoomBtn)editRoom(editRoomBtn.dataset.editRoom);
+  const editCourseBtn=e.target.closest("[data-edit-course]");if(editCourseBtn)editCourse(editCourseBtn.dataset.editCourse);
+  const viewClass=e.target.closest("[data-view-class]");if(viewClass){selectedClassId=viewClass.dataset.viewClass;navigate("generate");}
   if(e.target.id==="backupBtn")backup();
   if(e.target.id==="reportPdf")exportPDF();
   if(e.target.id==="reportExcel")exportExcel();
@@ -868,7 +1008,8 @@ document.addEventListener("input",e=>{
 document.addEventListener("change",e=>{
   if(e.target.id==="importFile"){window.__importRows=null;renderImport()}
   if(["shortBreakCount","lunchBreakCount","calendarPeriods"].includes(e.target.id))breakSelectors();
-  if(e.target.id==="classSelector")renderGenerate();
+  if(e.target.id==="classSelector"){selectedClassId=e.target.value;renderGenerate();}
+  if(e.target.id==="dashboardClassSelector"){selectedClassId=e.target.value;renderDashboard();}
 });
 q("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 q("copyShare").disabled=true;
