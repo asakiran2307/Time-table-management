@@ -800,3 +800,5 @@ if(sharedSnap){
 }
 render();
 if(!sharedSnap)cloudLoad();
+
+initAuth();
