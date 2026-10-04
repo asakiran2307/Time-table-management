@@ -147,6 +147,7 @@ function normalizeState(x){
   ensureJoyDemoDatasetV5(x);
   ensureJoyDemoDatasetV6(x);
   ensureJoyDemoDatasetV7(x);
+  ensureJoyDemoDatasetV8(x);
   if(!x.schedule.length)seedSchedule(x);
   else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
@@ -416,6 +417,19 @@ function ensureJoyDemoDatasetV7(state){
   seedJoyClassMissingCourses(state,"CSE5B","R303");
   seedJoyClassMissingCourses(state,"CSE5C","R304");
   state.__joyDemoSeedVersion=7;
+}
+function ensureJoyDemoDatasetV8(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=8)return;
+  // Extra periods provide realistic capacity for all CSE tracks, BCA Cyber sections and consecutive labs.
+  state.settings.periods=Math.max(Number(state.settings.periods)||10,12);
+  state.settings.duration=45;
+  state.settings.shortBreaks=[2];
+  state.settings.lunchBreaks=[5];
+  sanitizeBreaks(state.settings);
+  ["CSE5K","CSE5A","CSE5B","CSE5C"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="CSE5K"?"R301":id==="CSE5A"?"R302":id==="CSE5B"?"R303":"R304"));
+  ["BCAC5A","BCAC5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="BCAC5A"?"R204":"R205"));
+  state.__joyDemoSeedVersion=8;
 }
 function seedSchedule(state){
   const s=state.settings;
