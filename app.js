@@ -145,6 +145,7 @@ function normalizeState(x){
   ensureJoyDemoData(x);
   ensureJoyDemoDatasetV4(x);
   ensureJoyDemoDatasetV5(x);
+  ensureJoyDemoDatasetV6(x);
   if(!x.schedule.length)seedSchedule(x);
   else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
@@ -314,6 +315,18 @@ function ensureJoyDemoDatasetV5(state){
   ["CSE5K","CSE5A","CSE5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="CSE5A"?"R104":id==="CSE5B"?"R105":"R103"));
   ["BCAC5A","BCAC5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="BCAC5B"?"R205":"R204"));
   state.__joyDemoSeedVersion=5;
+}
+function ensureJoyDemoDatasetV6(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=6)return;
+  state.settings.periods=10;
+  state.settings.duration=45;
+  state.settings.shortBreaks=[2];
+  state.settings.lunchBreaks=[5];
+  sanitizeBreaks(state.settings);
+  ["CSE5K","CSE5A","CSE5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="CSE5A"?"R104":id==="CSE5B"?"R105":"R103"));
+  ["BCAC5A","BCAC5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="BCAC5B"?"R205":"R204"));
+  state.__joyDemoSeedVersion=6;
 }
 function seedSchedule(state){
   const s=state.settings;
