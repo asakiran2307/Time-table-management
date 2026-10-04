@@ -144,6 +144,7 @@ function normalizeState(x){
   x.courses.forEach(c=>{if(!c.classIds)c.classIds=x.classes.map(cl=>cl.id);});
   ensureJoyDemoData(x);
   ensureJoyDemoDatasetV4(x);
+  ensureJoyDemoDatasetV5(x);
   if(!x.schedule.length)seedSchedule(x);
   else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
@@ -288,6 +289,31 @@ function seedJoyClassMissingCourses(state,classId,classRoomId){
       if(!placed)break;
     }
   }
+}
+function ensureJoyDemoDatasetV5(state){
+  const isJoy=state.organization?.code==="JU001" || /JOY UNIVERSITY/i.test(state.organization?.name||"");
+  if(!isJoy || state.__joyDemoSeedVersion>=5)return;
+  const add=(list,obj)=>{if(!list.some(x=>x.id===obj.id))list.push(obj)};
+  const dep=state.departments.find(d=>d.id==="SOCI")||state.departments[0];
+  // 9 periods + 2 breaks gives enough weekly capacity for the seeded BCA V workload and shared classes.
+  state.settings.periods=Math.max(Number(state.settings.periods)||8,9);
+  state.settings.shortBreaks=[2];
+  state.settings.lunchBreaks=[5];
+  sanitizeBreaks(state.settings);
+  [
+    {id:"F17",name:"Dr. NAVEEN SHAH",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F18",name:"Dr. FARAH KHAN",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F19",name:"Dr. ANIL THOMAS",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F20",name:"Ms. SHREYA MENON",department:dep?.id||"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18}
+  ].forEach(f=>add(state.faculty,f));
+  const reassign=(courseId,facultyId)=>{const c=state.courses.find(x=>x.id===courseId);if(!c)return;c.faculty=facultyId;state.schedule.filter(e=>e.courseId===courseId).forEach(e=>e.facultyId=facultyId)};
+  reassign("24BTCY251","F17");
+  reassign("24BTCY252","F18");
+  reassign("24BTCY851","F19");
+  reassign("BCA508","F20");
+  ["CSE5K","CSE5A","CSE5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="CSE5A"?"R104":id==="CSE5B"?"R105":"R103"));
+  ["BCAC5A","BCAC5B"].forEach(id=>seedJoyClassMissingCourses(state,id,id==="BCAC5B"?"R205":"R204"));
+  state.__joyDemoSeedVersion=5;
 }
 function seedSchedule(state){
   const s=state.settings;
