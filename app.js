@@ -1,547 +1,598 @@
-const KEY="unisched-v1";
+const KEY="unisched-v3";
 const CLOUD_API="/api/state";
-let cloudHydrating=false;
-let cloudSaveTimer=null;
+let cloudTimer=null,lockMode=false,solutionCandidates=[];
 
-function setCloudStatus(state,message){
-  var el=q("cloudStatus");if(!el)return;el.textContent=message;el.dataset.state=state;
+function q(id){return document.getElementById(id)}
+function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function copy(v){return JSON.parse(JSON.stringify(v))}
+function uid(prefix){return prefix+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7)}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function dayLabel(d){return ({MON:"Monday",TUE:"Tuesday",WED:"Wednesday",THU:"Thursday",FRI:"Friday",SAT:"Saturday",SUN:"Sunday"}[d]||d)}
+function now(){return new Date().toISOString()}
+function arr(v){return Array.isArray(v)?v:[]}
+
+const DEFAULT={
+  organization:{name:"JOY UNIVERSITY",code:"JU001",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",status:"Active",ownerName:"University Timetable Owner",ownerEmail:"timetable@joyuniversity.edu"},
+  settings:{university:"JOY UNIVERSITY",year:"2026–27",semester:"Semester V",title:"TIME TABLE FOR THE ACADEMIC YEAR 2026–27",incharge:"Ms. S. AMBIKA",school:"School of Computational Intelligence",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]},
+  departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],
+  programs:[{id:"BTECH-CSE",name:"B.Tech CSE",department:"SOCI"}],
+  academicYears:[{id:"AY2627",name:"2026–27",active:true}],
+  semesters:[{id:"SEM5",name:"Semester V",number:5,academicYear:"AY2627",active:true}],
+  sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58}],
+  classes:[{id:"CSE5K",name:"B.Tech CSE · Semester V · K",section:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58,incharge:"Ms. S. AMBIKA"}],
+  faculty:[
+    {id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI",designation:"Professor",maxDay:3,maxWeek:18},
+    {id:"F2",name:"Dr. SOFIYA",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F3",name:"Ms. AMBIKA",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
+    {id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
+    {id:"F6",name:"NEW FACULTY 14",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18}
+  ],
+  rooms:[
+    {id:"R103",name:"Room 103",code:"R103",type:"Classroom",capacity:60,building:"Joveena Block",floor:1,features:["projector","smart-board","internet"]},
+    {id:"CCL",name:"Cloud Computing Lab",code:"CCL",type:"Lab",capacity:45,building:"Joveena Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true},
+    {id:"SAK2",name:"SAK Seminar Hall 2nd Floor",code:"SAK2",type:"Seminar Hall",capacity:120,building:"SAK Block",floor:2,features:["projector","smart-board","internet"]}
+  ],
+  courses:[
+    {id:"24BTCY151",code:"24BTCY151",name:"Introduction to Blockchain and Cryptocurrency",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F1",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"24BTCY152",code:"24BTCY152",name:"Malware Analysis",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F1",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"24BTCY153",code:"24BTCY153",name:"Computer Architecture",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F2",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"24BTCY154",code:"24BTCY154",name:"Software Engineering",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F3",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"24BTCY155",code:"24BTCY155",name:"Criminology and Cyber Crimes",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F4",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"24BTCY156",code:"24BTCY156",name:"Theory of Computation",type:"Theory",credits:4,l:3,t:1,p:0,credits:4,faculty:"F6",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1 + 1 × 1"},
+    {id:"24BTCY851",code:"24BTCY851",name:"Principles of Management",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F5",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
+    {id:"24BTCY251",code:"24BTCY251",name:"Introduction to Blockchain and Cryptocurrency Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F1",room:"CCL",lab:true,classIds:["CSE5K"],sessionPattern:"1 × 2"},
+    {id:"24BTCY252",code:"24BTCY252",name:"Malware Analysis Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F1",room:"CCL",lab:true,classIds:["CSE5K"],sessionPattern:"1 × 2"}
+  ],
+  activities:[],
+  availability:[
+    {faculty:"F1",day:"ALL",period:7,blocked:true},{faculty:"F5",day:"MON",period:0,blocked:true}
+  ],
+  roomBlocks:[],
+  classBlocks:[],
+  preferences:{classGaps:8,facultyGaps:7,spread:8,rooms:6,edges:4,workload:7},
+  combinedGroups:[],
+  electives:[],
+  schedule:[],
+  versions:[],
+  shareLinks:[],
+  activityLog:[],
+  branding:{name:"JOY UNIVERSITY",code:"JU001",logo:"",timezone:"Asia/Kolkata"}
+};
+
+function normalizeState(x){
+  x=Object.assign(copy(DEFAULT),x||{});
+  x.organization=Object.assign(copy(DEFAULT.organization),x.organization||{});
+  x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});
+  x.branding=Object.assign(copy(DEFAULT.branding),x.branding||{});
+  ["departments","programs","academicYears","semesters","sections","classes","faculty","rooms","courses","activities","availability","roomBlocks","classBlocks","combinedGroups","electives","schedule","versions","shareLinks","activityLog"].forEach(k=>x[k]=arr(x[k]));
+  x.preferences=Object.assign(copy(DEFAULT.preferences),x.preferences||{});
+  if(!x.sections.length)x.classes.forEach(c=>x.sections.push({id:uid("SEC"),name:"Section "+c.section,code:c.section,department:c.department,program:c.program||"",semester:c.semester||"",strength:c.strength||60}));
+  x.settings.shortBreaks=arr(x.settings.shortBreaks).map(Number);
+  x.settings.lunchBreaks=arr(x.settings.lunchBreaks).map(Number);
+  if(!x.settings.shortBreaks.length&&Number.isInteger(x.settings.shortBreak))x.settings.shortBreaks=[x.settings.shortBreak];
+  if(!x.settings.lunchBreaks.length&&Number.isInteger(x.settings.lunchBreak))x.settings.lunchBreaks=[x.settings.lunchBreak];
+  sanitizeBreaks(x.settings);
+  const old=arr(x.schedule);
+  x.schedule=old.map(e=>Array.isArray(e)?{id:uid("SCH"),day:e[0],period:e[1],courseId:e[2],facultyId:e[3],roomId:e[4],classId:e[5],duration:1,locked:false}:Object.assign({id:uid("SCH"),duration:1,locked:false},e));
+  x.courses.forEach(c=>{if(!c.classIds)c.classIds=x.classes.map(cl=>cl.id);});
+  if(!x.schedule.length)seedSchedule(x);
+  x.activities.forEach(a=>{if(!a.classId)a.classId=x.classIds?.[0]});
+  return x;
 }
+function sanitizeBreaks(s){
+  const total=Number(s.periods)||8;
+  const clean=v=>arr(v).map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<total);
+  s.shortBreaks=clean(s.shortBreaks).filter((n,i,a)=>a.indexOf(n)===i);
+  s.lunchBreaks=clean(s.lunchBreaks).filter((n,i,a)=>a.indexOf(n)===i);
+  s.lunchBreaks=s.lunchBreaks.filter(n=>!s.shortBreaks.includes(n));
+  s.breaks=[...s.shortBreaks,...s.lunchBreaks].sort((a,b)=>a-b);
+}
+function seedSchedule(state){
+  const s=state.settings;
+  const days=s.days;
+  const places=[];
+  days.forEach(d=>{for(let p=0;p<s.periods;p++)if(!s.breaks.includes(p))places.push([d,p])});
+  const classId="CSE5K";
+  const fixed=[
+    ["MON",0,"24BTCY251","F1","CCL",2],["MON",3,"24BTCY156","F6","R103",1],["MON",4,"24BTCY153","F2","R103",1],["MON",6,"24BTCY155","F4","R103",1],
+    ["TUE",0,"24BTCY152","F1","R103",1],["TUE",1,"24BTCY151","F1","R103",1],["TUE",3,"24BTCY156","F6","R103",1],["TUE",4,"24BTCY851","F5","R103",1],["TUE",6,"24BTCY155","F4","R103",1],
+    ["WED",0,"24BTCY151","F1","R103",1],["WED",1,"24BTCY851","F5","R103",1],["WED",3,"24BTCY153","F2","R103",1],["WED",4,"24BTCY154","F3","R103",1],["WED",6,"24BTCY156","F6","R103",1],
+    ["THU",0,"24BTCY851","F5","R103",1],["THU",1,"24BTCY151","F1","R103",1],["THU",3,"24BTCY153","F2","R103",1],["THU",4,"24BTCY152","F1","R103",1],["THU",6,"24BTCY154","F3","R103",1],["THU",7,"24BTCY156","F6","R103",1],
+    ["FRI",0,"24BTCY252","F1","CCL",2],["FRI",3,"24BTCY152","F1","R103",1],["FRI",4,"24BTCY154","F3","R103",1],["FRI",6,"24BTCY155","F4","R103",1]
+  ];
+  state.schedule=fixed.map(v=>({id:uid("SCH"),day:v[0],period:v[1],courseId:v[2],facultyId:v[3],roomId:v[4],classId,vduration:v[5],duration:v[5],locked:false}));
+}
+let db=normalizeState(loadLocal());
+
+function loadLocal(){
+  try{return JSON.parse(localStorage.getItem(KEY)||"null")||copy(DEFAULT)}catch(e){return copy(DEFAULT)}
+}
+function save(){
+  db=normalizeState(db);
+  localStorage.setItem(KEY,JSON.stringify(db));
+  clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
+  render();
+}
+function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,details,at:now()});db.activityLog=db.activityLog.slice(0,300)}
 function cloudSave(){
-  if(cloudHydrating)return;
-  clearTimeout(cloudSaveTimer);setCloudStatus("saving","Saving to cloud database…");
-  cloudSaveTimer=setTimeout(function(){
-    fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})})
-      .then(function(r){return r.text().then(function(t){var p={};try{p=t?JSON.parse(t):{}}catch(e){}if(!r.ok)throw new Error(p.error||("Cloud save HTTP "+r.status));return p})})
-      .then(function(){setCloudStatus("connected","Cloud database connected");console.info("UniSchedule: cloud save complete")})
-      .catch(function(e){setCloudStatus("error","Cloud database unavailable — local backup is active");console.error("UniSchedule cloud save failed:",e)});
-  },250);
+  fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})})
+    .then(r=>r.ok?setSync("Cloud sync enabled"):Promise.reject())
+    .catch(()=>setSync("Local mode · cloud unavailable"));
 }
 function cloudLoad(){
-  cloudHydrating=true;setCloudStatus("checking","Sync status: checking…");
-  fetch(CLOUD_API,{cache:"no-store"})
-    .then(function(r){return r.text().then(function(t){var p={};try{p=t?JSON.parse(t):{}}catch(e){}if(r.status===404)return {empty:true};if(!r.ok)throw new Error(p.error||("Cloud load HTTP "+r.status));return p})})
-    .then(function(p){if(p&&p.empty){setCloudStatus("connected","Cloud database connected");cloudHydrating=false;cloudSave();return}
-      if(p&&p.data){db=normalizeSaaSData(p.data);localStorage.setItem(KEY,JSON.stringify(db));setCloudStatus("connected","Cloud database connected");renderAll();console.info("UniSchedule: loaded data from Neon PostgreSQL");}
-      else{setCloudStatus("connected","Cloud database connected");cloudHydrating=false;cloudSave();}
-    })
-    .catch(function(e){setCloudStatus("error","Cloud database unavailable — local backup is active");console.error("UniSchedule cloud load failed; keeping local data:",e)})
-    .finally(function(){cloudHydrating=false});
+  setSync("Syncing workspace…");
+  fetch(CLOUD_API,{cache:"no-store"}).then(async r=>{if(!r.ok)throw 0;return r.json()}).then(p=>{
+    if(p&&p.data){db=normalizeState(p.data);localStorage.setItem(KEY,JSON.stringify(db));log("Cloud workspace loaded","Remote state");render()}
+    setSync("Cloud sync enabled");
+  }).catch(()=>setSync("Local mode · cloud unavailable"));
 }
+function setSync(t){if(q("syncStatus"))q("syncStatus").textContent=t}
 
-const DEFAULT={settings:{university:"JOY UNIVERSITY",year:"2025–26",semester:"Semester V",title:"TIME TABLE FOR THE ACADEMIC YEAR 2025-26",incharge:"Ms. S. AMBIKA",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5],shortBreak:2,lunchBreak:5,breaks:[2,5]},departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],classes:[{id:"CSE3K",name:"B.Tech CSE – Year/Sem III/V",section:"K",department:"SOCI",room:"Room 103",incharge:"Ms. S. AMBIKA"}],sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI"}],faculty:[{id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI"},{id:"F2",name:"Dr. SOFIYA",department:"SOCI"},{id:"F3",name:"Ms. AMBIKA",department:"SOCI"},{id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI"},{id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI"},{id:"F6",name:"NEW FACULTY 14",department:"SOCI"}],rooms:[{id:"R103",name:"Room 103",type:"Classroom",capacity:60,building:"Joveena Block"},{id:"CCL",name:"Cloud Computing Lab",type:"Lab",capacity:45,building:"Joveena Block"},{id:"SAK2",name:"SAK Seminar Hall 2nd Floor",type:"Seminar Hall",capacity:120,building:"SAK Block"}],courses:[
-{id:"24BTCY151",code:"24BTCY151",name:"Introduction to Blockchain and Cryptocurrencty",l:3,t:0,p:0,credits:3,faculty:"F1",room:"R103"},
-{id:"24BTCY152",code:"24BTCY152",name:"Malware Analysis",l:3,t:0,p:0,credits:3,faculty:"F1",room:"R103"},
-{id:"24BTCY153",code:"24BTCY153",name:"Computer Architecture",l:3,t:0,p:0,credits:3,faculty:"F2",room:"R103"},
-{id:"24BTCY154",code:"24BTCY154",name:"Software Engineering",l:3,t:0,p:0,credits:3,faculty:"F3",room:"R103"},
-{id:"24BTCY155",code:"24BTCY155",name:"Criminology and Cyber Crimes",l:3,t:0,p:0,credits:3,faculty:"F4",room:"R103"},
-{id:"24BTCY156",code:"24BTCY156",name:"Theory of Computation",l:3,t:1,p:0,credits:4,faculty:"F6",room:"R103"},
-{id:"24BTCY851",code:"24BTCY851",name:"Principles of Management",l:3,t:0,p:0,credits:3,faculty:"F5",room:"R103"},
-{id:"24BTCY251",code:"24BTCY251",name:"Introduction to Blockchain and Cryptocurrencty Lab",l:0,t:0,p:2,credits:1,faculty:"F1",room:"CCL",lab:true},
-{id:"24BTCY252",code:"24BTCY252",name:"Malware Analysis Lab",l:0,t:0,p:2,credits:1,faculty:"F1",room:"CCL",lab:true}],
-schedule:[
-["MON",0,"24BTCY251","F1","CCL","CSE3K"],["MON",3,"24BTCY156","F6","R103","CSE3K"],["MON",4,"24BTCY153","F2","R103","CSE3K"],["MON",6,"24BTCY155","F4","R103","CSE3K"],
-["TUE",0,"24BTCY152","F1","R103","CSE3K"],["TUE",1,"24BTCY151","F1","R103","CSE3K"],["TUE",3,"24BTCY156","F6","R103","CSE3K"],["TUE",4,"24BTCY851","F5","R103","CSE3K"],["TUE",6,"24BTCY155","F4","R103","CSE3K"],
-["WED",0,"24BTCY151","F1","R103","CSE3K"],["WED",1,"24BTCY851","F5","R103","CSE3K"],["WED",3,"24BTCY153","F2","R103","CSE3K"],["WED",4,"24BTCY154","F3","R103","CSE3K"],["WED",6,"24BTCY156","F6","R103","CSE3K"],
-["THU",0,"24BTCY851","F5","R103","CSE3K"],["THU",1,"24BTCY151","F1","R103","CSE3K"],["THU",3,"24BTCY153","F2","R103","CSE3K"],["THU",4,"24BTCY152","F1","R103","CSE3K"],["THU",6,"24BTCY154","F3","R103","CSE3K"],["THU",7,"24BTCY156","F6","R103","CSE3K"],
-["FRI",0,"24BTCY252","F1","CCL","CSE3K"],["FRI",3,"24BTCY152","F1","R103","CSE3K"],["FRI",4,"24BTCY154","F3","R103","CSE3K"],["FRI",6,"24BTCY155","F4","R103","CSE3K"]]};
-let db=load();
-function copy(x){return JSON.parse(JSON.stringify(x))}
-function save(){
-  if(window.__sharedMode)return false;
-  try{
-    db=normalizeSaaSData(db);
-    localStorage.setItem(KEY,JSON.stringify(db));
-  }catch(e){
-    console.error("UniSchedule local save failed:",e);
-    alert("Data could not be saved locally. Your browser may be blocking storage.");
-    return false;
-  }
-  cloudSave();
-  try{renderAll()}catch(e){console.error("UniSchedule render failed after save:",e)}
-  return true;
+function currentBreakType(p){
+  if((db.settings.shortBreaks||[]).includes(p))return "SHORT BREAK";
+  if((db.settings.lunchBreaks||[]).includes(p))return "LUNCH BREAK";
+  return "";
 }
-window.addEventListener("storage",function(e){
-  if(e.key===KEY&&e.newValue){
-    try{db=normalizeSaaSData(JSON.parse(e.newValue));renderAll()}catch(err){console.error("UniSchedule sync failed:",err)}
-  }
-});
-function esc(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
-function q(id){return document.getElementById(id)}
-function course(id){return db.courses.find(function(x){return x.id===id})}
-function fac(id){return db.faculty.find(function(x){return x.id===id})}
-function room(id){return db.rooms.find(function(x){return x.id===id})}
-function cl(id){return db.classes.find(function(x){return x.id===id})}
-function dayLabel(d){return {MON:"Monday",TUE:"Tuesday",WED:"Wednesday",THU:"Thursday",FRI:"Friday",SAT:"Saturday"}[d]||d}
-function syncBreakSettings(s){
-  var sb=Array.isArray(s.shortBreaks)?s.shortBreaks.slice():[];
-  var lb=Array.isArray(s.lunchBreaks)?s.lunchBreaks.slice():[];
-  if(!sb.length&&s.shortBreak!=null&&s.shortBreak>=0)sb=[+s.shortBreak];
-  if(!lb.length&&s.lunchBreak!=null&&s.lunchBreak>=0)lb=[+s.lunchBreak];
-  sb=sb.map(Number).filter(function(v){return Number.isInteger(v)&&v>=0&&v<s.periods}).filter(function(v,i,a){return a.indexOf(v)===i});
-  lb=lb.map(Number).filter(function(v){return Number.isInteger(v)&&v>=0&&v<s.periods}).filter(function(v,i,a){return a.indexOf(v)===i});
-  lb=lb.filter(function(v){return sb.indexOf(v)<0});
-  s.shortBreaks=sb;s.lunchBreaks=lb;
-  s.shortBreak=sb.length?sb[0]:-1;s.lunchBreak=lb.length?lb[0]:-1;
-  s.breaks=sb.concat(lb).sort(function(a,b){return a-b});
-  return s;
+function timeSlots(state=db){
+  let [h,m]=(state.settings.start||"09:00").split(":").map(Number);let out=[];
+  for(let i=0;i<state.settings.periods;i++){let a=h*60+m+i*state.settings.duration,b=a+state.settings.duration;
+    out.push({start:String(Math.floor(a/60)%24).padStart(2,"0")+":"+String(a%60).padStart(2,"0"),end:String(Math.floor(b/60)%24).padStart(2,"0")+":"+String(b%60).padStart(2,"0")})}
+  return out;
 }
-function breakType(p){
-  if((db.settings.shortBreaks||[]).indexOf(p)>=0)return "SHORT BREAK";
-  if((db.settings.lunchBreaks||[]).indexOf(p)>=0)return "LUNCH BREAK";
-  return null;
-}
-function timeSlots(){var a=db.settings.start.split(":");var base=+a[0]*60 + +a[1];var out=[];for(var i=0;i<db.settings.periods;i++){var s=base+i*db.settings.duration,e=s+db.settings.duration;out.push({start:String(Math.floor(s/60)%24).padStart(2,"0")+":"+String(s%60).padStart(2,"0"),end:String(Math.floor(e/60)%24).padStart(2,"0")+":"+String(e%60).padStart(2,"0")})}return out}
-function entry(day,p,classId){return db.schedule.find(function(x){return x[0]===day&&x[1]===p&&x[5]===classId})}
-function nav(){document.querySelectorAll(".nav").forEach(function(b){b.onclick=function(){show(b.dataset.page)}});document.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){show(b.dataset.go)}})}
-function show(id){var page=q(id);if(!page)return;document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active")});page.classList.add("active");document.querySelectorAll(".nav").forEach(function(n){n.classList.toggle("active",n.dataset.page===id)});q("title").textContent=id==="builder"?"Timetable Builder":id==="master"?"Master Setup":id.charAt(0).toUpperCase()+id.slice(1);renderAll()}
-function options(arr,value,label){return arr.map(function(x){return "<option value='"+esc(x[value])+"'>"+esc(x[label])+"</option>"}).join("")}
-function populate(){q("builderClass").innerHTML=options(db.classes,"id","name");q("classFilter").innerHTML=options(db.classes,"id","name");q("facultyFilter").innerHTML=options(db.faculty,"id","name");q("exportClass").innerHTML=options(db.classes,"id","name");q("exportFaculty").innerHTML=options(db.faculty,"id","name");q("exportCourse").innerHTML=options(db.courses,"id","name");q("exportDept").innerHTML=options(db.departments,"id","name")}
-function tableForClass(id,editable){var currentClass=cl(id);if(!currentClass)return "<p class=\"muted\">Class not found.</p>";
- var ts=timeSlots(),h="<table class='timetable'><thead><tr><th>DAY</th>";
- ts.forEach(function(t){h+="<th>"+t.start+"<br>"+t.end+"</th>"});h+="</tr></thead><tbody>";
- db.settings.days.forEach(function(d){h+="<tr><th>"+dayLabel(d)+"</th>";for(var p=0;p<db.settings.periods;p++){var bt=breakType(p);if(bt){h+="<td class='slot break'>"+bt+"</td>";continue}var e=entry(d,p,id);var c=e&&course(e[2]);var f=e&&fac(e[3]);var r=e&&room(e[4]);var s=e&&c?"<strong>"+esc(c.code)+"</strong><span>"+esc(c.name)+"</span><span>"+esc(f?f.name:"Unknown faculty")+" · "+esc(r?r.name:"Unknown room")+"</span>":"<span>—</span>";h+="<td class='slot "+(c&&c.lab?"lab ":"")+(editable?"editable":"")+"' "+(editable?"data-day='"+d+"' data-period='"+p+"'":"")+">"+s+"</td>"}h+="</tr>"});return h+"</tbody></table>"}
-function periodOptions(){
-  var opts="<option value='-1'>Not a break</option>";
-  for(var i=0;i<db.settings.periods;i++)opts+="<option value='"+i+"'>Period "+(i+1)+"</option>";
-  return opts;
-}
-function renderBreakSelectors(){
-  var sc=q("masterShortBreakCount"),lc=q("masterLunchBreakCount");
-  if(!sc||!lc)return;
-  var sn=Math.max(0,Math.min(4,+sc.value||0)),ln=Math.max(0,Math.min(2,+lc.value||0));
-  var sb=db.settings.shortBreaks||[],lb=db.settings.lunchBreaks||[];
-  var sh="",lh="";
-  for(var i=0;i<sn;i++)sh+="<label>Short Break "+(i+1)+"<select data-short-break='"+i+"'>"+periodOptions()+"</select></label>";
-  for(var j=0;j<ln;j++)lh+="<label>Lunch Break "+(j+1)+"<select data-lunch-break='"+j+"'>"+periodOptions()+"</select></label>";
-  q("shortBreakConfig").innerHTML=sh||"<div class='break-empty'>No short breaks configured</div>";
-  q("lunchBreakConfig").innerHTML=lh||"<div class='break-empty'>No lunch breaks configured</div>";
-  q("shortBreakConfig").querySelectorAll("select").forEach(function(el,i){el.value=String(sb[i]!=null?sb[i]:-1)});
-  q("lunchBreakConfig").querySelectorAll("select").forEach(function(el,i){el.value=String(lb[i]!=null?lb[i]:-1)});
-}
-function masterCalendarUI(){
-  var days=q("masterDays");if(!days)return;
-  syncBreakSettings(db.settings);
-  q("masterDays").value=db.settings.days.join(",");
-  q("masterPeriods").value=db.settings.periods;
-  q("masterStart").value=db.settings.start;
-  q("masterDuration").value=db.settings.duration;
-  q("masterShortBreakCount").value=(db.settings.shortBreaks||[]).length;
-  q("masterLunchBreakCount").value=(db.settings.lunchBreaks||[]).length;
-  renderBreakSelectors();
-}
-function master(){if(!q("masterClassList"))return;populateMaster();masterCalendarUI();q("masterClassList").innerHTML=db.classes.map(function(c){var sec=db.sections.find(function(s){return s.code===c.section});return "<div class='card'><b>"+esc(c.name)+"</b><span>Section "+esc(c.section)+" · "+esc(sec?sec.name:"")+" · "+esc(c.room)+" · "+esc(c.incharge)+"</span></div>"}).join("")||"<p class='muted'>No classes configured.</p>";q("masterPeopleList").innerHTML=db.sections.map(function(x){return "<div class='card'><b>"+esc(x.name)+"</b><span>"+esc(x.code)+" · "+esc((db.departments.find(function(d){return d.id===x.department})||{}).name||"")+"</span></div>"}).join("")+db.faculty.map(function(x){return "<div class='card'><b>"+esc(x.name)+"</b><span>Faculty · "+esc((db.departments.find(function(d){return d.id===x.department})||{}).name||"")+"</span></div>"}).join("")}
-function populateMaster(){if(!q("masterDept"))return;q("masterDept").innerHTML=options(db.departments,"id","name");q("masterSection").innerHTML=options(db.sections,"id","name");q("masterClass").innerHTML=options(db.classes,"id","name");q("masterFaculty").innerHTML=options(db.faculty,"id","name");q("masterCourse").innerHTML=options(db.courses,"id","name")}
-function builder(){var id=q("builderClass").value;if(!id){q("builderTable").innerHTML="<p>No class configured.</p>";return}q("builderTable").innerHTML=tableForClass(id,true);q("builderTable").querySelectorAll(".editable").forEach(function(td){td.onclick=function(){editSlot(td.dataset.day,+td.dataset.period)}});var used={};db.courses.forEach(function(c){used[c.id]=0});db.schedule.filter(function(x){return x[5]===id}).forEach(function(x){used[x[2]]++});var html="";db.courses.forEach(function(c){var req=(c.l||0)+(c.t||0)+(c.p||0),got=used[c.id]||0;if(!req)return;html+="<div class='load'><div><b>"+esc(c.code)+"</b><br>"+esc(c.name)+"</div><span>"+got+"/"+req+"</span><div class='bar'><i style='width:"+Math.min(100,req?got/req*100:0)+"%'></i></div></div>"});q("workload").innerHTML=html||"<p class='muted'>No courses.</p>";var cc=conflicts().filter(function(x){return x.classId===id}).length;q("conflicts").textContent=cc+" conflicts";q("conflicts").className="badge "+(cc?"bad":"good")}
-function editSlot(day,p){var id=q("builderClass").value,e=entry(day,p,id);if(breakType(p))return;var html="<label>Course<select name='course'><option value=''>Empty slot</option>"+options(db.courses,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save slot</button></div>";openModal("Edit timetable slot",html);var f=q("modalForm");f.course.value=e?e[2]:"";f.room.value=e?e[4]:(course(db.courses[0].id)||{}).room||db.rooms[0].id;q("cancelModal").onclick=closeModal;f.onsubmit=function(ev){ev.preventDefault();db.schedule=db.schedule.filter(function(x){return !(x[0]===day&&x[1]===p&&x[5]===id)});if(f.course.value){var c=course(f.course.value);if(!c){alert("Selected course no longer exists.");return}var collision=db.schedule.some(function(x){return x[0]===day&&x[1]===p&&x[5]!==id&&(x[3]===c.faculty||x[4]===f.room.value)});if(collision){alert("That slot creates a faculty or room collision.");return}db.schedule.push([day,p,c.id,c.faculty,f.room.value,id])}closeModal();save()}}
-function autoGenerate(){var id=q("builderClass").value;if(!id)return;db.schedule=db.schedule.filter(function(x){return x[5]!==id});var slots=[];db.settings.days.forEach(function(d){for(var p=0;p<db.settings.periods;p++)if(!breakType(p))slots.push([d,p])});var needs=[];db.courses.forEach(function(c){var n=c.lab?Math.ceil((c.p||0)/2):((c.l||0)+(c.t||0)+(c.p||0));for(var i=0;i<n;i++)needs.push(c)});needs.sort(function(a,b){return (b.lab?1:0)-(a.lab?1:0)});needs.forEach(function(c){for(var i=0;i<slots.length;i++){var d=slots[i][0],p=slots[i][1];if(entry(d,p,id))continue;if(availabilityBlocked(c.faculty,d,p))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===p&&x[3]===c.faculty}))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===p&&x[4]===c.room}))continue;if(c.lab){var np=p+1;if(np>=db.settings.periods||breakType(np)||entry(d,np,id))continue;if(availabilityBlocked(c.faculty,d,np))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===np&&x[3]===c.faculty}))continue;if(db.schedule.some(function(x){return x[0]===d&&x[1]===np&&x[4]===c.room}))continue;db.schedule.push([d,p,c.id,c.faculty,c.room,id]);db.schedule.push([d,np,c.id,c.faculty,c.room,id]);break}db.schedule.push([d,p,c.id,c.faculty,c.room,id]);break}});save()}
-function clearClass(){var id=q("builderClass").value;if(confirm("Clear this class timetable?")){db.schedule=db.schedule.filter(function(x){return x[5]!==id});save()}}
-function conflicts(){var out=[];db.schedule.forEach(function(x,i){db.schedule.forEach(function(y,j){if(i>=j||x[0]!==y[0]||x[1]!==y[1])return;if(x[5]===y[5])out.push({classId:x[5],type:"Class",day:x[0],period:x[1]});if(x[3]===y[3])out.push({classId:x[5],type:"Faculty",day:x[0],period:x[1]});if(x[4]===y[4])out.push({classId:x[5],type:"Room",day:x[0],period:x[1]})})});return out.filter(function(x,i,a){return a.findIndex(function(y){return JSON.stringify(x)===JSON.stringify(y)})===i})}
-function dashboard(){q("year").textContent=db.settings.year;q("days").textContent=db.settings.days.length;q("periods").textContent=db.settings.periods;if(q("headerTerm"))q("headerTerm").textContent=db.settings.year+" · "+(db.settings.semester||"Semester V");q("stats").innerHTML=[["Classes",db.classes.length],["Courses",db.courses.length],["Faculty",db.faculty.length],["Rooms",db.rooms.length]].map(function(x){return "<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>"}).join("");q("calendarSummary").innerHTML="<div><b>Calendar</b><span>"+db.settings.days.length+" working days · "+db.settings.periods+" periods/day</span></div><div><b>Breaks</b><span>"+(db.settings.shortBreaks||[]).length+" short · "+(db.settings.lunchBreaks||[]).length+" lunch</span></div><div><b>Seed</b><span>Joy University · Section K</span></div>";q("dashTable").innerHTML=db.classes[0]?tableForClass(db.classes[0].id,false):"<p class='muted'>Add a class.</p>";var c=conflicts();q("checks").innerHTML="<div class='check'><b>Schedule records</b><span>"+db.schedule.length+" sessions stored</span></div><div class='check'><b>Hard conflicts</b><span>"+(c.length?c.length+" conflicts":"No collisions detected")+"</span></div><div class='check'><b>Exports</b><span>PDF, Excel, CSV, Word, PNG, JSON and print</span></div>"}
-function classes(){var first=db.classes[0];if(!first){q("classTable").innerHTML="<p class=\"muted\">No classes configured.</p>";return}q("classTable").innerHTML=tableForClass(q("classFilter").value||first.id,false)}
-function faculty(){var first=db.faculty[0];if(!first){q("facultyTable").innerHTML="<p class=\"muted\">No faculty configured.</p>";return}var id=q("facultyFilter").value||first.id,html="<table><thead><tr><th>DAY</th>";timeSlots().forEach(function(t){html+="<th>"+t.start+"<br>"+t.end+"</th>"});html+="</tr></thead><tbody>";db.settings.days.forEach(function(d){html+="<tr><th>"+dayLabel(d)+"</th>";for(var p=0;p<db.settings.periods;p++){var e=db.schedule.find(function(x){return x[0]===d&&x[1]===p&&x[3]===id});html+=e?"<td><b>"+e[2]+"</b><br>"+esc(cl(e[5]).section)+"</td>":"<td>—</td>"}html+="</tr>"});q("facultyTable").innerHTML=html+"</tbody></table>"}
-function courses(){var h="<table><thead><tr><th>S.No</th><th>Code</th><th>Subject</th><th>L</th><th>T</th><th>P</th><th>Hrs/Wk</th><th>Credits</th><th>Faculty</th><th>Room</th></tr></thead><tbody>";db.courses.forEach(function(c,i){var f=fac(c.faculty),r=room(c.room);h+="<tr><td>"+(i+1)+"</td><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+((c.l||0)+(c.t||0)+(c.p||0))+"</td><td>"+c.credits+"</td><td>"+esc(f?f.name:"—")+"</td><td>"+esc(r?r.name:"—")+"</td></tr>"});q("courseTable").innerHTML=h+"</tbody></table>"}
-function rooms(){var h="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Sessions</th></tr></thead><tbody>";db.rooms.forEach(function(r){h+="<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+db.schedule.filter(function(x){return x[4]===r.id}).length+"</td></tr>"});q("roomTable").innerHTML=h+"</tbody></table>"}
-function departments(){q("deptList").innerHTML=db.departments.map(function(d){return "<div class='card'><b>"+esc(d.name)+"</b><span>"+d.code+" · "+db.classes.filter(function(c){return c.department===d.id}).length+" classes · "+db.faculty.filter(function(f){return f.department===d.id}).length+" faculty</span></div>"}).join("");q("sectionList").innerHTML=db.classes.map(function(c){return "<div class='card'><b>"+esc(c.name)+" — Section "+esc(c.section)+"</b><span>"+esc(c.room)+" · In-charge: "+esc(c.incharge)+"</span></div>"}).join("")}
-function settingsUI(){q("sUniversity").value=db.settings.university;q("sYear").value=db.settings.year;q("sTitle").value=db.settings.title;q("sIncharge").value=db.settings.incharge;q("sDays").value=db.settings.days.join(",");q("sStart").value=db.settings.start;q("sDuration").value=db.settings.duration;q("sPeriods").value=db.settings.periods}
-function renderCore(){populate();dashboard();master();builder();classes();faculty();courses();rooms();departments();settingsUI()}
-function openModal(title,html){q("modalTitle").textContent=title;q("modalForm").innerHTML=html;q("modal").classList.add("open")}
-function closeModal(){q("modal").classList.remove("open")}
-function addFaculty(){openModal("Add Faculty","<label>Faculty name<input name='name' required></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add Faculty</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.faculty.push({id:"F"+Date.now(),name:f.get("name"),department:f.get("department")});closeModal();save()}}
-function addSection(){openModal("Add Section","<label>Section name<input name='name' placeholder='Section A' required></label><label>Section code<input name='code' placeholder='A' required></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add Section</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),code=f.get("code").toUpperCase();db.sections.push({id:"SEC-"+code+"-"+Date.now(),name:f.get("name"),code:code,department:f.get("department")});closeModal();save()}}
-function addClass(){openModal("Add Class","<label>Class name<input name='name' placeholder='B.Tech CSE – Year/Sem III/V' required></label><label>Section<select name='section'>"+options(db.sections,"code","name")+"</select></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><label>Class in-charge<input name='incharge'></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add Class</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),id="CLS-"+Date.now();db.classes.push({id:id,name:f.get("name"),section:f.get("section"),department:f.get("department"),room:f.get("room"),incharge:f.get("incharge")});closeModal();save()}}
-function addCourse(){openModal("Add Course","<label>Course code<input name='code' required></label><label>Subject name<input name='name' required></label><div class='formgrid'><label>Lectures<input name='l' type='number' value='3'></label><label>Tutorials<input name='t' type='number' value='0'></label><label>Practicals<input name='p' type='number' value='0'></label><label>Credits<input name='credits' type='number' value='3'></label></div><label>Faculty<select name='faculty'>"+options(db.faculty,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.courses.push({id:f.get("code"),code:f.get("code"),name:f.get("name"),l:+f.get("l"),t:+f.get("t"),p:+f.get("p"),credits:+f.get("credits"),faculty:f.get("faculty"),room:f.get("room")});closeModal();save()}}
-function addRoom(){openModal("Add Room","<label>Room name<input name='name' required></label><label>Type<input name='type' value='Classroom'></label><label>Capacity<input name='capacity' type='number' value='60'></label><label>Building<input name='building'></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.rooms.push({id:"R"+Date.now(),name:f.get("name"),type:f.get("type"),capacity:+f.get("capacity"),building:f.get("building")});closeModal();save()}}
-function addDept(){openModal("Add Department","<label>Department name<input name='name' required></label><label>Code<input name='code' required></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add</button></div>");q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),code=f.get("code").toUpperCase();db.departments.push({id:code,name:f.get("name"),code:code});closeModal();save()}}
-function csvRows(){var rows=[];db.schedule.forEach(function(x){var cls=cl(x[5]),cr=course(x[2]),fc=fac(x[3]),rm=room(x[4]),slot=timeSlots()[x[1]];rows.push({Day:x[0],Period:x[1]+1,Time:slot?slot.start+" - "+slot.end:"",Class:cls?cls.name:"Unknown class",Section:cls?cls.section:"",Course:x[2]||"",Subject:cr?cr.name:"Unknown course",Faculty:fc?fc.name:"Unknown faculty",Room:rm?rm.name:"Unknown room"})});return rows}
-function download(name,data,type){var b=new Blob([data],{type:type}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},500)}
-function exportCSV(){var rows=csvRows(),keys=Object.keys(rows[0]||{Day:""}),out=keys.join(",")+"\\n"+rows.map(function(r){return keys.map(function(k){return '"'+String(r[k]||"").replaceAll('"','""')+'"'}).join(",")}).join("\\n");download("university-timetable.csv",out,"text/csv")}
-function exportExcel(){var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(csvRows()),"Schedule");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.courses),"Courses");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.faculty),"Faculty");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.rooms),"Rooms");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.classes),"Classes");XLSX.writeFile(wb,"university-timetable.xlsx")}
-function exportWord(){var rows=csvRows(),keys=Object.keys(rows[0]||{Day:"Day",Period:"Period",Time:"Time",Class:"Class",Section:"Section",Course:"Course",Subject:"Subject",Faculty:"Faculty",Room:"Room"}),html="<html><head><meta charset='utf-8'><style>body{font-family:Arial}table{border-collapse:collapse;width:100%;font-size:10px}td,th{border:1px solid #555;padding:5px}th{background:#eee}</style></head><body><h2>"+esc(db.settings.university)+"</h2><h3>"+esc(db.settings.title)+"</h3><table><tr>"+keys.map(function(k){return "<th>"+esc(k)+"</th>"}).join("")+"</tr>"+rows.map(function(r){return "<tr>"+keys.map(function(k){return "<td>"+esc(r[k])+"</td>"}).join("")+"</tr>"}).join("")+"</table></body></html>";download("university-timetable.doc",html,"application/msword")}
-async function exportPNG(){var el=q("dashTable"),canvas=await html2canvas(el,{scale:2,backgroundColor:"#fff"});canvas.toBlob(function(b){downloadBlob("class-timetable.png",b)})}
-function downloadBlob(name,b){var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove()}
-async function exportPDF(all){if(!db.classes.length){alert("No classes configured.");return}var ids=all?db.classes.map(function(c){return c.id}):[q("exportClass").value||db.classes[0].id];var js=window.jspdf.jsPDF,pdf=new js({orientation:"landscape",unit:"mm",format:"a4"});for(var i=0;i<ids.length;i++){var temp=document.createElement("div");temp.style.cssText="position:fixed;left:-10000px;top:0;width:1100px;background:#fff;padding:30px;font-family:Arial";temp.innerHTML="<h2 style='text-align:center'>"+esc(db.settings.university)+"</h2><h3 style='text-align:center'>"+esc(db.settings.title)+"</h3><p style='text-align:center'>"+esc(cl(ids[i]).name)+" — Section "+esc(cl(ids[i]).section)+" | "+esc(cl(ids[i]).room)+"</p>"+tableForClass(ids[i],false);document.body.appendChild(temp);var canvas=await html2canvas(temp,{scale:2,backgroundColor:"#fff"});if(i)pdf.addPage();pdf.addImage(canvas.toDataURL("image/png"),"PNG",8,8,281,Math.min(190,281*canvas.height/canvas.width));temp.remove()}pdf.save(all?"all-university-timetables.pdf":"class-timetable.pdf")}
-function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
-function exportAction(type){if(type==="json")return backup();if(type==="csv")return exportCSV();if(type==="excel")return exportExcel();if(type==="word")return exportWord();if(type==="png")return exportPNG();if(type==="pdf")return exportPDF(false);if(type==="allpdf")return exportPDF(true);if(type==="print")return window.print()}
-function saveMasterCalendar(){
-  var days=q("masterDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);
-  var periods=Math.max(1,Math.min(16,+q("masterPeriods").value||8));
-  var sb=Array.from(q("shortBreakConfig").querySelectorAll("select")).map(function(x){return +x.value}).filter(function(v){return v>=0&&v<periods});
-  var lb=Array.from(q("lunchBreakConfig").querySelectorAll("select")).map(function(x){return +x.value}).filter(function(v){return v>=0&&v<periods});
-  var all=sb.concat(lb);
-  if(new Set(sb).size!==sb.length||new Set(lb).size!==lb.length||new Set(all).size!==all.length){
-    alert("Every break must use a different period.");
-    return;
-  }
-  db.settings.days=days;
-  db.settings.periods=periods;
-  db.settings.start=q("masterStart").value||"09:00";
-  db.settings.duration=Math.max(1,+q("masterDuration").value||50);
-  db.settings.shortBreaks=sb;
-  db.settings.lunchBreaks=lb;
-  syncBreakSettings(db.settings);
-  db.schedule=db.schedule.filter(function(x){return breakType(x[1])===null});
-  save();
-}
-function seedKSectionData(){
-  if(!confirm("Restore the seeded Joy University Section K timetable and sample master data? Your current local workspace will be replaced."))return;
-  db=copy(DEFAULT);
-  syncBreakSettings(db.settings);
-  logActivity("K Section sample restored","Joy University demo timetable");
-  save();
-}
-function bindCore(){nav();q("backup").onclick=backup;q("quick").onclick=function(){show("builder");autoGenerate()};q("generate").onclick=autoGenerate;q("clearClass").onclick=clearClass;q("builderClass").onchange=builder;q("masterAddClass").onclick=addClass;q("masterAddSection").onclick=addSection;q("masterAddFaculty").onclick=addFaculty;q("masterAddCourse").onclick=addCourse;q("masterAddDept").onclick=addDept;q("saveMasterCalendar").onclick=saveMasterCalendar;if(q("seedKData"))q("seedKData").onclick=seedKSectionData;if(q("masterShortBreakCount"))q("masterShortBreakCount").onchange=renderBreakSelectors;if(q("masterLunchBreakCount"))q("masterLunchBreakCount").onchange=renderBreakSelectors;q("classFilter").onchange=classes;q("facultyFilter").onchange=faculty;q("addCourse").onclick=addCourse;q("addRoom").onclick=addRoom;q("addDept").onclick=addDept;q("closeModal").onclick=closeModal;q("modal").onclick=function(e){if(e.target.id==="modal")closeModal()};document.querySelectorAll(".export").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});document.querySelectorAll(".exportCard").forEach(function(b){b.onclick=function(){exportAction(b.dataset.type)}});q("saveSettings").onclick=function(){db.settings.university=q("sUniversity").value;db.settings.year=q("sYear").value;db.settings.title=q("sTitle").value;db.settings.incharge=q("sIncharge").value;save()};q("saveCalendar").onclick=function(){db.settings.days=q("sDays").value.split(",").map(function(x){return x.trim().toUpperCase()}).filter(Boolean);db.settings.start=q("sStart").value;db.settings.duration=+q("sDuration").value;db.settings.periods=Math.max(1,+q("sPeriods").value);if(db.settings.shortBreak>=db.settings.periods)db.settings.shortBreak=-1;if(db.settings.lunchBreak>=db.settings.periods)db.settings.lunchBreak=-1;db.settings.breaks=[db.settings.shortBreak,db.settings.lunchBreak].filter(function(v){return v>=0});save()};q("reset").onclick=function(){if(confirm("Reset the workspace to the supplied sample?")){db=copy(DEFAULT);save()}}}
-function normalizeSaaSData(x){
-x.availability=Array.isArray(x.availability)?x.availability:[];
-x.bookings=Array.isArray(x.bookings)?x.bookings:[];
-x.substitutions=Array.isArray(x.substitutions)?x.substitutions:[];
-x.users=Array.isArray(x.users)?x.users:[{id:"U1",name:"System Administrator",email:"admin@unischedule.local",role:"Owner"}];
-x.activity=Array.isArray(x.activity)?x.activity:[];
-x.attendance=Array.isArray(x.attendance)?x.attendance:[];
-x.announcements=Array.isArray(x.announcements)?x.announcements:[];
-x.versions=Array.isArray(x.versions)?x.versions:[];
-x.organization=x.organization||{name:x.settings.university||"University Workspace",plan:"Trial",status:"Active"};
-return x}
-function load(){
-try{
-var shared=readSharedSnapshot();
-var x=shared||JSON.parse(localStorage.getItem(KEY));
-if(!x)x=copy(DEFAULT);
-x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});syncBreakSettings(x.settings);
-x.departments=Array.isArray(x.departments)?x.departments:copy(DEFAULT.departments);
-x.classes=Array.isArray(x.classes)?x.classes:copy(DEFAULT.classes);
-x.sections=Array.isArray(x.sections)?x.sections:[];
-x.faculty=Array.isArray(x.faculty)?x.faculty:copy(DEFAULT.faculty);
-x.rooms=Array.isArray(x.rooms)?x.rooms:copy(DEFAULT.rooms);
-x.courses=Array.isArray(x.courses)?x.courses:copy(DEFAULT.courses);
-x.schedule=Array.isArray(x.schedule)?x.schedule:copy(DEFAULT.schedule);
-if(x.settings.shortBreak==null)x.settings.shortBreak=(x.settings.breaks&&x.settings.breaks[0]!=null?x.settings.breaks[0]:2);
-if(x.settings.lunchBreak==null)x.settings.lunchBreak=(x.settings.breaks&&x.settings.breaks[1]!=null?x.settings.breaks[1]:5);
-x.settings.breaks=[x.settings.shortBreak,x.settings.lunchBreak].filter(function(v){return v>=0&&v<x.settings.periods});
-if(!x.sections.length)x.classes.forEach(function(c){if(c.section&&!x.sections.some(function(s){return s.code===c.section}))x.sections.push({id:"SEC-"+c.section,name:"Section "+c.section,code:c.section,department:c.department})});
-return normalizeSaaSData(x)
-}catch(e){return normalizeSaaSData(copy(DEFAULT))}}
-function logActivity(action,details){
-db.activity.unshift({id:"ACT-"+Date.now(),action:action,details:details||"",at:new Date().toISOString(),actor:(db.users[0]&&db.users[0].name)||"System"});
-db.activity=db.activity.slice(0,200)
-}
-function availabilityBlocked(fid,day,p){
-return db.availability.some(function(a){return a.faculty===fid&&(a.day===day||a.day==="ALL")&&a.period===p&&a.blocked})
-}
-function availableFaculty(day,p,exclude){
-return db.faculty.filter(function(f){
-if(f.id===exclude)return false;
-if(availabilityBlocked(f.id,day,p))return false;
-return !db.schedule.some(function(x){return x[0]===day&&x[1]===p&&x[3]===f.id})
-})}
-function availability(){
-var h="<table><thead><tr><th>Faculty</th>";
-for(var p=0;p<db.settings.periods;p++)h+="<th>P"+(p+1)+"</th>";
-h+="</tr></thead><tbody>";
-db.faculty.forEach(function(f){h+="<tr><th>"+esc(f.name)+"</th>";for(var p=0;p<db.settings.periods;p++){var blocked=db.availability.some(function(a){return a.faculty===f.id&&a.period===p&&a.day==="ALL"&&a.blocked});h+="<td><button class='mini "+(blocked?"danger-mini":"")+"' data-avail='"+f.id+"' data-period='"+p+"'>"+(blocked?"Blocked":"Free")+"</button></td>"}h+="</tr>"});
-q("availabilityTable").innerHTML=h+"</tbody></table>";
-q("availabilityTable").querySelectorAll("[data-avail]").forEach(function(b){b.onclick=function(){var fid=b.dataset.avail,p=+b.dataset.period,idx=db.availability.findIndex(function(a){return a.faculty===fid&&a.period===p&&a.day==="ALL"});if(idx>=0)db.availability.splice(idx,1);else db.availability.push({id:"AVL-"+Date.now(),faculty:fid,day:"ALL",period:p,blocked:true});logActivity("Availability changed",fac(fid).name+" Period "+(p+1));save()}})
-}
-function bookings(){
-var h="<table><thead><tr><th>Day</th><th>Period</th><th>Room</th><th>Purpose</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody>";
-db.bookings.forEach(function(b){h+="<tr><td>"+dayLabel(b.day)+"</td><td>"+(b.period+1)+"</td><td>"+esc(room(b.room)?room(b.room).name:"—")+"</td><td>"+esc(b.title)+"</td><td>"+esc(b.requestedBy)+"</td><td>"+esc(b.status)+"</td><td><button data-cancel-book='"+b.id+"'>Cancel</button></td></tr>"});
-q("bookingTable").innerHTML=h+"</tbody></table>";
-q("bookingTable").querySelectorAll("[data-cancel-book]").forEach(function(b){b.onclick=function(){db.bookings=db.bookings.filter(function(x){return x.id!==b.dataset.cancelBook});logActivity("Room booking cancelled",b.dataset.cancelBook);save()}})
-}
-function addBooking(){
-var dayOpts=db.settings.days.map(function(d){return "<option value='"+d+"'>"+dayLabel(d)+"</option>"}).join("");
-var periodOpts="";for(var p=0;p<db.settings.periods;p++)if(!breakType(p))periodOpts+="<option value='"+p+"'>Period "+(p+1)+"</option>";
-openModal("New Room Booking","<label>Day<select name='day'>"+dayOpts+"</select></label><label>Period<select name='period'>"+periodOpts+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><label>Purpose<input name='title' required placeholder='Project review / seminar'></label><label>Requested by<input name='requestedBy' required></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Book Room</button></div>");
-q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),day=f.get("day"),p=+f.get("period"),rid=f.get("room");if(db.schedule.some(function(x){return x[0]===day&&x[1]===p&&x[4]===rid})||db.bookings.some(function(x){return x.day===day&&x.period===p&&x.room===rid&&x.status!=="Cancelled"})){alert("Room is already occupied in this period.");return}db.bookings.push({id:"BKG-"+Date.now(),day:day,period:p,room:rid,title:f.get("title"),requestedBy:f.get("requestedBy"),status:"Confirmed"});logActivity("Room booked",f.get("title"));closeModal();save()}
-}
-function substitutions(){
-var h="<table><thead><tr><th>Day</th><th>Period</th><th>Class</th><th>Course</th><th>Absent Faculty</th><th>Substitute</th><th>Status</th><th>Action</th></tr></thead><tbody>";
-db.substitutions.forEach(function(s){h+="<tr><td>"+dayLabel(s.day)+"</td><td>"+(s.period+1)+"</td><td>"+esc(cl(s.classId)?cl(s.classId).name:"—")+"</td><td>"+esc(course(s.courseId)?course(s.courseId).code:"—")+"</td><td>"+esc(fac(s.absentFaculty)?fac(s.absentFaculty).name:"—")+"</td><td>"+esc(fac(s.substituteFaculty)?fac(s.substituteFaculty).name:"—")+"</td><td>"+esc(s.status)+"</td><td><button data-del-sub='"+s.id+"'>Delete</button></td></tr>"});
-q("substitutionTable").innerHTML=h+"</tbody></table>";
-q("substitutionTable").querySelectorAll("[data-del-sub]").forEach(function(b){b.onclick=function(){db.substitutions=db.substitutions.filter(function(x){return x.id!==b.dataset.delSub});logActivity("Substitution removed",b.dataset.delSub);save()}})
-}
-function addSubstitution(){
-var dayOpts=db.settings.days.map(function(d){return "<option value='"+d+"'>"+dayLabel(d)+"</option>"}).join("");
-var periodOpts="";for(var p=0;p<db.settings.periods;p++)if(!breakType(p))periodOpts+="<option value='"+p+"'>Period "+(p+1)+"</option>";
-openModal("New Substitution","<label>Day<select name='day'>"+dayOpts+"</select></label><label>Period<select name='period'>"+periodOpts+"</select></label><label>Class<select name='classId'>"+options(db.classes,"id","name")+"</select></label><label>Course<select name='courseId'>"+options(db.courses,"id","name")+"</select></label><label>Absent Faculty<select name='absentFaculty'>"+options(db.faculty,"id","name")+"</select></label><label>Substitute Faculty<select name='substituteFaculty'>"+options(db.faculty,"id","name")+"</select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Assign Substitute</button></div>");
-q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),day=f.get("day"),p=+f.get("period"),sf=f.get("substituteFaculty"),af=f.get("absentFaculty");if(sf===af){alert("Substitute must be different from absent faculty.");return}if(!availableFaculty(day,p,af).some(function(x){return x.id===sf})){alert("Selected substitute is not available at this time.");return}db.substitutions.push({id:"SUB-"+Date.now(),day:day,period:p,classId:f.get("classId"),courseId:f.get("courseId"),absentFaculty:af,substituteFaculty:sf,status:"Assigned"});logActivity("Substitute assigned",fac(sf).name);closeModal();save()}
-}
-function users(){
-var h="<table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody>";
-db.users.forEach(function(u){h+="<tr><td><b>"+esc(u.name)+"</b></td><td>"+esc(u.email)+"</td><td><select data-role-user='"+u.id+"'><option "+(u.role==="Owner"?"selected":"")+">Owner</option><option "+(u.role==="Admin"?"selected":"")+">Admin</option><option "+(u.role==="Scheduler"?"selected":"")+">Scheduler</option><option "+(u.role==="Faculty"?"selected":"")+">Faculty</option><option "+(u.role==="Viewer"?"selected":"")+">Viewer</option></select></td><td><button data-del-user='"+u.id+"'>Delete</button></td></tr>"});
-q("userTable").innerHTML=h+"</tbody></table>";
-q("userTable").querySelectorAll("[data-role-user]").forEach(function(s){s.onchange=function(){var u=db.users.find(function(x){return x.id===s.dataset.roleUser});if(u){u.role=s.value;logActivity("User role changed",u.name+" → "+u.role);save()}}});
-q("userTable").querySelectorAll("[data-del-user]").forEach(function(b){b.onclick=function(){if(db.users.length===1){alert("Keep at least one user.");return}db.users=db.users.filter(function(x){return x.id!==b.dataset.delUser});logActivity("User removed",b.dataset.delUser);save()}})
-}
-function addUser(){
-openModal("Add Workspace User","<label>Name<input name='name' required></label><label>Email<input name='email' type='email' required></label><label>Role<select name='role'><option>Admin</option><option>Scheduler</option><option>Faculty</option><option>Viewer</option></select></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Add User</button></div>");
-q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.users.push({id:"U-"+Date.now(),name:f.get("name"),email:f.get("email"),role:f.get("role")});logActivity("User added",f.get("email"));closeModal();save()}
-}
-function activity(){
-var h="<table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead><tbody>";
-db.activity.forEach(function(a){h+="<tr><td>"+esc(new Date(a.at).toLocaleString())+"</td><td>"+esc(a.actor)+"</td><td>"+esc(a.action)+"</td><td>"+esc(a.details)+"</td></tr>"});
-q("activityTable").innerHTML=h+"</tbody></table>"
-}
-function renderAll(){ensureEnterpriseData();renderCore();availability();bookings();substitutions();activity();attendance();announcements();versions();analytics();preflight();publishUI();renderWorkflow();bindMasterControls()}
-function bind(){bindCore();if(q("addAvailability"))q("addAvailability").onclick=function(){show("availability")};if(q("addBooking"))q("addBooking").onclick=addBooking;if(q("addSubstitution"))q("addSubstitution").onclick=addSubstitution;if(q("addUser"))q("addUser").onclick=addUser;if(q("clearActivity"))q("clearActivity").onclick=function(){if(confirm("Clear activity log?")){db.activity=[];save()}}}
+function findCourse(id){return db.courses.find(c=>c.id===id)}
+function findFaculty(id){return db.faculty.find(f=>f.id===id)}
+function findRoom(id){return db.rooms.find(r=>r.id===id)}
+function findClass(id){return db.classes.find(c=>c.id===id)}
 
-function masterEntity(type){
-var map={department:"masterDept",section:"masterSection",class:"masterClass",faculty:"masterFaculty",course:"masterCourse"},id=q(map[type]).value;
-if(!id)return null;
-if(type==="department")return db.departments.find(function(x){return x.id===id});
-if(type==="section")return db.sections.find(function(x){return x.id===id});
-if(type==="class")return db.classes.find(function(x){return x.id===id});
-if(type==="faculty")return db.faculty.find(function(x){return x.id===id});
-return db.courses.find(function(x){return x.id===id})
+function courseSessions(c){
+  if(c.lab)return Math.max(1,Math.ceil((Number(c.p)||0)/2));
+  return Math.max(1,(Number(c.l)||0)+(Number(c.t)||0)+(Number(c.p)||0));
 }
-function editMaster(type){
-var x=masterEntity(type);if(!x)return;
-var html="";
-if(type==="department")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Code<input name='code' required value='"+esc(x.code)+"'></label>";
-if(type==="section")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Code<input name='code' required value='"+esc(x.code)+"'></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label>";
-if(type==="faculty")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label>";
-if(type==="class")html="<label>Name<input name='name' required value='"+esc(x.name)+"'></label><label>Section<select name='section'>"+options(db.sections,"code","name")+"</select></label><label>Department<select name='department'>"+options(db.departments,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label><label>In-charge<input name='incharge' value='"+esc(x.incharge)+"'></label>";
-if(type==="course")html="<label>Code<input name='code' required value='"+esc(x.code)+"'></label><label>Subject<input name='name' required value='"+esc(x.name)+"'></label><div class='formgrid'><label>L<input name='l' type='number' value='"+(x.l||0)+"'></label><label>T<input name='t' type='number' value='"+(x.t||0)+"'></label><label>P<input name='p' type='number' value='"+(x.p||0)+"'></label><label>Credits<input name='credits' type='number' value='"+(x.credits||0)+"'></label></div><label>Faculty<select name='faculty'>"+options(db.faculty,"id","name")+"</select></label><label>Room<select name='room'>"+options(db.rooms,"id","name")+"</select></label>";
-openModal("Edit "+type,html+"<div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save Changes</button></div>");
-var f=q("modalForm");q("cancelModal").onclick=closeModal;
-if(f.department)f.department.value=x.department||"";
-if(f.section)f.section.value=x.section||x.code||"";
-if(f.room)f.room.value=x.room||"";
-if(f.faculty)f.faculty.value=x.faculty||x.default_faculty_id||"";
-f.onsubmit=function(e){e.preventDefault();var d=new FormData(f);
-if(type==="department"){x.name=d.get("name");x.code=d.get("code").toUpperCase()}
-if(type==="section"){x.name=d.get("name");x.code=d.get("code").toUpperCase();x.department=d.get("department")}
-if(type==="faculty"){x.name=d.get("name");x.department=d.get("department")}
-if(type==="class"){x.name=d.get("name");x.section=d.get("section");x.department=d.get("department");x.room=d.get("room");x.incharge=d.get("incharge")}
-if(type==="course"){x.code=d.get("code");x.id=x.id; x.name=d.get("name");x.l=+d.get("l");x.t=+d.get("t");x.p=+d.get("p");x.credits=+d.get("credits");x.faculty=d.get("faculty");x.room=d.get("room")}
-logActivity(type+" updated",x.name||x.code);closeModal();save()}
-}
-function deleteMaster(type){
-var x=masterEntity(type);if(!x)return;
-if(!confirm("Delete this "+type+"?"))return;
-if(type==="department"&& (db.classes.some(function(c){return c.department===x.id})||db.faculty.some(function(f){return f.department===x.id})||db.sections.some(function(s){return s.department===x.id})))return alert("This department is still in use.");
-if(type==="section"&&db.classes.some(function(c){return c.section===x.code}))return alert("This section is still assigned to a class.");
-if(type==="faculty"&&db.courses.some(function(c){return c.faculty===x.id}) )return alert("This faculty member is assigned to a course.");
-if(type==="class"&&db.schedule.some(function(s){return s[5]===x.id}))return alert("This class still has timetable entries.");
-if(type==="course"&&db.schedule.some(function(s){return s[2]===x.id}))return alert("This course exists in the timetable.");
-var key={department:"departments",section:"sections",class:"classes",faculty:"faculty",course:"courses"}[type];
-db[key]=db[key].filter(function(y){return y.id!==x.id});logActivity(type+" deleted",x.name||x.code);save()
-}
-function bindMasterControls(){
-document.querySelectorAll("[data-master-edit]").forEach(function(b){b.onclick=function(){editMaster(b.dataset.masterEdit)}});
-document.querySelectorAll("[data-master-delete]").forEach(function(b){b.onclick=function(){deleteMaster(b.dataset.masterDelete)}});
-}
-/* Enterprise operations layer */
-function attendance(){
-  var h="<table><thead><tr><th>Date</th><th>Class</th><th>Course</th><th>Period</th><th>Present</th><th>Total</th><th>Attendance</th><th>Action</th></tr></thead><tbody>";
-  db.attendance.forEach(function(a){
-    var pct=a.total?Math.round(a.present/a.total*100):0;
-    h+="<tr><td>"+esc(a.date)+"</td><td>"+esc(cl(a.classId)?cl(a.classId).name:"—")+"</td><td>"+esc(course(a.courseId)?course(a.courseId).code:"—")+"</td><td>"+(a.period+1)+"</td><td>"+a.present+"</td><td>"+a.total+"</td><td><b>"+pct+"%</b></td><td><button data-del-att='"+a.id+"'>Delete</button></td></tr>";
-  });
-  q("attendanceTable").innerHTML=h+"</tbody></table>";
-  q("attendanceTable").querySelectorAll("[data-del-att]").forEach(function(b){b.onclick=function(){db.attendance=db.attendance.filter(function(x){return x.id!==b.dataset.delAtt});logActivity("Attendance record deleted",b.dataset.delAtt);save()}});
-}
-function takeAttendance(){
-  var classOpts=options(db.classes,"id","name"), courseOpts=options(db.courses,"id","name");
-  var dayOpts=db.settings.days.map(function(d){return "<option value='"+d+"'>"+dayLabel(d)+"</option>"}).join("");
-  var pOpts="";for(var p=0;p<db.settings.periods;p++)if(!breakType(p))pOpts+="<option value='"+p+"'>Period "+(p+1)+"</option>";
-  openModal("Record Attendance","<label>Date<input name='date' type='date' required></label><label>Class<select name='classId'>"+classOpts+"</select></label><label>Course<select name='courseId'>"+courseOpts+"</select></label><label>Period<select name='period'>"+pOpts+"</select></label><div class='formgrid'><label>Present<input name='present' type='number' min='0' required></label><label>Total Students<input name='total' type='number' min='1' required></label></div><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Save Attendance</button></div>");
-  q("cancelModal").onclick=closeModal;
-  q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target),present=+f.get("present"),total=+f.get("total");if(present>total){alert("Present cannot exceed total students.");return}db.attendance.unshift({id:"ATT-"+Date.now(),date:f.get("date"),classId:f.get("classId"),courseId:f.get("courseId"),period:+f.get("period"),present:present,total:total});logActivity("Attendance recorded",f.get("date"));closeModal();save()};
-}
-function announcements(){
-  var h="<table><thead><tr><th>Published</th><th>Title</th><th>Audience</th><th>Message</th><th>Status</th><th>Action</th></tr></thead><tbody>";
-  db.announcements.forEach(function(a){h+="<tr><td>"+esc(new Date(a.at).toLocaleString())+"</td><td><b>"+esc(a.title)+"</b></td><td>"+esc(a.audience)+"</td><td>"+esc(a.message)+"</td><td>"+esc(a.status)+"</td><td><button data-del-ann='"+a.id+"'>Delete</button></td></tr>"});
-  q("announcementTable").innerHTML=h+"</tbody></table>";
-  q("announcementTable").querySelectorAll("[data-del-ann]").forEach(function(b){b.onclick=function(){db.announcements=db.announcements.filter(function(x){return x.id!==b.dataset.delAnn});logActivity("Announcement deleted",b.dataset.delAnn);save()}});
-}
-function addAnnouncement(){
-  openModal("New Announcement","<label>Title<input name='title' required></label><label>Audience<select name='audience'><option>Everyone</option><option>Faculty</option><option>Students</option><option>All Classes</option></select></label><label>Message<textarea name='message' rows='5' required></textarea></label><div class='actions'><button type='button' id='cancelModal'>Cancel</button><button class='primary'>Publish</button></div>");
-  q("cancelModal").onclick=closeModal;q("modalForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);db.announcements.unshift({id:"ANN-"+Date.now(),title:f.get("title"),audience:f.get("audience"),message:f.get("message"),status:"Published",at:new Date().toISOString()});logActivity("Announcement published",f.get("title"));closeModal();save()};
-}
-function versions(){
-  var h="<table><thead><tr><th>Version</th><th>Created</th><th>Sessions</th><th>Note</th><th>Action</th></tr></thead><tbody>";
-  db.versions.forEach(function(v){h+="<tr><td><b>"+esc(v.name)+"</b></td><td>"+esc(new Date(v.at).toLocaleString())+"</td><td>"+v.schedule.length+"</td><td>"+esc(v.note||"Manual release")+"</td><td><button data-restore-version='"+v.id+"'>Restore</button> <button data-del-version='"+v.id+"'>Delete</button></td></tr>"});
-  q("versionTable").innerHTML=h+"</tbody></table>";
-  q("versionTable").querySelectorAll("[data-restore-version]").forEach(function(b){b.onclick=function(){var v=db.versions.find(function(x){return x.id===b.dataset.restoreVersion});if(!v)return;if(confirm("Restore "+v.name+"? Current timetable will be replaced.")){db.schedule=copy(v.schedule);logActivity("Timetable version restored",v.name);save()}}});
-  q("versionTable").querySelectorAll("[data-del-version]").forEach(function(b){b.onclick=function(){db.versions=db.versions.filter(function(x){return x.id!==b.dataset.delVersion});save()}});
-}
-function saveVersion(){
-  var note=prompt("Version note (optional):","Before timetable changes");if(note===null)return;
-  var name="Release "+(db.versions.length+1);
-  db.versions.unshift({id:"VER-"+Date.now(),name:name,note:note,status:"Draft",schedule:copy(db.schedule),at:new Date().toISOString()});
-  db.versions=db.versions.slice(0,30);logActivity("Timetable version saved",name);save();
-}
-function analytics(){
-  var totalSlots=db.classes.length*db.settings.days.length*Math.max(0,db.settings.periods-db.settings.breaks.length);
-  var used=db.schedule.length,conf=conflicts().length;
-  q("analyticsStats").innerHTML=[["Scheduled sessions",used],["Available slots",Math.max(0,totalSlots-used)],["Faculty",db.faculty.length],["Rooms",db.rooms.length],["Conflicts",conf],["Saved releases",db.versions.length]].map(function(x){return "<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>"}).join("");
-  var fh="<table><thead><tr><th>Faculty</th><th>Sessions</th><th>Weekly target</th><th>Load</th></tr></thead><tbody>";
-  db.faculty.forEach(function(f){var n=db.schedule.filter(function(x){return x[3]===f.id}).length;var target=db.courses.filter(function(c){return c.faculty===f.id}).reduce(function(a,c){return a+(c.l||0)+(c.t||0)+(c.p||0)},0);fh+="<tr><td>"+esc(f.name)+"</td><td>"+n+"</td><td>"+target+"</td><td>"+(target?Math.round(n/target*100):0)+"%</td></tr>"});q("facultyWorkload").innerHTML=fh+"</tbody></table>";
-  var rh="<table><thead><tr><th>Room</th><th>Sessions</th><th>Capacity</th><th>Utilization</th></tr></thead><tbody>";
-  db.rooms.forEach(function(r){var n=db.schedule.filter(function(x){return x[4]===r.id}).length;var cap=db.settings.days.length*Math.max(0,db.settings.periods-db.settings.breaks.length);rh+="<tr><td>"+esc(r.name)+"</td><td>"+n+"</td><td>"+r.capacity+"</td><td>"+(cap?Math.round(n/cap*100):0)+"%</td></tr>"});q("roomUtilization").innerHTML=rh+"</tbody></table>";
-  var ch="<table><thead><tr><th>Course</th><th>Required</th><th>Scheduled</th><th>Coverage</th></tr></thead><tbody>";
-  db.courses.forEach(function(c){var req=(c.l||0)+(c.t||0)+(c.p||0),got=db.schedule.filter(function(x){return x[2]===c.id}).length;ch+="<tr><td>"+esc(c.code)+"</td><td>"+req+"</td><td>"+got+"</td><td>"+(req?Math.min(100,Math.round(got/req*100)):100)+"%</td></tr>"});q("courseCoverage").innerHTML=ch+"</tbody></table>";
-}
-function integrity(){
-  var issues=[];
-  db.classes.forEach(function(c){if(!db.departments.some(function(d){return d.id===c.department}))issues.push("Class "+c.name+" references a missing department.");if(c.section&&!db.sections.some(function(s){return s.code===c.section}))issues.push("Class "+c.name+" references a missing section.");});
-  db.courses.forEach(function(c){if(c.faculty&&!fac(c.faculty))issues.push("Course "+c.code+" references missing faculty.");if(c.room&&!room(c.room))issues.push("Course "+c.code+" references missing room.");});
-  db.schedule.forEach(function(x){if(!cl(x[5]))issues.push("Schedule references missing class: "+x[5]);if(!course(x[2]))issues.push("Schedule references missing course: "+x[2]);if(!fac(x[3]))issues.push("Schedule references missing faculty: "+x[3]);if(!room(x[4]))issues.push("Schedule references missing room: "+x[4]);if(breakType(x[1]))issues.push("Schedule uses a break period: "+x[0]+" P"+(x[1]+1));});
-  conflicts().forEach(function(c){issues.push(c.type+" conflict on "+c.day+" P"+(c.period+1));});
-  db.classes.forEach(function(c){db.courses.forEach(function(cr){var req=(cr.l||0)+(cr.t||0)+(cr.p||0);if(req&&!db.schedule.some(function(x){return x[5]===c.id&&x[2]===cr.id})&&c.department===((fac(cr.faculty)||{}).department))issues.push("Coverage gap: "+c.name+" / "+cr.code);})});
-  q("integrityResult").innerHTML=issues.length?"<div class='check bad'><b>"+issues.length+" issue(s) found</b><span>"+issues.slice(0,30).map(esc).join("<br>")+"</span></div>":"<div class='check good'><b>Integrity check passed</b><span>No orphan references, break violations or hard scheduling conflicts were found.</span></div>";
-}
-
-function workflowMetrics(){
-  var issues=[];
-  var dataChecks=[];
-  if(!db.settings.year)dataChecks.push("Academic year is missing.");
-  if(!db.settings.days.length)dataChecks.push("No working days configured.");
-  if(!db.settings.periods)dataChecks.push("No periods configured.");
-  if(!db.departments.length)dataChecks.push("Add at least one department.");
-  if(!db.classes.length)dataChecks.push("Add at least one class/section.");
-  if(!db.courses.length)dataChecks.push("Add at least one course.");
-  if(!db.faculty.length)dataChecks.push("Add faculty records before generation.");
-  if(!db.rooms.length)dataChecks.push("Add rooms or labs before generation.");
-  db.courses.forEach(function(cr){
-    if(!cr.faculty||!fac(cr.faculty))issues.push(cr.code+" has no valid faculty assignment.");
-    if(!cr.room||!room(cr.room))issues.push(cr.code+" has no valid room assignment.");
-  });
-  db.classes.forEach(function(clx){
-    if(!clx.department||!db.departments.some(function(d){return d.id===clx.department}))issues.push(clx.name+" has no valid department.");
-  });
-  db.schedule.forEach(function(x){
-    if(!cl(x[5])||!course(x[2])||!fac(x[3])||!room(x[4]))issues.push("A timetable entry references missing master data.");
-    if(breakType(x[1]))issues.push("A timetable entry is using a break period.");
-  });
-  var hard=conflicts();
-  hard.forEach(function(x){issues.push(x.type+" conflict on "+dayLabel(x.day)+" P"+(x.period+1)+".")});
-  var coverage=[];
-  db.classes.forEach(function(clx){
-    db.courses.forEach(function(cr){
-      var req=(cr.l||0)+(cr.t||0)+(cr.p||0);
-      if(!req)return;
-      var got=db.schedule.filter(function(x){return x[5]===clx.id&&x[2]===cr.id}).length;
-      if(got<req&&clx.department===((fac(cr.faculty)||{}).department)){
-        coverage.push(clx.name+" / "+cr.code+" needs "+req+" sessions; "+got+" scheduled.");
-      }
+function activityList(state=db){
+  const out=[];
+  state.classes.forEach(cl=>{
+    state.courses.filter(c=>arr(c.classIds).includes(cl.id)).forEach(c=>{
+      for(let i=0;i<courseSessions(c);i++)out.push({id:uid("ACTV"),classId:cl.id,courseId:c.id,index:i,duration:c.lab?2:1,type:c.lab?"LAB":"CLASS"});
     });
   });
-  coverage.forEach(function(x){issues.push("Coverage gap: "+x)});
-  var fatal=dataChecks.concat(issues);
-  return {
-    dataChecks:dataChecks,
-    issues:issues,
-    hardConflicts:hard,
-    coverage:coverage,
-    passed:fatal.length===0,
-    dataReady:dataChecks.length===0,
-    scheduled:db.schedule.length
-  };
+  return out;
 }
-function renderWorkflow(){
-  var m=workflowMetrics();
-  var stages=0;
-  if(m.dataReady)stages++;
-  if(m.dataReady && db.availability)stages++;
-  if(m.scheduled>0)stages++;
-  if(m.passed)stages++;
-  if(db.versions.some(function(v){return v.status==="Published"}))stages++;
-  var pct=Math.round(stages/5*100);
-  if(q("workflowProgress"))q("workflowProgress").textContent=pct+"% complete";
-  if(q("workflowProgressBar"))q("workflowProgressBar").style.width=pct+"%";
-  document.querySelectorAll(".workflow-step").forEach(function(b,i){
-    b.classList.toggle("active",i===Math.min(stages,4));
-    b.classList.toggle("complete",i<stages);
-  });
-  if(q("cloudStatus")&&cloudHydrating===false&&q("cloudStatus").dataset.state==="checking")setCloudStatus("checking","Local workspace · cloud sync optional");
-  if(window.__sharedMode){
-    document.body.classList.add("shared-mode");
-    if(q("title"))q("title").textContent="Shared Timetable";
+function entryAt(state,day,period,classId){return state.schedule.find(e=>e.day===day&&e.period===period&&e.classId===classId)}
+function occupied(state,day,period,field,value,exceptIds=[]){return state.schedule.some(e=>e.day===day&&e.period===period&&e[field]===value&&!exceptIds.includes(e.id))}
+function facultyBlocked(state,fid,day,p){
+  return state.availability.some(a=>a.faculty===fid&&a.blocked&&(a.day==="ALL"||a.day===day)&&a.period===p)
+}
+function classBlocked(state,cid,day,p){return state.classBlocks.some(a=>a.classId===cid&&(a.day==="ALL"||a.day===day)&&a.period===p&&a.blocked)}
+function roomBlocked(state,rid,day,p){return state.roomBlocks.some(a=>a.roomId===rid&&(a.day==="ALL"||a.day===day)&&a.period===p&&a.blocked)}
+function roomFits(state,rid,cid,courseId){
+  const r=state.rooms.find(x=>x.id===rid),cl=state.classes.find(x=>x.id===cid),c=state.courses.find(x=>x.id===courseId);
+  if(!r||!cl||!c)return false;
+  if(r.capacity<(cl.strength||0))return false;
+  if(c.lab&&!r.lab)return false;
+  return true;
+}
+function hardCheck(state,a,day,p,roomId,ignoreIds=[]){
+  const c=state.courses.find(x=>x.id===a.courseId),f=c&&state.faculty.find(x=>x.id===c.faculty);
+  if(!c||!f)return "Missing course/faculty";
+  if(state.settings.breaks.includes(p))return "Break period";
+  if(!state.settings.days.includes(day))return "Non-working day";
+  if(facultyBlocked(state,f.id,day,p))return "Faculty unavailable";
+  if(classBlocked(state,a.classId,day,p))return "Class blocked";
+  if(roomBlocked(state,roomId,day,p))return "Room unavailable";
+  if(occupied(state,day,p,"classId",a.classId,ignoreIds))return "Class collision";
+  if(occupied(state,day,p,"facultyId",f.id,ignoreIds))return "Faculty collision";
+  if(occupied(state,day,p,"roomId",roomId,ignoreIds))return "Room collision";
+  if(!roomFits(state,roomId,a.classId,a.courseId))return "Room capacity/feature mismatch";
+  if(a.duration===2){
+    if(p+1>=state.settings.periods||state.settings.breaks.includes(p+1)||!state.settings.days.includes(day))return "Lab needs consecutive periods";
+    if(facultyBlocked(state,f.id,day,p+1)||classBlocked(state,a.classId,day,p+1)||roomBlocked(state,roomId,day,p+1))return "Consecutive period blocked";
+    if(occupied(state,day,p+1,"classId",a.classId,ignoreIds)||occupied(state,day,p+1,"facultyId",f.id,ignoreIds)||occupied(state,day,p+1,"roomId",roomId,ignoreIds))return "Consecutive period collision";
   }
+  return "";
 }
-function preflight(){
-  var m=workflowMetrics();
-  var hardHTML=m.hardConflicts.length
-    ? m.hardConflicts.slice(0,12).map(function(x){return "<div class='check bad'><b>"+esc(x.type)+" conflict</b><span>"+esc(dayLabel(x.day))+" · Period "+(x.period+1)+"</span></div>"}).join("")
-    : "<div class='check good'><b>No hard conflicts detected</b><span>Class, faculty and room collision checks are clear.</span></div>";
-  var dataHTML=m.dataChecks.length
-    ? m.dataChecks.map(function(x){return "<div class='check bad'><b>Needs attention</b><span>"+esc(x)+"</span></div>"}).join("")
-    : "<div class='check good'><b>Master data is ready</b><span>Academic structure, faculty, courses, rooms and calendar are present.</span></div>";
-  q("preflightHard").innerHTML=hardHTML;
-  q("preflightData").innerHTML=dataHTML;
-  q("preflightSummary").innerHTML="<div class='preflight-kpi "+(m.passed?"ready":"warning")+"'><strong>"+(m.passed?"READY":"REVIEW")+"</strong><span>"+(m.issues.length+m.dataChecks.length)+" issue(s) found</span></div><div class='preflight-kpi'><strong>"+m.scheduled+"</strong><span>scheduled sessions</span></div><div class='preflight-kpi'><strong>"+m.hardConflicts.length+"</strong><span>hard conflicts</span></div>";
-  q("preflightIssues").innerHTML=m.issues.length
-    ? m.issues.slice(0,30).map(function(x){return "<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>"}).join("")
-    : "<div class='empty-state'><strong>Everything looks good.</strong><span>You can move this draft to the publish stage.</span></div>";
+function deterministicNoise(seed){const x=Math.sin(seed*9973.17)*43758.5453;return x-Math.floor(x)}
+function softPenalty(state,entry,trial){
+  const c=state.classes.find(x=>x.id===entry.classId),cr=state.courses.find(x=>x.id===entry.courseId),r=state.rooms.find(x=>x.id===entry.roomId);
+  let p=0,pen=state.preferences;
+  if(entry.period===0||entry.period===state.settings.periods-1)p+=pen.edges*.55;
+  const sameDay=state.schedule.filter(e=>e.classId===entry.classId&&e.day===entry.day&&e.id!==entry.id);
+  if(sameDay.length)p+=deterministicNoise(entry.period+trial)*0.3;
+  if(r&&c)p+=Math.max(0,(r.capacity-c.strength)/Math.max(1,r.capacity))*pen.rooms*.8;
+  const sameCourse=state.schedule.filter(e=>e.classId===entry.classId&&e.courseId===entry.courseId&&e.day===entry.day&&e.id!==entry.id).length;
+  if(sameCourse)p+=pen.spread*1.4;
+  return p;
 }
-function publishUI(){
-  var m=workflowMetrics(), published=db.versions.filter(function(v){return v.status==="Published"});
-  var latest=published[0];
-  q("publishedVersionName").textContent=latest?latest.name:"No published version";
-  q("publishReadiness").innerHTML=m.passed
-    ? "<div class='release-ready'><span class='status-dot'></span><div><b>Ready to publish</b><span>0 hard conflicts · master data is valid · current draft can be released.</span></div></div>"
-    : "<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing is blocked</b><span>Run Preflight and resolve the listed issues first.</span></div></div>";
-  q("publishNow").disabled=!m.passed||!!window.__sharedMode;
-  q("createShare").disabled=!latest||!!window.__sharedMode;
-  q("publishedReleases").innerHTML=published.length
-    ? "<table><thead><tr><th>Release</th><th>Created</th><th>Sessions</th><th>Status</th></tr></thead><tbody>"+published.map(function(v){return "<tr><td><b>"+esc(v.name)+"</b></td><td>"+esc(new Date(v.at).toLocaleString())+"</td><td>"+v.schedule.length+"</td><td><span class='release-badge'>Published</span></td></tr>"}).join("")+"</tbody></table>"
-    : "<div class='empty-state'><strong>No published release yet.</strong><span>Validate the current draft, then publish it here.</span></div>";
+function scheduleScore(state){
+  const hard=allConflicts(state);
+  let hardN=hard.length;
+  let classGap=0,facultyGap=0,spread=0,roomWaste=0,edge=0;
+  state.classes.forEach(cl=>{
+    const days={};state.schedule.filter(e=>e.classId===cl.id).forEach(e=>(days[e.day]??=[]).push(e.period));
+    Object.values(days).forEach(ps=>{ps.sort((a,b)=>a-b);for(let i=1;i<ps.length;i++)classGap+=Math.max(0,ps[i]-ps[i-1]-1)});
+  });
+  state.faculty.forEach(f=>{
+    const days={};state.schedule.filter(e=>e.facultyId===f.id).forEach(e=>(days[e.day]??=[]).push(e.period));
+    Object.values(days).forEach(ps=>{ps.sort((a,b)=>a-b);for(let i=1;i<ps.length;i++)facultyGap+=Math.max(0,ps[i]-ps[i-1]-1)});
+  });
+  state.courses.forEach(cr=>{
+    state.schedule.filter(e=>e.courseId===cr.id).forEach(e=>{const n=state.schedule.filter(x=>x.courseId===cr.id&&x.classId===e.classId&&x.day===e.day).length;if(n>1)spread+=n-1});
+  });
+  state.schedule.forEach(e=>{const r=findRoom(e.roomId),cl=findClass(e.classId);if(r&&cl)roomWaste+=Math.max(0,r.capacity-cl.strength);if(e.period===0||e.period===state.settings.periods-1)edge++});
+  const penalty=classGap*state.preferences.classGaps+facultyGap*state.preferences.facultyGaps+spread*state.preferences.spread+roomWaste*0.02*state.preferences.rooms+edge*state.preferences.edges;
+  const score=hardN?Math.max(0,Math.round(100-hardN*20-penalty*.7)):Math.max(0,Math.round(100-penalty*.55));
+  return {score,hardN,softPenalty:Math.round(penalty),classGap,facultyGap,spread,roomWaste,edge};
 }
-function publishCurrent(){
-  if(window.__sharedMode)return;
-  var m=workflowMetrics();
-  if(!m.passed){alert("Publishing is blocked. Run Preflight and resolve all issues first.");show("preflight");return}
-  var name="Release "+(db.versions.filter(function(v){return v.status==="Published"}).length+1);
-  db.versions.unshift({id:"VER-"+Date.now(),name:name,note:"Published timetable",status:"Published",schedule:copy(db.schedule),at:new Date().toISOString()});
-  logActivity("Timetable published",name);
-  save();
-  show("publish");
-}
-function makeShareLink(){
-  if(window.__sharedMode)return;
-  var latest=db.versions.find(function(v){return v.status==="Published"});
-  if(!latest){alert("Publish a timetable version before sharing.");return}
-  var payload=copy(latest.schedule);
-  var snapshot={settings:copy(db.settings),departments:copy(db.departments),classes:copy(db.classes),sections:copy(db.sections),faculty:copy(db.faculty),rooms:copy(db.rooms),courses:copy(db.courses),schedule:payload,shared:true,version:latest.name};
-  try{
-    var encoded=btoa(unescape(encodeURIComponent(JSON.stringify(snapshot))));
-    var url=location.origin+location.pathname+"#shared="+encoded;
-    q("shareResult").innerHTML="<div class='share-box'><span>View-only share link created</span><input readonly value='"+esc(url)+"'><button id='copyShare'>Copy link</button></div>";
-    q("copyShare").onclick=function(){navigator.clipboard?navigator.clipboard.writeText(url).then(function(){q("copyShare").textContent="Copied"}):alert(url)};
-  }catch(e){alert("This timetable is too large for a URL-only demo share link.")}
-}
-function readSharedSnapshot(){
-  var raw=location.hash.indexOf("#shared=")===0?location.hash.slice(8):"";
-  if(!raw)return null;
-  try{
-    var json=decodeURIComponent(escape(atob(raw)));
-    var x=JSON.parse(json);
-    if(!x||!x.shared||!Array.isArray(x.schedule))return null;
-    window.__sharedMode=true;
-    return x;
-  }catch(e){return null}
+function allConflicts(state=db){
+  const out=[];const seen=new Set();
+  for(let i=0;i<state.schedule.length;i++)for(let j=i+1;j<state.schedule.length;j++){
+    const a=state.schedule[i],b=state.schedule[j];if(a.day!==b.day||a.period!==b.period)continue;
+    [["classId","Class"],["facultyId","Faculty"],["roomId","Room"]].forEach(([f,t])=>{
+      if(a[f]&&a[f]===b[f]){const k=t+"|"+a.day+"|"+a.period+"|"+a[f];if(!seen.has(k)){seen.add(k);out.push({type:t,day:a.day,period:a.period,resource:a[f],a:a.id,b:b.id})}}
+    });
+  }
+  return out;
 }
 
-function restoreJSON(){
-  var input=q("jsonImport");if(!input.files||!input.files[0]){alert("Choose a JSON backup first.");return}
-  var reader=new FileReader();reader.onload=function(){try{var x=JSON.parse(reader.result);var required=["settings","departments","classes","sections","faculty","rooms","courses","schedule"];if(!required.every(function(k){return k in x}))throw new Error("Not a UniSchedule backup.");db=normalizeSaaSData(x);logActivity("Workspace restored","JSON backup");save();alert("Backup restored successfully.")}catch(e){alert("Restore failed: "+e.message)}};reader.readAsText(input.files[0]);
+function generateCandidate(mode="balanced",trial=1,source=db){
+  const state=copy(source);state.schedule=mode==="repair"||mode==="manual"?state.schedule.filter(e=>e.locked):state.schedule.filter(e=>e.locked&&mode!=="fast");
+  const acts=activityList(source).sort((a,b)=>b.duration-a.duration||deterministicNoise(a.index+trial*17)-deterministicNoise(b.index+trial*17));
+  const placedIds=new Set(state.schedule.map(e=>e.activityId).filter(Boolean));
+  let unscheduled=[];
+  for(const a of acts){
+    if(placedIds.has(a.id))continue;
+    const c=source.courses.find(x=>x.id===a.courseId);if(!c)continue;
+    const rooms=source.rooms.filter(r=>roomFits(source,r.id,a.classId,a.courseId));
+    let candidates=[];
+    source.settings.days.forEach(day=>{for(let p=0;p<source.settings.periods;p++){
+      if(source.settings.breaks.includes(p))continue;
+      for(const r of rooms){
+        const reason=hardCheck(state,a,day,p,r.id);
+        if(!reason){const temp={id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:c.faculty,roomId:r.id,classId:a.classId,duration:a.duration,locked:false,activityId:a.id};
+          const cost=softPenalty(state,temp,trial)+(mode==="fast"?deterministicNoise(p+trial):0)+(mode==="best"?deterministicNoise(p*19+trial)*0.15:deterministicNoise(p*31+trial)*1.1);
+          candidates.push({temp,cost});
+        }
+      }
+    }});
+    candidates.sort((x,y)=>x.cost-y.cost);
+    if(candidates[0]){
+      state.schedule.push(candidates[0].temp);
+      if(a.duration===2)state.schedule.push(Object.assign({},candidates[0].temp,{id:uid("SCH"),period:a.period+1,activityId:a.id}));
+      placedIds.add(a.id);
+    }else unscheduled.push({activity:a,reason:"No feasible day/period/room combination"});
+  }
+  // remove duplicate activity rows for 2-period labs generated above if validation produced issue
+  const score=scheduleScore(state);
+  return {state,score,unscheduled};
 }
-function ensureEnterpriseData(){
-  db.attendance=Array.isArray(db.attendance)?db.attendance:[];
-  db.announcements=Array.isArray(db.announcements)?db.announcements:[];
-  db.versions=Array.isArray(db.versions)?db.versions:[];
+
+function preflightData(state=db){
+  const issues=[],warnings=[];
+  if(!state.settings.days.length)issues.push("No working days configured.");
+  if(!state.settings.periods)issues.push("No periods configured.");
+  if(!state.classes.length)issues.push("No classes configured.");
+  if(!state.courses.length)issues.push("No courses configured.");
+  if(!state.faculty.length)issues.push("No faculty records configured.");
+  if(!state.rooms.length)issues.push("No rooms/labs configured.");
+  state.classes.forEach(c=>{if((c.strength||0)<=0)warnings.push(c.name+" has no student strength.");if(!c.department)warnings.push(c.name+" has no department.")});
+  state.courses.forEach(c=>{
+    if(!state.faculty.some(f=>f.id===c.faculty))issues.push(c.code+" has no valid faculty.");
+    if(!state.courses.includes(c))issues.push("Invalid course record.");
+    if(!arr(c.classIds).length)issues.push(c.code+" has no class offering.");
+  });
+  state.rooms.forEach(r=>{if(r.capacity<=0)warnings.push(r.name+" has invalid capacity.")});
+  const totalRequired=activityList(state).length;
+  const available=state.classes.length*state.settings.days.length*(state.settings.periods-state.settings.breaks.length);
+  if(totalRequired>available)issues.push("Required teaching activities exceed available class slots.");
+  return {issues,warnings,totalRequired,available};
 }
-function bindEnterprise(){
-  if(q("takeAttendance"))q("takeAttendance").onclick=takeAttendance;
-  if(q("addAnnouncement"))q("addAnnouncement").onclick=addAnnouncement;
-  if(q("saveVersion"))q("saveVersion").onclick=saveVersion;
-  if(q("refreshAnalytics"))q("refreshAnalytics").onclick=analytics;
-  if(q("runIntegrity"))q("runIntegrity").onclick=integrity;
-  if(q("restoreJson"))q("restoreJson").onclick=restoreJSON;
-  if(q("runPreflight"))q("runPreflight").onclick=function(){preflight();show("preflight")};
-  if(q("publishNow"))q("publishNow").onclick=publishCurrent;
-  if(q("createShare"))q("createShare").onclick=makeShareLink;
+function preflight(){
+  const d=preflightData(), conflicts=allConflicts(db), coverage=[];
+  activityList(db).forEach(a=>{if(!db.schedule.some(e=>e.activityId===a.id&&e.classId===a.classId)||db.schedule.filter(e=>e.activityId===a.id&&e.classId===a.classId).length<(a.duration===2?2:1))coverage.push(a.classId+" / "+findCourse(a.courseId)?.code+" is not fully scheduled.")});
+  return {d,conflicts,coverage,ok:d.issues.length===0&&conflicts.length===0&&coverage.length===0};
 }
-bind();bindEnterprise();renderAll();
+
+function render(){
+  syncHeader();renderCurrentPage();
+}
+function syncHeader(){
+  q("tenantName").textContent=db.organization.name;q("tenantCode").textContent=db.organization.code+" · PRIVATE WORKSPACE";
+  q("termLabel").textContent=db.settings.year+" · "+db.settings.semester;
+}
+function navigate(id){
+  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===id));
+  document.querySelectorAll(".nav").forEach(n=>n.classList.toggle("active",n.dataset.page===id));
+  q("pageTitle").textContent=({dashboard:"Dashboard",master:"Prepare Data",constraints:"Constraints & Preferences",generate:"Build Timetable",preflight:"Preflight Validation",publish:"Publish & Share",courses:"Courses & Activities",classes:"Classes & Sections",faculty:"Faculty Records",rooms:"Rooms & Labs",calendar:"Calendar & Breaks",compare:"Solution Compare",scenarios:"What-if Scenarios",reports:"Reports & Export",versions:"Versions & History",intelligence:"Scheduling Intelligence",settings:"Institution Settings"}[id]||"UniSchedule");
+  renderCurrentPage();
+}
+function renderCurrentPage(){
+  renderDashboard();renderMaster();renderConstraints();renderGenerate();renderPreflight();renderPublish();renderCourses();renderClasses();renderFaculty();renderRooms();renderCalendar();renderCompare();renderScenarios();renderReports();renderVersions();renderIntelligence();renderSettings();renderWorkflow();
+}
+function renderWorkflow(){
+  const pf=preflight(), stages=[true,db.settings.days.length>0&&db.faculty.length>0,db.schedule.length>0,pf.ok,db.versions.some(v=>v.status==="Published")];
+  let done=stages.filter(Boolean).length,pct=Math.round(done/5*100);
+  if(q("progressText"))q("progressText").textContent=pct+"% complete";
+  if(q("progressBar"))q("progressBar").style.width=pct+"%";
+  const labels=[["01","Prepare data","Academic structure, K section & resources","master"],["02","Set constraints","Availability & preferences","constraints"],["03","Build timetable","Generate, lock, edit & repair","generate"],["04","Validate","Preflight, conflicts & coverage","preflight"],["05","Publish & share","Release, export & view-only link","publish"]];
+  if(q("workflow"))q("workflow").innerHTML=labels.map((x,i)=>"<button class='workflow-card "+(stages[i]?"complete ":"")+(!stages[i]&&stages.slice(0,i).every(Boolean)?"next":"")+"' data-go='"+x[3]+"'><b>"+x[0]+"</b><span><strong>"+x[1]+"</strong><small>"+x[2]+"</small></span><em>"+(stages[i]?"DONE":i===done?"NEXT":"")+"</em></button>").join("");
+}
+function renderDashboard(){
+  if(!q("dashboardStats"))return;
+  const sc=scheduleScore(db);
+  q("heroScore").textContent=sc.score+"%";
+  q("dashboardStats").innerHTML=[["Classes",db.classes.length],["Courses",db.courses.length],["Faculty",db.faculty.length],["Rooms",db.rooms.length],["Scheduled",db.schedule.length],["Hard conflicts",sc.hardN]].map(x=>"<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>").join("");
+  const cls=db.classes[0];q("dashboardTable").innerHTML=cls?tableForClass(cls.id,false):"<div class='empty-state'><strong>No class yet.</strong></div>";
+  const pf=preflight();q("dashboardChecks").innerHTML=[
+    "<div class='check "+(pf.d.issues.length?"bad":"good")+"'><b>Data readiness</b><span>"+(pf.d.issues.length?pf.d.issues.length+" issue(s)":"Master data ready")+"</span></div>",
+    "<div class='check "+(pf.conflicts.length?"bad":"good")+"'><b>Hard conflicts</b><span>"+pf.conflicts.length+"</span></div>",
+    "<div class='check "+(pf.coverage.length?"bad":"good")+"'><b>Coverage</b><span>"+(pf.coverage.length?pf.coverage.length+" activity gaps":"Complete")+"</span></div>",
+    "<div class='check'><b>Calendar</b><span>"+db.settings.days.length+" days · "+db.settings.periods+" periods · "+db.settings.shortBreaks.length+" short · "+db.settings.lunchBreaks.length+" lunch</span></div>"
+  ].join("");
+  const latest=db.versions.find(v=>v.status==="Published");q("releaseTitle").textContent=latest?latest.name:"Draft timetable";q("releaseBadge").textContent=latest?"PUBLISHED":"DRAFT";q("releaseBadge").className="badge "+(latest?"good":"neutral");
+}
+function tableForClass(classId,editable=false,state=db){
+  const ts=timeSlots(state),h=["<table class='timetable'><thead><tr><th>DAY</th>"];
+  ts.forEach(t=>h.push("<th>"+t.start+"<br>"+t.end+"</th>"));h.push("</tr></thead><tbody>");
+  state.settings.days.forEach(d=>{h.push("<tr><th>"+dayLabel(d)+"</th>");for(let p=0;p<state.settings.periods;p++){
+    const bt=state.settings.shortBreaks.includes(p)?"SHORT BREAK":state.settings.lunchBreaks.includes(p)?"LUNCH BREAK":"";
+    if(bt){h.push("<td class='slot break'><strong>"+bt+"</strong></td>");continue}
+    const e=entryAt(state,d,p,classId);
+    if(e){const c=state.courses.find(x=>x.id===e.courseId),f=state.faculty.find(x=>x.id===e.facultyId),r=state.rooms.find(x=>x.id===e.roomId);h.push("<td class='slot "+(c?.lab?"lab ":"")+" "+(e.locked?"locked ":"")+(editable?"editable":"")+"' "+(editable?"data-slot='"+e.id+"'":"")+"><b>"+esc(c?.code||"")+"</b><span>"+esc(c?.name||"")+"</span><small>"+esc(f?.name||"")+" · "+esc(r?.name||"")+(e.locked?" · LOCKED":"")+"</small></td>")}
+    else h.push("<td class='slot empty "+(editable?"editable":"")+"' "+(editable?"data-day='"+d+"' data-period='"+p+"'":"")+"><span>+</span></td>");
+  }h.push("</tr>")});
+  h.push("</tbody></table>");return h.join("");
+}
+function renderMaster(){
+  q("setUniversity").value=db.settings.university;q("setOrgCode").value=db.organization.code;q("setYear").value=db.settings.year;q("setSemester").value=db.settings.semester;q("setSchool").value=db.settings.school;q("setIncharge").value=db.settings.incharge;
+  q("academicHierarchy").innerHTML="<div class='tree-row'><b>"+esc(db.organization.name)+"</b><span>Campus · "+esc(db.settings.school)+"</span></div>"+db.departments.map(d=>"<div class='tree-row indent'><b>"+esc(d.name)+"</b><span>"+esc(d.code)+" · "+db.classes.filter(c=>c.department===d.id).length+" class(es)</span></div>").join("")+db.programs.map(p=>"<div class='tree-row indent2'><b>"+esc(p.name)+"</b><span>Program</span></div>").join("");
+  q("departmentList").innerHTML=db.departments.map(d=>"<div class='list-row'><div><b>"+esc(d.name)+"</b><small>"+esc(d.code)+" · "+db.programs.filter(p=>p.department===d.id).length+" program(s)</small></div><button class='btn small' data-edit-dept='"+d.id+"'>Edit</button></div>").join("");
+  q("classList").innerHTML=db.classes.map(c=>"<div class='list-row'><div><b>"+esc(c.name)+"</b><small>Section "+esc(c.section)+" · "+c.strength+" students</small></div><button class='btn small' data-edit-class='"+c.id+"'>Edit</button></div>").join("");
+  q("facultyMiniList").innerHTML=db.faculty.map(f=>"<div class='list-row'><div><b>"+esc(f.name)+"</b><small>"+esc(f.designation)+" · "+esc(f.department)+"</small></div></div>").join("");
+  q("roomMiniList").innerHTML=db.rooms.map(r=>"<div class='list-row'><div><b>"+esc(r.name)+"</b><small>"+r.capacity+" seats · "+esc(r.type)+" · "+esc(r.building)+"</small></div></div>").join("");
+}
+function renderConstraints(){
+  const wrap=q("availabilityGrid");if(!wrap)return;
+  let h="<div class='table-wrap'><table class='availability'><thead><tr><th>Faculty</th>"+db.settings.days.map(d=>"<th>"+dayLabel(d)+"</th>").join("")+"</tr></thead><tbody>";
+  db.faculty.forEach(f=>{h+="<tr><th>"+esc(f.name)+"</th>";db.settings.days.forEach(d=>{let blocked=db.settings.periods?db.availability.filter(a=>a.faculty===f.id&&(a.day===d||a.day==="ALL")&&a.blocked).length:0;h+="<td><button class='availability-cell "+(blocked?"blocked":"")+"' data-avail-f='"+f.id+"' data-avail-d='"+d+"'>"+blocked+" blocked</button></td>"});h+="</tr>"});h+="</tbody></table></div>";
+  wrap.innerHTML=h;
+  ["classGaps","facultyGaps","spread","rooms","edges","workload"].forEach(k=>{const el=q("pref"+k.charAt(0).toUpperCase()+k.slice(1)),v=q("pref"+k.charAt(0).toUpperCase()+k.slice(1)+"Val");if(el){el.value=db.preferences[k];if(v)v.textContent=el.value}});
+}
+function renderGenerate(){
+  q("classSelector").innerHTML=db.classes.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.name)+"</option>").join("");
+  const cid=q("classSelector").value||db.classes[0]?.id;if(q("gridTitle"))q("gridTitle").textContent=(findClass(cid)?.name||"Section K")+" timetable";
+  q("builderTable").innerHTML=cid?tableForClass(cid,true):"<div class='empty-state'>Add a class first.</div>";
+  q("qualityPanel").innerHTML=qualityHTML(scheduleScore(db));
+  const acts=activityList(db),uns=acts.filter(a=>db.schedule.filter(e=>e.activityId===a.id).length<(a.duration===2?2:1));
+  q("unscheduledList").innerHTML=uns.length?uns.slice(0,25).map(a=>"<div class='issue-row'><b>"+esc(findCourse(a.courseId)?.code)+"</b><span>"+esc(findClass(a.classId)?.name)+" · "+esc(a.type)+" · no feasible slot</span></div>").join(""):"<div class='empty-state'><strong>All activities scheduled.</strong><span>No unscheduled activity is currently detected.</span></div>";
+  q("coverageList").innerHTML=db.courses.filter(c=>arr(c.classIds).includes(cid||"")).map(c=>{const need=courseSessions(c),got=db.schedule.filter(e=>e.classId===cid&&e.courseId===c.id).length;return "<div class='coverage-row'><span><b>"+esc(c.code)+"</b><small>"+esc(c.name)+"</small></span><strong>"+Math.min(need,Math.ceil(got/(c.lab?2:1)))+"/"+need+"</strong></div>"}).join("");
+}
+function qualityHTML(sc){
+  return "<div class='quality-grid'><div class='quality-main'><span>QUALITY SCORE</span><strong>"+sc.score+"%</strong><small>"+sc.hardN+" hard conflicts · "+sc.softPenalty+" soft penalty</small></div><div class='quality-item'><b>"+sc.classGap+"</b><span>class gap points</span></div><div class='quality-item'><b>"+sc.facultyGap+"</b><span>faculty gap points</span></div><div class='quality-item'><b>"+sc.spread+"</b><span>same-day repeats</span></div><div class='quality-item'><b>"+sc.edge+"</b><span>edge-period uses</span></div></div>";
+}
+function renderPreflight(){
+  const pf=preflight();q("preflightSummary").innerHTML=[["DATA",pf.d.issues.length?"REVIEW":"READY",pf.d.issues.length?"bad":"good"],["HARD",pf.conflicts.length?pf.conflicts.length+" CONFLICTS":"0 CONFLICTS",pf.conflicts.length?"bad":"good"],["COVERAGE",pf.coverage.length?pf.coverage.length+" GAPS":"COMPLETE",pf.coverage.length?"bad":"good"]].map(x=>"<div class='preflight-kpi "+x[2]+"'><strong>"+x[1]+"</strong><span>"+x[0]+"</span></div>").join("");
+  q("hardReport").innerHTML=pf.conflicts.length?pf.conflicts.map(x=>"<div class='check bad'><b>"+esc(x.type)+" conflict</b><span>"+esc(dayLabel(x.day))+" · Period "+(x.period+1)+"</span></div>").join(""):"<div class='check good'><b>No hard conflicts</b><span>Classes, faculty and rooms are not double-booked.</span></div>";
+  q("dataReport").innerHTML=(pf.d.issues.length?pf.d.issues.map(x=>"<div class='check bad'><b>Issue</b><span>"+esc(x)+"</span></div>").join(""):"<div class='check good'><b>Master data ready</b><span>"+pf.d.totalRequired+" required activities · "+pf.d.available+" base class slots</span></div>")+(pf.d.warnings||[]).map(x=>"<div class='check warn'><b>Warning</b><span>"+esc(x)+"</span></div>").join("");
+  q("issueReport").innerHTML=pf.coverage.length?pf.coverage.slice(0,40).map(x=>"<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>").join(""):"<div class='empty-state'><strong>Validation passed.</strong><span>The current timetable can move to release review.</span></div>";
+}
+function renderPublish(){
+  const latest=db.versions.find(v=>v.status==="Published"),pf=preflight();
+  q("publishReadiness").innerHTML=pf.ok?"<div class='release-ready'><span class='status-dot'></span><div><b>Ready to publish</b><span>0 hard conflicts and complete activity coverage.</span></div></div>":"<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing blocked</b><span>Resolve preflight issues before releasing this timetable.</span></div></div>";
+  q("publishBtn").disabled=!pf.ok;
+  q("copyShare").disabled=!latest;
+  q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";
+}
+function renderCourses(){
+  q("coursesTable").innerHTML="<table><thead><tr><th>Code</th><th>Course</th><th>Type</th><th>L</th><th>T</th><th>P</th><th>Pattern</th><th>Faculty</th><th>Room</th><th>Classes</th></tr></thead><tbody>"+db.courses.map(c=>"<tr><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+esc(c.type||"Theory")+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+esc(c.sessionPattern||"—")+"</td><td>"+esc(findFaculty(c.faculty)?.name||"—")+"</td><td>"+esc(findRoom(c.room)?.name||"—")+"</td><td>"+arr(c.classIds).map(id=>esc(findClass(id)?.section||id)).join(", ")+"</td></tr>").join("")+"</tbody></table>";
+}
+function renderClasses(){
+  q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(c.department)+"</td></tr>").join("")+"</tbody></table>";
+}
+function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td></tr>").join("")+"</tbody></table>"}
+function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td></tr>").join("")+"</tbody></table>"}
+function breakSelectors(){
+  const sc=+q("shortBreakCount").value||0,lc=+q("lunchBreakCount").value||0;
+  const opts="<option value='-1'>None</option>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"'>Period "+(i+1)+"</option>").join("");
+  q("shortBreakSelectors").innerHTML=Array.from({length:sc},(_,i)=>"<label>Short Break "+(i+1)+"<select data-sb='"+i+"'>"+opts+"</select></label>").join("")||"<div class='break-empty'>None</div>";
+  q("lunchBreakSelectors").innerHTML=Array.from({length:lc},(_,i)=>"<label>Lunch Break "+(i+1)+"<select data-lb='"+i+"'>"+opts+"</select></label>").join("")||"<div class='break-empty'>None</div>";
+  q("shortBreakSelectors").querySelectorAll("select").forEach((el,i)=>el.value=String(db.settings.shortBreaks[i]??-1));
+  q("lunchBreakSelectors").querySelectorAll("select").forEach((el,i)=>el.value=String(db.settings.lunchBreaks[i]??-1));
+}
+function renderCalendar(){
+  q("calendarDays").value=db.settings.days.join(",");
+  q("calendarPeriods").value=db.settings.periods;q("calendarStart").value=db.settings.start;q("calendarDuration").value=db.settings.duration;
+  q("shortBreakCount").value=db.settings.shortBreaks.length;q("lunchBreakCount").value=db.settings.lunchBreaks.length;breakSelectors();
+  q("calendarPreview").innerHTML="<table><thead><tr><th>Period</th>"+timeSlots().map(t=>"<th>"+t.start+"–"+t.end+"</th>").join("")+"</tr></thead><tbody><tr><th>Blocks</th>"+timeSlots().map((t,i)=>{let x=currentBreakType(i);return "<td class='"+(x?"break":"")+"'>"+(x||"Teaching")+"</td>"}).join("")+"</tr></tbody></table>";
+}
+function renderCompare(){
+  q("solutionCards").innerHTML=solutionCandidates.length?solutionCandidates.map((s,i)=>"<div class='solution-card "+(i===0?"selected":"")+"'><span>OPTION "+String.fromCharCode(65+i)+"</span><strong>"+s.score.score+"%</strong><small>"+s.score.hardN+" hard · "+s.unscheduled.length+" unscheduled</small><button class='btn primary' data-apply-solution='"+i+"'>Use this solution</button></div>").join(""):"<div class='empty-state'><strong>No candidates yet.</strong><span>Generate 3 solutions from the Build Timetable stage.</span></div>";
+  q("comparisonTable").innerHTML=solutionCandidates.length?"<table><thead><tr><th>Metric</th>"+solutionCandidates.map((_,i)=>"<th>Option "+String.fromCharCode(65+i)+"</th>").join("")+"</tr></thead><tbody>"+["score","hardN","softPenalty","classGap","facultyGap","spread"].map(k=>"<tr><td>"+esc(k)+"</td>"+solutionCandidates.map(s=>"<td>"+s.score[k]+"</td>").join("")+"</tr>").join("")+"</tbody></table>":"<div class='empty-state'>Generate candidates to compare them.</div>";
+}
+function renderScenarios(){
+  q("scenarioStrengthVal").textContent=q("scenarioStrength").value+"%";
+}
+function renderReports(){
+  const pf=preflight(),sc=scheduleScore(db);
+  q("reportClass").innerHTML=db.classes.map(c=>"<div class='list-row'><div><b>"+esc(c.name)+"</b><small>"+db.schedule.filter(e=>e.classId===c.id).length+" scheduled entries</small></div><button class='btn small' data-report-class='"+c.id+"'>View</button></div>").join("");
+  q("reportFaculty").innerHTML=db.faculty.map(f=>"<div class='list-row'><div><b>"+esc(f.name)+"</b><small>"+db.schedule.filter(e=>e.facultyId===f.id).length+" sessions</small></div><span>"+Math.round((db.schedule.filter(e=>e.facultyId===f.id).length/Math.max(1,f.maxWeek||18))*100)+"%</span></div>").join("");
+  q("reportRooms").innerHTML=db.rooms.map(r=>"<div class='list-row'><div><b>"+esc(r.name)+"</b><small>"+db.schedule.filter(e=>e.roomId===r.id).length+" sessions · "+r.capacity+" seats</small></div><span>"+Math.round(db.schedule.filter(e=>e.roomId===r.id).length/Math.max(1,db.settings.days.length*(db.settings.periods-db.settings.breaks.length))*100)+"%</span></div>").join("");
+  q("reportQuality").innerHTML="<div class='quality-list'><span>Quality score <b>"+sc.score+"%</b></span><span>Hard conflicts <b>"+sc.hardN+"</b></span><span>Coverage gaps <b>"+pf.coverage.length+"</b></span><span>Unscheduled activities <b>"+activityList(db).filter(a=>!db.schedule.some(e=>e.activityId===a.id)).length+"</b></span></div>";
+}
+function renderVersions(){
+  q("versionsTable").innerHTML=db.versions.length?"<table><thead><tr><th>Version</th><th>Status</th><th>Created</th><th>Score</th><th>Entries</th><th>Action</th></tr></thead><tbody>"+db.versions.map(v=>"<tr><td><b>"+esc(v.name)+"</b></td><td><span class='release-badge'>"+esc(v.status)+"</span></td><td>"+new Date(v.at).toLocaleString()+"</td><td>"+(v.score||"—")+"</td><td>"+v.schedule.length+"</td><td><button class='btn small' data-restore-version='"+v.id+"'>Restore</button></td></tr>").join("")+"</tbody></table>":"<div class='empty-state'><strong>No versions saved.</strong></div>";
+}
+function renderIntelligence(){
+  const sc=scheduleScore(db),pf=preflight();q("qualityBreakdown").innerHTML=qualityHTML(sc);
+  const rec=[];
+  if(sc.hardN)rec.push("Resolve "+sc.hardN+" hard conflict(s) before publishing.");
+  if(sc.classGap>8)rec.push("Spread class sessions to reduce student gaps.");
+  if(sc.facultyGap>8)rec.push("Rebalance faculty assignments to reduce idle gaps.");
+  if(sc.spread>3)rec.push("Move repeated course sessions to different days.");
+  if(sc.edge>3)rec.push("Avoid first/last periods where possible.");
+  if(pf.coverage.length)rec.push("Complete unscheduled activities: "+pf.coverage.slice(0,2).join(" · "));
+  if(!rec.length)rec.push("The current timetable is well balanced. Generate alternatives to explore further improvements.");
+  q("insightList").innerHTML=rec.map(x=>"<div class='insight-item'><span>•</span><p>"+esc(x)+"</p></div>").join("");
+}
+function renderSettings(){
+  q("brandName").value=db.branding.name;q("brandCode").value=db.branding.code;q("brandLogo").value=db.branding.logo;q("brandTimezone").value=db.branding.timezone;
+}
+function openModal(title,html,submit){
+  q("modalTitle").textContent=title;q("modalForm").innerHTML=html;q("modal").classList.add("open");
+  q("modalForm").onsubmit=e=>{e.preventDefault();submit(new FormData(e.target));closeModal()};
+}
+function closeModal(){q("modal").classList.remove("open")}
+
+function addDepartment(){
+  openModal("Add Department","<label>Name<input name='name' required></label><label>Code<input name='code' required></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.departments.push({id:uid("DEP"),name:f.get("name"),code:f.get("code").toUpperCase()});log("Department added",f.get("name"));save()})
+}
+function addProgram(){openModal("Add Program","<label>Name<input name='name' required></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.programs.push({id:uid("PRG"),name:f.get("name"),department:f.get("department")});log("Program added",f.get("name"));save()})}
+function addSection(){openModal("Add Section","<label>Name<input name='name' placeholder='Section K' required></label><label>Code<input name='code' required></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Program<select name='program'>"+db.programs.map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select></label><label>Strength<input name='strength' type='number' min='1' value='60'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const id=uid("SEC"),code=f.get("code").toUpperCase(),obj={id,name:f.get("name"),code,department:f.get("department"),program:f.get("program"),semester:db.semesters[0]?.id||"",strength:+f.get("strength")};db.sections.push(obj);db.classes.push({id:uid("CLS"),name:"B.Tech CSE · "+code,section:code,department:obj.department,program:obj.program,semester:obj.semester,strength:obj.strength,incharge:""});log("Section added",code);save()})}
+function addClass(){openModal("Add Class","<label>Class name<input name='name' required></label><label>Section code<input name='section' required></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Program<select name='program'>"+db.programs.map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select></label><label>Strength<input name='strength' type='number' min='1' value='60'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.classes.push({id:uid("CLS"),name:f.get("name"),section:f.get("section").toUpperCase(),department:f.get("department"),program:f.get("program"),semester:db.semesters[0]?.id||"",strength:+f.get("strength"),incharge:""});log("Class added",f.get("name"));save()})}
+function addFaculty(){openModal("Add Faculty","<label>Name<input name='name' required></label><label>Designation<input name='designation' value='Assistant Professor'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Maximum hours/day<input name='maxDay' type='number' value='4'></label><label>Maximum hours/week<input name='maxWeek' type='number' value='18'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.faculty.push({id:uid("FAC"),name:f.get("name"),designation:f.get("designation"),department:f.get("department"),maxDay:+f.get("maxDay"),maxWeek:+f.get("maxWeek")});log("Faculty added",f.get("name"));save()})}
+function addRoom(){openModal("Add Room / Lab","<label>Name<input name='name' required></label><label>Code<input name='code' required></label><label>Type<select name='type'><option>Classroom</option><option>Lab</option><option>Seminar Hall</option></select></label><label>Capacity<input name='capacity' type='number' min='1' value='60'></label><label>Building<input name='building' value='Joveena Block'></label><label>Floor<input name='floor' type='number' value='1'></label><label>Features<input name='features' value='projector,smart-board,internet'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const type=f.get("type"),r={id:uid("ROOM"),name:f.get("name"),code:f.get("code").toUpperCase(),type,capacity:+f.get("capacity"),building:f.get("building"),floor:+f.get("floor"),features:f.get("features").split(",").map(s=>s.trim()).filter(Boolean),lab:type==="Lab"};db.rooms.push(r);log("Room added",r.name);save()})}
+function addCourse(){openModal("Add Course / Activity","<label>Course code<input name='code' required></label><label>Course name<input name='name' required></label><label>Type<select name='type'><option>Theory</option><option>Lab</option><option>Tutorial</option><option>Elective</option></select></label><div class='mini-form'><label>L<input name='l' type='number' min='0' value='3'></label><label>T<input name='t' type='number' min='0' value='0'></label><label>P<input name='p' type='number' min='0' value='0'></label><label>Credits<input name='credits' type='number' min='0' value='3'></label></div><label>Faculty<select name='faculty'>"+db.faculty.map(f=>"<option value='"+f.id+"'>"+esc(f.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><label>Classes<select name='classIds' multiple size='4'>"+db.classes.map(c=>"<option selected value='"+c.id+"'>"+esc(c.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const type=f.get("type"),classes=Array.from(q("modalForm").querySelector("[name=classIds]").selectedOptions).map(o=>o.value);db.courses.push({id:uid("CRS"),code:f.get("code").toUpperCase(),name:f.get("name"),type,l:+f.get("l"),t:+f.get("t"),p:+f.get("p"),credits:+f.get("credits"),faculty:f.get("faculty"),room:f.get("room"),lab:type==="Lab",classIds:classes,sessionPattern:classes.length?"Auto":""});log("Course added",f.get("code"));save()})}
+
+function editSlotElement(el){
+  if(el.dataset.slot){
+    const e=db.schedule.find(s=>s.id===el.dataset.slot);if(!e)return;
+    const c=findCourse(e.courseId),f=findFaculty(e.facultyId);
+    openModal("Timetable Entry","<div class='selected-entry'><b>"+esc(c?.code)+"</b><span>"+esc(c?.name)+"</span><small>"+dayLabel(e.day)+" · Period "+(e.period+1)+"</small></div><label>Course<select name='course'>"+db.courses.map(x=>"<option value='"+x.id+"'>"+esc(x.code+" — "+x.name)+"</option>").join("")+"</select></label><label>Faculty<select name='faculty'>"+db.faculty.map(x=>"<option value='"+x.id+"'>"+esc(x.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(x=>"<option value='"+x.id+"'>"+esc(x.name)+"</option>").join("")+"</select></label><label><input name='locked' type='checkbox' "+(e.locked?"checked":"")+"> Lock this assignment</label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Apply</button></div>",fdata=>{e.courseId=fdata.get("course");e.facultyId=fdata.get("faculty");e.roomId=fdata.get("room");e.locked=fdata.get("locked")==="on";log("Timetable entry edited",c?.code||"entry");save()});
+    q("modalForm").course.value=c?.id||"";q("modalForm").faculty.value=f?.id||"";q("modalForm").room.value=e.roomId;return;
+  }
+  if(el.dataset.day){
+    openModal("Add timetable entry","<label>Course<select name='course'>"+db.courses.map(c=>"<option value='"+c.id+"'>"+esc(c.code+" — "+c.name)+"</option>").join("")+"</select></label><label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const cid=q("classSelector").value,course=findCourse(f.get("course")),rid=f.get("room"),a={classId:cid,courseId:course.id,duration:course.lab?2:1};const reason=hardCheck(db,a,el.dataset.day,+el.dataset.period,rid);if(reason){alert(reason);return}db.schedule.push({id:uid("SCH"),day:el.dataset.day,period:+el.dataset.period,courseId:course.id,facultyId:course.faculty,roomId:rid,classId:cid,duration:a.duration,locked:false,activityId:uid("ACTV")});log("Timetable slot added",course.code);save()});
+  }
+}
+
+function runGenerate(){
+  const mode=q("generationMode").value;solutionCandidates=[];
+  const candidates=[1,2,3].map(t=>generateCandidate(mode,t,db)).sort((a,b)=>b.score.score-a.score.score);
+  solutionCandidates=candidates;applySolution(0,false);q("generateStatus").textContent="3 candidate solutions generated";navigate("compare");
+}
+function applySolution(index,closePage=true){
+  const s=solutionCandidates[index];if(!s)return;db.schedule=s.state.schedule;log("Solution applied","Option "+String.fromCharCode(65+index)+" · "+s.score.score+"%");save();if(closePage)navigate("generate");
+}
+function clearUnlocked(){db.schedule=db.schedule.filter(e=>e.locked);log("Unlocked timetable entries cleared","");save()}
+function toggleLockMode(){lockMode=!lockMode;q("lockHint").textContent=lockMode?"Click any filled cell to lock/unlock":"Click a filled cell to inspect it";q("lockModeBtn").classList.toggle("active",lockMode)}
+function publishCurrent(){
+  const pf=preflight();if(!pf.ok){alert("Publishing is blocked. Run Preflight and resolve the listed issues.");navigate("preflight");return}
+  db.versions.filter(v=>v.status==="Published").forEach(v=>v.status="Archived");
+  const release={id:uid("VER"),name:"Release "+(db.versions.length+1),status:"Published",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule)};
+  db.versions.unshift(release);log("Timetable published",release.name);save();navigate("publish");
+}
+function createShare(){
+  const latest=db.versions.find(v=>v.status==="Published");if(!latest){alert("Publish a version first.");return}
+  const scope=q("shareScope").value;const cid=q("classSelector").value;
+  let schedule=copy(latest.schedule);if(scope==="class")schedule=schedule.filter(e=>e.classId===cid);
+  if(scope==="department"){const cls=new Set(db.classes.filter(c=>c.department===db.departments[0]?.id).map(c=>c.id));schedule=schedule.filter(e=>cls.has(e.classId))}
+  const snap={shared:true,version:latest.name,settings:copy(db.settings),organization:copy(db.organization),classes:copy(db.classes),courses:copy(db.courses),faculty:copy(db.faculty),rooms:copy(db.rooms),schedule};
+  const url=location.origin+location.pathname+"#shared="+btoa(unescape(encodeURIComponent(JSON.stringify(snap))));
+  db.shareLinks.unshift({id:uid("SHARE"),scope,url,version:latest.name,at:now(),active:true});log("Share link created",scope);save();q("copyShare").disabled=false;q("copyShare").dataset.url=url;q("shareResult").innerHTML="<div class='share-box'><span>VIEW-ONLY LINK</span><input readonly value='"+esc(url)+"'><button class='btn small' id='copyInline'>Copy</button></div>";q("copyInline").onclick=()=>copyShare(url);
+}
+function copyShare(url){navigator.clipboard?navigator.clipboard.writeText(url).then(()=>q("copyShare").textContent="Copied"):alert(url)}
+function getShared(){
+  const h=location.hash||"";if(!h.startsWith("#shared="))return null;try{return JSON.parse(decodeURIComponent(escape(atob(h.slice(8)))))}catch(e){return null}
+}
+const sharedSnap=getShared();if(sharedSnap){db=normalizeState(sharedSnap);document.body.classList.add("shared-mode")}
+
+function exportCSV(){
+  const rows=[["Day","Period","Start","End","Class","Course","Faculty","Room"]];
+  db.settings.days.forEach(d=>{for(let p=0;p<db.settings.periods;p++){const bt=currentBreakType(p),t=timeSlots()[p];if(bt)rows.push([d,p+1,t.start,t.end,bt,"","",""]);else db.classes.forEach(c=>{const e=entryAt(db,d,p,c.id);if(e){rows.push([d,p+1,t.start,t.end,c.name,findCourse(e.courseId)?.code||"",findFaculty(e.facultyId)?.name||"",findRoom(e.roomId)?.name||""])}})}});
+  download("unischedule-timetable.csv",rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(",")).join("\n"),"text/csv");
+}
+function exportExcel(){
+  if(!window.XLSX)return alert("Excel library unavailable.");
+  const wb=XLSX.utils.book_new();
+  const data=[["Day","Period","Start","End","Class","Course","Faculty","Room"]];
+  db.settings.days.forEach(d=>{for(let p=0;p<db.settings.periods;p++){const bt=currentBreakType(p),t=timeSlots()[p];if(bt)data.push([d,p+1,t.start,t.end,bt,"","",""]);else db.classes.forEach(c=>{const e=entryAt(db,d,p,c.id);if(e)data.push([d,p+1,t.start,t.end,c.name,findCourse(e.courseId)?.code||"",findFaculty(e.facultyId)?.name||"",findRoom(e.roomId)?.name||""])})}});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data),"Master Timetable");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Metric","Value"],["Quality",scheduleScore(db).score+"%"],["Hard conflicts",allConflicts(db).length],["Scheduled",db.schedule.length],["Classes",db.classes.length],["Courses",db.courses.length]]),"Overview");
+  XLSX.writeFile(wb,"unischedule-report.xlsx");
+}
+function exportPDF(){
+  if(!window.jspdf)return alert("PDF library unavailable.");const {jsPDF}=jspdf;const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});let y=14;
+  doc.setFontSize(14);doc.text(db.organization.name,14,y);y+=7;doc.setFontSize(9);doc.text(db.settings.title,14,y);y+=8;
+  db.classes.forEach(c=>{if(y>185){doc.addPage();y=14}doc.setFontSize(11);doc.text(c.name,14,y);y+=5;const headers=["DAY",...timeSlots().map(t=>t.start+"-"+t.end)];const body=db.settings.days.map(d=>[dayLabel(d),...Array.from({length:db.settings.periods},(_,p)=>{const bt=currentBreakType(p);if(bt)return bt;const e=entryAt(db,d,p,c.id);return e?(findCourse(e.courseId)?.code||"")+"\n"+(findRoom(e.roomId)?.name||""):"—"})]);doc.setFontSize(6);const width=265/(headers.length);headers.forEach((h,i)=>doc.text(h,14+i*width,y));y+=4;body.forEach(row=>{row.forEach((cell,i)=>doc.text(String(cell).slice(0,22),14+i*width,y));y+=4});y+=5});
+  doc.save("unischedule-timetable.pdf");
+}
+function printReport(){window.print()}
+function download(name,data,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
+
+function runScenario(){
+  const s=copy(db);if(q("scenarioSaturday").checked)s.settings.days=s.settings.days.filter(d=>d!=="SAT");
+  if(q("scenarioRoom").checked)s.roomBlocks.push({id:uid("RB"),roomId:"CCL",day:"ALL",period:-1,blocked:true});
+  if(q("scenarioFaculty").checked&&s.faculty[0])s.availability.push({id:uid("AV"),faculty:s.faculty[0].id,day:"ALL",period:-1,blocked:true});
+  const mult=+q("scenarioStrength").value/100;s.classes.forEach(c=>c.strength=Math.round(c.strength*mult));
+  if(q("scenarioExtraLab").checked)s.rooms.push({id:uid("ROOM"),name:"Scenario Extra Lab",code:"SC-LAB",type:"Lab",capacity:60,building:"Scenario",floor:1,features:["computers","internet"],lab:true});
+  const candidate=generateCandidate("balanced",9,s),sc=scheduleScore(candidate.state);
+  q("scenarioResult").innerHTML="<div class='scenario-result'><div><span>CURRENT</span><b>"+scheduleScore(db).score+"%</b></div><div><span>SCENARIO</span><b>"+sc.score+"%</b></div><p>"+candidate.unscheduled.length+" activities unscheduled · "+sc.hardN+" hard conflicts</p></div>";
+}
+
+function saveCalendar(){
+  const days=q("calendarDays").value.split(",").map(x=>x.trim().toUpperCase()).filter(Boolean);
+  const periods=clamp(+q("calendarPeriods").value||8,1,16);
+  const sb=Array.from(q("shortBreakSelectors").querySelectorAll("select")).map(x=>+x.value).filter(x=>x>=0&&x<periods);
+  const lb=Array.from(q("lunchBreakSelectors").querySelectorAll("select")).map(x=>+x.value).filter(x=>x>=0&&x<periods);
+  if(new Set([...sb,...lb]).size!==sb.length+lb.length)return alert("Each break must use a unique period.");
+  db.settings.days=days;db.settings.periods=periods;db.settings.start=q("calendarStart").value||"09:00";db.settings.duration=clamp(+q("calendarDuration").value||50,20,180);db.settings.shortBreaks=sb;db.settings.lunchBreaks=lb;sanitizeBreaks(db.settings);
+  db.schedule=db.schedule.filter(e=>!db.settings.breaks.includes(e.period));log("Calendar updated",sb.length+" short break(s) · "+lb.length+" lunch break(s)");save();
+}
+function restoreSeed(){if(!confirm("Restore the complete Joy University Section K seed data? Current demo data will be replaced."))return;db=normalizeState(copy(DEFAULT));log("Section K seed restored","Joy University Semester V");save()}
+function saveDraftVersion(){const sc=scheduleScore(db);const note=prompt("Version note","Draft timetable");if(note===null)return;db.versions.unshift({id:uid("VER"),name:"Draft "+(db.versions.length+1),status:"Draft",note,at:now(),score:sc.score,schedule:copy(db.schedule)});log("Draft version saved",note);save()}
+function restoreVersion(id){const v=db.versions.find(x=>x.id===id);if(!v)return;if(confirm("Restore "+v.name+"? Current draft will be replaced.")){db.schedule=copy(v.schedule);log("Version restored",v.name);save()}}
+function updateBranding(){db.branding.name=q("brandName").value;db.branding.code=q("brandCode").value;db.branding.logo=q("brandLogo").value;db.branding.timezone=q("brandTimezone").value;db.organization.name=db.branding.name;db.organization.code=db.branding.code;log("Branding updated",db.branding.name);save()}
+function updateInstitution(){db.settings.university=q("setUniversity").value;db.organization.code=q("setOrgCode").value;db.settings.year=q("setYear").value;db.settings.semester=q("setSemester").value;db.settings.school=q("setSchool").value;db.settings.incharge=q("setIncharge").value;db.organization.name=db.settings.university;log("Institution settings updated",db.organization.name);save()}
+
+document.addEventListener("click",e=>{
+  const nav=e.target.closest(".nav");if(nav){navigate(nav.dataset.page);return}
+  const go=e.target.closest("[data-go]");if(go){navigate(go.dataset.go);return}
+  if(e.target.id==="modalClose")closeModal();
+  if(e.target.id==="seedBtn")restoreSeed();
+  if(e.target.id==="saveInstitution")updateInstitution();
+  if(e.target.id==="addDepartment")addDepartment();if(e.target.id==="addProgram")addProgram();if(e.target.id==="addSection")addSection();if(e.target.id==="addClass"||e.target.id==="addClassBtn")addClass();
+  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
+  if(e.target.id==="generateBtn"||e.target.id==="headerGenerate")runGenerate();
+  if(e.target.id==="lockModeBtn")toggleLockMode();
+  if(e.target.id==="clearScheduleBtn")clearUnlocked();
+  if(e.target.id==="runPreflight")navigate("preflight");
+  if(e.target.id==="publishBtn")publishCurrent();
+  if(e.target.id==="createShare")createShare();if(e.target.id==="copyShare")copyShare(e.target.dataset.url);
+  if(e.target.id==="compareGenerate")runGenerate();
+  if(e.target.id==="runScenario")runScenario();
+  if(e.target.id==="saveCalendarBtn")saveCalendar();
+  if(e.target.id==="saveVersionBtn")saveDraftVersion();
+  if(e.target.id==="refreshInsights")renderIntelligence();
+  if(e.target.id==="saveBranding")updateBranding();
+  if(e.target.id==="backupBtn")backup();
+  if(e.target.id==="reportPdf")exportPDF();
+  if(e.target.id==="reportExcel")exportExcel();
+  if(e.target.id==="reportCsv")exportCSV();
+  if(e.target.id==="reportPrint")printReport();
+  const slot=e.target.closest(".editable");if(slot){
+    if(lockMode&&slot.dataset.slot){const en=db.schedule.find(x=>x.id===slot.dataset.slot);if(en){en.locked=!en.locked;log(en.locked?"Timetable entry locked":"Timetable entry unlocked",findCourse(en.courseId)?.code||"");save()}return}
+    editSlotElement(slot);
+  }
+  const av=e.target.closest("[data-avail-f]");if(av){const fid=av.dataset.availF,day=av.dataset.availD,idx=db.availability.findIndex(a=>a.faculty===fid&&a.day===day&&a.period===0);if(idx>=0)db.availability.splice(idx,1);else db.availability.push({id:uid("AV"),faculty:fid,day,period:0,blocked:true});log("Faculty availability changed",dayLabel(day));save()}
+  const sol=e.target.closest("[data-apply-solution]");if(sol)applySolution(+sol.dataset.applySolution);
+  const ver=e.target.closest("[data-restore-version]");if(ver)restoreVersion(ver.dataset.restoreVersion);
+  const rc=e.target.closest("[data-report-class]");if(rc){q("classSelector").value=rc.dataset.reportClass;navigate("generate")}
+});
+
+document.addEventListener("input",e=>{
+  const id=e.target.id||"";const map={prefClassGaps:"classGaps",prefFacultyGaps:"facultyGaps",prefSpread:"spread",prefRooms:"rooms",prefEdges:"edges",prefWorkload:"workload"};
+  if(map[id]){db.preferences[map[id]]=+e.target.value;const out=q(id+"Val");if(out)out.textContent=e.target.value;renderGenerate()}
+  if(id==="scenarioStrength")q("scenarioStrengthVal").textContent=e.target.value+"%";
+});
+document.addEventListener("change",e=>{
+  if(["shortBreakCount","lunchBreakCount","calendarPeriods"].includes(e.target.id))breakSelectors();
+  if(e.target.id==="classSelector")renderGenerate();
+});
+q("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
+q("copyShare").disabled=true;
+if(sharedSnap){
+  q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
+  q("pageTitle").textContent="Shared Timetable";
+}
+render();
 cloudLoad();
