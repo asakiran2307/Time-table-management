@@ -92,62 +92,14 @@ The Export Centre supports selected-class and complete-university PDF outputs, p
 The sample workspace is populated using the structure visible in the supplied Joy University timetable: 2025–26 academic year, Monday–Friday schedule, 8 periods, break slots, CSE III/V Section K, course codes 24BTCY151–156 and 24BTCY851 plus the two lab courses, faculty and room information.
 
 
+## Single-owner university model
+
+This release changes the product direction to **one authorized application user per university/school**. Faculty and students remain timetable records only and do not receive application accounts. The university owner is the only user who can manage, validate, export and publish/share the timetable.
+
+Production rollout is documented in `docs/ARCHITECTURE.md` and `supabase/migrations/001_single_owner.sql`.
+
 ## SaaS development
 
-The repository now contains a SaaS foundation in supabase/schema.sql and .env.example.
+The repository contains a Supabase schema foundation and the new single-owner migration. The browser demo remains LocalStorage-backed until the active Supabase project and authentication integration are connected.
 
-### Current browser demo
-The UI works without a backend using LocalStorage, including master data, timetable generation, availability, room booking, substitutions, users/roles, activity logs and exports.
-
-### Production backend
-For a real multi-university SaaS deployment:
-
-1. Create a Supabase project.
-2. Run supabase/schema.sql in the Supabase SQL Editor.
-3. Configure Supabase Auth.
-4. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in the production app.
-5. Keep SUPABASE_SECRET_KEY server-side only.
-6. Migrate browser LocalStorage repositories to Supabase queries protected by RLS.
-7. Add Vercel deployment environment variables.
-
-Supabase's current Next.js guidance uses cookie-based Auth, Postgres and RLS; exposed tables should remain protected by RLS. Vercel's current SaaS starter pattern also demonstrates authentication, RBAC, subscriptions and activity logging.
-
-### Enterprise modules now included
-
-The browser application now also includes:
-- Analytics and workload dashboards
-- Faculty availability controls used by the generator
-- Room booking with timetable collision checks
-- Substitution planning with substitute conflict checks
-- Users and workspace roles
-- Activity/audit log
-- Attendance register
-- Announcements/notifications workspace
-- Timetable release/version snapshots with restore
-- JSON backup restore
-- Full integrity validation
-- Master-data edit/delete with dependency protection
-- Break/lunch-aware calendar configuration
-
-These features intentionally work in the browser demo so the project can be tested without a backend.
-
-### Production SaaS target architecture
-
-For a shared university product, the recommended production stack is Next.js App Router + Supabase Auth/Postgres/RLS + Vercel. Supabase's current Next.js guidance uses cookie-based authentication with `@supabase/ssr`, while RLS provides row-level authorization; Vercel's SaaS starter demonstrates authentication, RBAC, activity logging and billing patterns.
-
-The current repository includes the Supabase schema foundation, but the browser demo is still LocalStorage-backed until a Supabase project and application integration are configured. Do not put a Supabase secret/service key in browser code.
-
-### Recommended production rollout
-
-1. Create the Supabase project and run `supabase/schema.sql`.
-2. Configure email/password or institutional SSO in Supabase Auth.
-3. Add Next.js App Router + `@supabase/ssr` authentication.
-4. Create organization onboarding and membership management.
-5. Replace LocalStorage repositories with organization-scoped Supabase queries.
-6. Keep RLS enabled and test SELECT/INSERT/UPDATE/DELETE policies.
-7. Move automatic timetable generation to a server-side constraint solver for large deployments.
-8. Add Realtime for schedule, bookings and substitution updates.
-9. Add object storage for institutional documents and generated exports.
-10. Add Stripe only after the core scheduling workflow is stable.
-
-The current schema deliberately keeps organization_id on business records so multiple universities can share one database while remaining isolated by RLS.
+For production, use Supabase Auth + PostgreSQL RLS and keep the service-role/secret key server-side only.
