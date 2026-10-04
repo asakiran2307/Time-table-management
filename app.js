@@ -847,7 +847,7 @@ function downloadImportTemplate(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Code","Name","Type","Credits","L","T","P","FacultyId","RoomId","ClassIds"]]),"Courses");
   XLSX.writeFile(wb,"unischedule-import-template.xlsx");
 }
-function exportAction(type){if(type==="pdf")return exportPDF();if(type==="excel")return exportExcel();if(type==="docx")return exportDOCX();if(type==="csv")return exportCSV();if(type==="ics")return exportICS();if(type==="print")return printReport();if(type==="json")return backup()}
+function exportAction(type){if(type==="pdf")return exportPDF();if(type==="excel")return exportExcel();if(type==="workbook")return exportWorkbook();if(type==="docx")return exportDOCX();if(type==="csv")return exportCSV();if(type==="ics")return exportICS();if(type==="print")return printReport();if(type==="json")return backup()}
 function exportICS(){
   const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//UniSchedule//Academic Timetable//EN"];
   db.schedule.slice().sort((a,b)=>a.day.localeCompare(b.day)||a.period-b.period).forEach(e=>{
@@ -1004,11 +1004,20 @@ function renderScenarios(){
   q("scenarioStrengthVal").textContent=q("scenarioStrength").value+"%";
 }
 function renderReports(){
-  const pf=preflight(),sc=scheduleScore(db);
-  q("reportClass").innerHTML=db.classes.map(c=>"<div class='list-row'><div><b>"+esc(c.name)+"</b><small>"+db.schedule.filter(e=>e.classId===c.id).length+" scheduled entries</small></div><button class='btn small' data-report-class='"+c.id+"'>View</button></div>").join("");
+  const pf=preflight(),sc=scheduleScore(db),scope=q("reportScope")?.value||"university",prevEntity=q("reportEntity")?.value||"";
+  if(q("reportScope"))q("reportScope").value=scope;
+  const entities=reportEntities(scope);
+  if(q("reportEntity")){
+    q("reportEntity").innerHTML=scope==="university"
+      ?"<option value=''>All sections and records</option>"
+      :entities.map(x=>"<option value='"+esc(x.id)+"'>"+esc(x.label)+"</option>").join("");
+    q("reportEntity").value=entities.some(x=>x.id===prevEntity)?prevEntity:(entities[0]?.id||"");
+    q("reportEntity").disabled=scope==="university";
+  }
+  q("reportClass").innerHTML=db.classes.map(c=>"<div class='list-row'><div><b>"+esc(c.name)+"</b><small>"+db.schedule.filter(e=>e.classId===c.id).length+" scheduled entries</small></div><button class='btn small' data-report-class='"+c.id+"'>Open</button></div>").join("");
   q("reportFaculty").innerHTML=db.faculty.map(f=>"<div class='list-row'><div><b>"+esc(f.name)+"</b><small>"+db.schedule.filter(e=>e.facultyId===f.id).length+" sessions</small></div><span>"+Math.round((db.schedule.filter(e=>e.facultyId===f.id).length/Math.max(1,f.maxWeek||18))*100)+"%</span></div>").join("");
   q("reportRooms").innerHTML=db.rooms.map(r=>"<div class='list-row'><div><b>"+esc(r.name)+"</b><small>"+db.schedule.filter(e=>e.roomId===r.id).length+" sessions · "+r.capacity+" seats</small></div><span>"+Math.round(db.schedule.filter(e=>e.roomId===r.id).length/Math.max(1,db.settings.days.length*(db.settings.periods-db.settings.breaks.length))*100)+"%</span></div>").join("");
-  q("reportQuality").innerHTML="<div class='quality-list'><span>Quality score <b>"+sc.score+"%</b></span><span>Hard conflicts <b>"+sc.hardN+"</b></span><span>Coverage gaps <b>"+pf.coverage.length+"</b></span><span>Unscheduled activities <b>"+activityList(db).filter(a=>!db.schedule.some(e=>e.activityId===a.id)).length+"</b></span></div>";
+  q("reportQuality").innerHTML="<div class='quality-list'><span>Quality score <b>"+sc.score+"%</b></span><span>Hard conflicts <b>"+sc.hardN+"</b></span><span>Coverage gaps <b>"+pf.coverage.length+"</b></span><span>Selected export <b>"+esc(exportScopeLabel(scope,q("reportEntity")?.value||""))+"</b></span></div>";
 }
 function renderVersions(){
   q("versionsTable").innerHTML=db.versions.length?"<table><thead><tr><th>Version</th><th>Status</th><th>Created</th><th>Score</th><th>Entries</th><th>Action</th></tr></thead><tbody>"+db.versions.map(v=>"<tr><td><b>"+esc(v.name)+"</b></td><td><span class='release-badge'>"+esc(v.status)+"</span></td><td>"+new Date(v.at).toLocaleString()+"</td><td>"+(v.score||"—")+"</td><td>"+v.schedule.length+"</td><td><button class='btn small' data-restore-version='"+v.id+"'>Restore</button></td></tr>").join("")+"</tbody></table>":"<div class='empty-state'><strong>No versions saved.</strong></div>";
@@ -1145,20 +1154,154 @@ function exportCSV(){
   db.settings.days.forEach(d=>{for(let p=0;p<db.settings.periods;p++){const bt=currentBreakType(p),t=timeSlots()[p];if(bt)rows.push([d,p+1,t.start,t.end,bt,"","",""]);else db.classes.forEach(c=>{const e=entryAt(db,d,p,c.id);if(e){rows.push([d,p+1,t.start,t.end,c.name,findCourse(e.courseId)?.code||"",findFaculty(e.facultyId)?.name||"",findRoom(e.roomId)?.name||""])}})}});
   download("unischedule-timetable.csv",rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(",")).join("\n"),"text/csv");
 }
+function reportSelection(){
+  return {scope:q("reportScope")?.value||"university",entity:q("reportEntity")?.value||""};
+}
+function reportEntities(scope){
+  if(scope==="class")return db.classes.map(x=>({id:x.id,label:x.name}));
+  if(scope==="course")return db.courses.map(x=>({id:x.id,label:x.code+" · "+x.name}));
+  if(scope==="faculty")return db.faculty.map(x=>({id:x.id,label:x.name}));
+  if(scope==="room")return db.rooms.map(x=>({id:x.id,label:x.code+" · "+x.name}));
+  return [];
+}
+function reportRows(scope="university",entity=""){
+  const rows=[];
+  db.settings.days.forEach(day=>{
+    for(let p=0;p<db.settings.periods;p++){
+      if(currentBreakType(p))continue;
+      db.schedule.filter(e=>e.day===day&&e.period===p&&(
+        scope==="university" ||
+        (scope==="class"&&e.classId===entity) ||
+        (scope==="course"&&e.courseId===entity) ||
+        (scope==="faculty"&&e.facultyId===entity) ||
+        (scope==="room"&&e.roomId===entity)
+      )).forEach(e=>{
+        const cl=findClass(e.classId),cr=findCourse(e.courseId),f=findFaculty(e.facultyId),r=findRoom(e.roomId);
+        const ts=timeSlots()[p]||{};
+        rows.push({day,dayLabel:dayLabel(day),period:p,start:ts.start||"",end:ts.end||"",className:cl?.name||"",section:cl?.section||"",program:db.programs.find(x=>x.id===cl?.program)?.name||"",courseCode:cr?.code||"",courseName:cr?.name||"",faculty:f?.name||"",room:r?.name||""});
+      });
+    }
+  });
+  return rows;
+}
+function exportScopeLabel(scope,entity){
+  const items=reportEntities(scope),hit=items.find(x=>x.id===entity);
+  if(scope==="university")return db.organization.name+" · Complete timetable";
+  return (scope==="class"?"Section / Class":scope==="course"?"Course":scope==="faculty"?"Faculty":"Room")+" · "+(hit?.label||entity||"Selected");
+}
+function sectionMatrixRows(classId){
+  const cl=findClass(classId);
+  if(!cl)return [];
+  return db.settings.days.map(day=>[dayLabel(day),...Array.from({length:db.settings.periods},(_,p)=>{
+    const bt=currentBreakType(p);if(bt)return bt;
+    const e=entryAt(db,day,p,classId);if(!e)return "—";
+    const cr=findCourse(e.courseId),r=findRoom(e.roomId);
+    return (cr?.code||"")+"\n"+(r?.name||"");
+  })]);
+}
+function csvEscape(v){const s=String(v??"");return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function exportCSV(){
+  const {scope,entity}=reportSelection(),rows=reportRows(scope,entity);
+  if(!rows.length)return alert("No timetable entries found for this export.");
+  const head=["Day","Period","Start","End","Class","Section","Program","Course Code","Course","Faculty","Room"];
+  const lines=[head.join(",")];
+  rows.forEach(r=>lines.push([r.dayLabel,r.period+1,r.start,r.end,r.className,r.section,r.program,r.courseCode,r.courseName,r.faculty,r.room].map(csvEscape).join(",")));
+  download("unischedule-"+scope+"-export.csv",lines.join("\r\n"),"text/csv;charset=utf-8");
+}
 function exportExcel(){
   if(!window.XLSX)return alert("Excel library unavailable.");
-  const wb=XLSX.utils.book_new();
-  const data=[["Day","Period","Start","End","Class","Course","Faculty","Room"]];
-  db.settings.days.forEach(d=>{for(let p=0;p<db.settings.periods;p++){const bt=currentBreakType(p),t=timeSlots()[p];if(bt)data.push([d,p+1,t.start,t.end,bt,"","",""]);else db.classes.forEach(c=>{const e=entryAt(db,d,p,c.id);if(e)data.push([d,p+1,t.start,t.end,c.name,findCourse(e.courseId)?.code||"",findFaculty(e.facultyId)?.name||"",findRoom(e.roomId)?.name||""])})}});
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data),"Master Timetable");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Metric","Value"],["Quality",scheduleScore(db).score+"%"],["Hard conflicts",allConflicts(db).length],["Scheduled",db.schedule.length],["Classes",db.classes.length],["Courses",db.courses.length]]),"Overview");
-  XLSX.writeFile(wb,"unischedule-report.xlsx");
+  const wb=XLSX.utils.book_new(),{scope,entity}=reportSelection();
+  const rows=reportRows(scope,entity);
+  const data=[["Day","Period","Start","End","Class","Section","Program","Course Code","Course","Faculty","Room"],
+    ...rows.map(r=>[r.dayLabel,r.period+1,r.start,r.end,r.className,r.section,r.program,r.courseCode,r.courseName,r.faculty,r.room])];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data), "Selected Export");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Scope",exportScopeLabel(scope,entity)],["Generated",new Date().toLocaleString()],["Hard conflicts",allConflicts(db).length],["Coverage gaps",preflight().coverage.length],["Quality",scheduleScore(db).score+"%"]]),"Overview");
+  if(scope==="class"&&entity){
+    const m=[["Day",...timeSlots().map(t=>t.start+"-"+t.end)],...sectionMatrixRows(entity)];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(m),"Timetable");
+  }
+  XLSX.writeFile(wb,"unischedule-"+scope+"-export.xlsx");
+}
+function safeSheetName(name,used){
+  let base=String(name||"Sheet").replace(/[\\/?*\[\]:]/g," ").slice(0,31)||"Sheet",n=base,i=1;
+  while(used.has(n)){const suffix="-"+(++i);n=base.slice(0,31-suffix.length)+suffix;}
+  used.add(n);return n;
+}
+function exportWorkbook(){
+  if(!window.XLSX)return alert("Excel library unavailable.");
+  const wb=XLSX.utils.book_new(),used=new Set();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+    ["University",db.organization.name],["Code",db.organization.code],["Academic Year",db.settings.year],["Semester",db.settings.semester],
+    ["Classes",db.classes.length],["Courses",db.courses.length],["Faculty",db.faculty.length],["Rooms",db.rooms.length],
+    ["Scheduled entries",db.schedule.length],["Hard conflicts",allConflicts(db).length],["Coverage gaps",preflight().coverage.length],["Quality score",scheduleScore(db).score+"%"]
+  ]),safeSheetName("Overview",used));
+  const all=reportRows("university","");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Day","Period","Start","End","Class","Section","Program","Course Code","Course","Faculty","Room"],...all.map(r=>[r.dayLabel,r.period+1,r.start,r.end,r.className,r.section,r.program,r.courseCode,r.courseName,r.faculty,r.room])]),safeSheetName("All Schedule",used));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Class","Section","Program","Entries"],...db.classes.map(cl=>[cl.name,cl.section,db.programs.find(p=>p.id===cl.program)?.name||"",db.schedule.filter(e=>e.classId===cl.id).length])]),safeSheetName("Sections",used));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Course Code","Course","Day","Period","Class","Faculty","Room"],...reportRows("university","").map(r=>[r.courseCode,r.courseName,r.dayLabel,r.period+1,r.className,r.faculty,r.room])]),safeSheetName("Courses",used));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Faculty","Day","Period","Class","Course","Room"],...reportRows("university","").map(r=>[r.faculty,r.dayLabel,r.period+1,r.className,r.courseCode,r.room])]),safeSheetName("Faculty",used));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Room","Day","Period","Class","Course","Faculty"],...reportRows("university","").map(r=>[r.room,r.dayLabel,r.period+1,r.className,r.courseCode,r.faculty])]),safeSheetName("Rooms",used));
+  db.classes.forEach(cl=>{
+    const rows=[["Day",...timeSlots().map(t=>t.start+"-"+t.end)],...sectionMatrixRows(cl.id)];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),safeSheetName(cl.section+" · "+cl.name,used));
+  });
+  XLSX.writeFile(wb,"unischedule-complete-workbook.xlsx");
+}
+function pdfDrawClass(doc,classId){
+  const cl=findClass(classId);if(!cl)return;
+  let y=14;
+  doc.setFontSize(13);doc.text(db.organization.name,14,y);y+=6;
+  doc.setFontSize(9);doc.text(db.settings.title+" · "+cl.name,14,y);y+=7;
+  const margin=14,totalW=269,cols=db.settings.periods+1,colW=totalW/cols,headerH=8,rowH=20;
+  const headers=["DAY",...timeSlots().map(t=>t.start+"-"+t.end)];
+  doc.setFontSize(5.2);
+  headers.forEach((h,i)=>{doc.rect(margin+i*colW,y,colW,headerH);doc.text(String(h),margin+i*colW+1,y+5)});
+  y+=headerH;
+  db.settings.days.forEach(day=>{
+    doc.rect(margin,y,colW,rowH);doc.text(dayLabel(day),margin+1,y+7);
+    for(let p=0;p<db.settings.periods;p++){
+      const x=margin+(p+1)*colW;doc.rect(x,y,colW,rowH);
+      const bt=currentBreakType(p),e=entryAt(db,day,p,classId);
+      const text=bt||(!e?"—":(findCourse(e.courseId)?.code||"")+(findRoom(e.roomId)?.name?"\n"+findRoom(e.roomId).name:""));
+      const lines=doc.splitTextToSize(String(text),Math.max(12,colW-2));doc.text(lines.slice(0,4),x+1,y+6);
+    }
+    y+=rowH;
+  });
+}
+function pdfDrawRows(doc,title,rows){
+  let y=14;
+  doc.setFontSize(13);doc.text(db.organization.name,14,y);y+=6;doc.setFontSize(9);doc.text(title,14,y);y+=7;
+  const heads=["DAY","PER","TIME","CLASS","COURSE","FACULTY","ROOM"],widths=[20,10,25,58,50,48,40];
+  const x0=14;
+  const drawHead=()=>{let x=x0;doc.setFontSize(5.5);heads.forEach((h,i)=>{doc.rect(x,y,widths[i],7);doc.text(h,x+1,y+4.5);x+=widths[i]});y+=7};
+  drawHead();
+  rows.forEach(r=>{
+    if(y>190){doc.addPage();y=14;drawHead();}
+    let x=x0;const vals=[r.dayLabel,r.period+1,r.start+"-"+r.end,r.className,r.courseCode,r.faculty,r.room];
+    vals.forEach((v,i)=>{doc.rect(x,y,widths[i],9);doc.setFontSize(5);doc.text(doc.splitTextToSize(String(v||"—"),widths[i]-2).slice(0,2),x+1,y+5);x+=widths[i]});y+=9;
+  });
 }
 function exportPDF(){
-  if(!window.jspdf)return alert("PDF library unavailable.");const {jsPDF}=jspdf;const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});let y=14;
-  doc.setFontSize(14);doc.text(db.organization.name,14,y);y+=7;doc.setFontSize(9);doc.text(db.settings.title,14,y);y+=8;
-  db.classes.forEach(c=>{if(y>185){doc.addPage();y=14}doc.setFontSize(11);doc.text(c.name,14,y);y+=5;const headers=["DAY",...timeSlots().map(t=>t.start+"-"+t.end)];const body=db.settings.days.map(d=>[dayLabel(d),...Array.from({length:db.settings.periods},(_,p)=>{const bt=currentBreakType(p);if(bt)return bt;const e=entryAt(db,d,p,c.id);return e?(findCourse(e.courseId)?.code||"")+"\n"+(findRoom(e.roomId)?.name||""):"—"})]);doc.setFontSize(6);const width=265/(headers.length);headers.forEach((h,i)=>doc.text(h,14+i*width,y));y+=4;body.forEach(row=>{row.forEach((cell,i)=>doc.text(String(cell).slice(0,22),14+i*width,y));y+=4});y+=5});
-  doc.save("unischedule-timetable.pdf");
+  if(!window.jspdf)return alert("PDF library unavailable.");
+  const {scope,entity}=reportSelection(),doc=new jspdf.jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+  if(scope==="class"&&entity){pdfDrawClass(doc,entity);}
+  else if(scope==="university"){db.classes.forEach((cl,i)=>{if(i)doc.addPage();pdfDrawClass(doc,cl.id)});}
+  else{const rows=reportRows(scope,entity);if(!rows.length)return alert("No timetable entries found for this export.");pdfDrawRows(doc,exportScopeLabel(scope,entity),rows);}
+  doc.save("unischedule-"+scope+"-export.pdf");
+}
+function exportDOCX(){
+  if(!window.docx)return alert("DOCX library unavailable.");
+  const {Document,Paragraph,TextRun,Packer}=window.docx,{scope,entity}=reportSelection();
+  const children=[new Paragraph({children:[new TextRun({text:db.organization.name,bold:true,size:28})]}),new Paragraph({children:[new TextRun({text:exportScopeLabel(scope,entity),size:20})]})];
+  if(scope==="class"&&entity){
+    sectionMatrixRows(entity).forEach(row=>children.push(new Paragraph({children:[new TextRun({text:row.join(" | "),size:16})]})));
+  }else{
+    const rows=reportRows(scope,entity);
+    if(!rows.length)return alert("No timetable entries found for this export.");
+    rows.forEach(r=>children.push(new Paragraph({children:[new TextRun({text:r.dayLabel+" · P"+(r.period+1)+" · "+r.courseCode+" · "+r.className+" · "+r.faculty+" · "+r.room,size:16})]})));
+  }
+  const doc=new Document({sections:[{children}]});
+  Packer.toBlob(doc).then(blob=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="unischedule-"+scope+"-export.docx";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
 }
 function printReport(){window.print()}
 function download(name,data,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
@@ -1226,6 +1369,8 @@ document.addEventListener("click",e=>{
   if(e.target.id==="reportPdf")exportPDF();
   if(e.target.id==="reportExcel")exportExcel();
   if(e.target.id==="reportCsv")exportCSV();
+  if(e.target.id==="reportScope"){renderReports();return}
+  if(e.target.id==="reportEntity"){renderReports();return}
   const ex=e.target.closest("[data-export]");if(ex)exportAction(ex.dataset.export);
   if(e.target.id==="downloadTemplate")downloadImportTemplate();
   if(e.target.id==="validateImport"){const file=q("importFile").files?.[0];if(file)readImportFile(file);else alert("Choose an Excel file first.");}
