@@ -82,6 +82,8 @@ function switchLoginRole(role){
   document.querySelectorAll("[data-login-role]").forEach(b=>b.classList.toggle("active",b.dataset.loginRole===role));
   q("universityLogin").classList.toggle("hidden",role!=="university");
   q("masterLogin").classList.toggle("hidden",role!=="master");
+  const entry=q("masterLoginToggle");
+  if(entry){entry.dataset.loginRole=role==="master"?"university":"master";entry.textContent=role==="master"?"← Back to university login":"Master Admin Login";}
 }
 function refreshLoginUniversities(){
   const s=q("loginUniversity");if(!s)return;
