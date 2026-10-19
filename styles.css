@@ -366,3 +366,35 @@ main{background:#f5f7fa}
   .login-shell{grid-template-columns:minmax(0,1fr);row-gap:12px}
   .master-login-toggle{grid-column:1;width:100%;min-height:46px;margin:0}
 }
+
+
+/* Keep Master Admin entry prominent and centered below the login card. */
+.master-login-toggle{
+  grid-column:1 / -1;
+  justify-self:center;
+  width:min(420px,100%);
+  min-height:50px;
+  margin:0 auto;
+  padding:13px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  border:1px solid #c6a34b;
+  border-left:4px solid #c6a34b;
+  border-radius:8px;
+  background:#183653;
+  color:#fff;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.01em;
+  box-shadow:0 4px 12px rgba(24,54,83,.15);
+  cursor:pointer;
+}
+.master-login-toggle::before{content:"◆";color:#e4c66f;font-size:13px}
+.master-login-toggle::after{content:"Open administrator console  →";font-size:10px;font-weight:600;color:#d9e4ee;margin-left:4px}
+.master-login-toggle:hover{background:#244b6d;border-color:#d7b95f;color:#fff}
+.master-login-toggle:focus-visible{outline:3px solid rgba(198,163,75,.45);outline-offset:3px}
+@media(max-width:820px){
+  .master-login-toggle{grid-column:1;width:100%;max-width:420px;min-height:50px;margin:0 auto}
+}
