@@ -911,7 +911,8 @@ function resetCampusBackground(){
   if(master)master.style.backgroundImage="";
   const status=q("backgroundStatus");if(status)status.textContent="Default background restored.";
 }
-\nfunction render(){
+
+function render(){
   syncHeader();renderCurrentPage();
 }
 function syncHeader(){
