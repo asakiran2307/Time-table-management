@@ -598,7 +598,7 @@ function save(){
   db=normalizeState(db);
   const result=USCore.safeStorageSet(localStorage,KEY,JSON.stringify(db));
   if(!result.ok){setSync("Save failed · "+result.error);render();return false}
-  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){u.data=copy(db);if(!savePlatform()){setSync("Workspace saved locally, but owner account state could not be saved.");render();return false}}}
+  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){const previousData=u.data;u.data=copy(db);if(!savePlatform()){u.data=previousData;setSync("Workspace saved locally, but owner account state could not be saved.");render();return false}}}
   clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
   render();
   setSync("Saved locally · "+new Date().toLocaleTimeString());
@@ -957,7 +957,7 @@ function resetCampusBackground(){
   if(master)master.style.backgroundImage="";
   const status=q("backgroundStatus");if(status)status.textContent="Default background restored.";
 }
-\nfunction render(){
+function render(){
   syncHeader();renderCurrentPage();
 }
 function syncHeader(){
