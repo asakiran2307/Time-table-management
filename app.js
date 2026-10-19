@@ -82,6 +82,8 @@ function switchLoginRole(role){
   document.querySelectorAll("[data-login-role]").forEach(b=>b.classList.toggle("active",b.dataset.loginRole===role));
   q("universityLogin").classList.toggle("hidden",role!=="university");
   q("masterLogin").classList.toggle("hidden",role!=="master");
+  const entry=q("masterLoginToggle");
+  if(entry){entry.dataset.loginRole=role==="master"?"university":"master";entry.textContent=role==="master"?"← Back to university login":"Master Admin Login";}
 }
 function refreshLoginUniversities(){
   const s=q("loginUniversity");if(!s)return;
@@ -911,7 +913,8 @@ function resetCampusBackground(){
   if(master)master.style.backgroundImage="";
   const status=q("backgroundStatus");if(status)status.textContent="Default background restored.";
 }
-\nfunction render(){
+
+function render(){
   syncHeader();renderCurrentPage();
 }
 function syncHeader(){
@@ -1452,8 +1455,15 @@ if(sharedSnap){
   q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
   q("pageTitle").textContent="Shared Timetable";
 }
-render();
-applyCampusBackground();
-if(!sharedSnap)cloudLoad();
-
+// Initialize login controls before rendering the application. A render-time error must
+// never leave the login tabs and submit buttons without click handlers.
 initAuth();
+try {
+  render();
+  applyCampusBackground();
+  if(!sharedSnap) cloudLoad();
+} catch (error) {
+  console.error("UniSchedule startup failed:", error);
+  const loginError=q("loginError");
+  if(loginError) loginError.textContent="The app could not finish loading. Refresh the page and try again.";
+}
