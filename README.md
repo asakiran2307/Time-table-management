@@ -89,6 +89,25 @@ The relational model uses PostgreSQL RLS with one organization owner. Supabase r
 
 The current connected Supabase project is inactive, so the migration is committed but has not been applied to that live project.
 
+## Daily quality checks
+
+Run the built-in checks with Node.js 22 or newer:
+
+```bash
+npm test
+npm run check
+```
+
+The test suite covers versioned and legacy backup validation, CSV formula protection, and browser-storage failure handling. GitHub Actions runs these checks on pushes and pull requests.
+
+## Workspace safety and usability
+
+- **Backup and restore:** the Backup action downloads a versioned JSON file. Restore accepts that format and earlier raw JSON backups, validates the required workspace structure, limits files to 10 MB, shows a replacement confirmation, and records the restore in the activity log.
+- **Storage feedback:** local save failures are surfaced in the workspace status instead of failing silently.
+- **Master-data search:** courses, classes, faculty, and rooms can be filtered without changing the underlying records; search text survives re-rendering during the current page session.
+- **Safer CSV:** spreadsheet-formula-leading values are prefixed before export to reduce CSV formula-injection risk.
+- **Keyboard dialogs:** edit dialogs support Escape to close, focus placement, focus trapping, and focus return.
+
 ## Deploy
 
 The repo is linked to Vercel and deploys from main.

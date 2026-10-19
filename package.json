@@ -4,5 +4,9 @@
   "version": "1.0.0",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check app.js && node --check auth.js && node --check core.js && node --check api/auth-config.js && node --check api/health.js && node --check api/state.js && node --check api/platform/organizations.js"
   }
 }

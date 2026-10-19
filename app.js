@@ -1,7 +1,50 @@
+const USCore=window.USCore||(window.USCore=(function(){
+  const FORMAT="unischedule-backup",VERSION=1,REQUIRED_ARRAYS=["departments","programs","classes","faculty","rooms","courses","schedule"];
+  const isObject=value=>value!==null&&typeof value==="object"&&!Array.isArray(value);
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  function validateState(data){
+    if(!isObject(data))return {ok:false,error:"Backup data must be a JSON object."};
+    const missing=REQUIRED_ARRAYS.filter(key=>!Array.isArray(data[key]));
+    if(missing.length)return {ok:false,error:"Backup is missing valid lists: "+missing.join(", ")+"."};
+    if(!isObject(data.settings)||!isObject(data.organization))return {ok:false,error:"Backup must include organization and settings objects."};
+    return {ok:true};
+  }
+  function createBackup(data,exportedAt){
+    const check=validateState(data);if(!check.ok)throw new Error(check.error);
+    return {format:FORMAT,version:VERSION,exportedAt:typeof exportedAt==="string"?exportedAt:new Date().toISOString(),data:clone(data)};
+  }
+  function parseBackup(input){
+    let payload;try{payload=typeof input==="string"?JSON.parse(input):input}catch(error){return {ok:false,error:"The selected file is not valid JSON."}}
+    let data,metadata;
+    if(isObject(payload)&&Object.prototype.hasOwnProperty.call(payload,"format")){
+      if(payload.format!==FORMAT)return {ok:false,error:"This file is not a UniSchedule backup."};
+      if(payload.version!==VERSION)return {ok:false,error:"Unsupported backup version: "+String(payload.version)+"."};
+      data=payload.data;metadata={format:FORMAT,version:VERSION,exportedAt:payload.exportedAt||null,legacy:false};
+    }else{data=payload;metadata={format:FORMAT,version:0,exportedAt:null,legacy:true}}
+    const check=validateState(data);if(!check.ok)return check;
+    return {ok:true,data:clone(data),metadata};
+  }
+  function csvCell(value){
+    let text=String(value==null?"":value);
+    if(/^[\u0000-\u0020]*[=+\-@]/.test(text))text="'"+text;
+    if(/[",\r\n]/.test(text))text='"'+text.replace(/"/g,'""')+'"';
+    return text;
+  }
+  function safeStorageSet(storage,key,value){
+    try{storage.setItem(key,value);return {ok:true}}
+    catch(error){
+      const quota=error&&(error.name==="QuotaExceededError"||error.name==="NS_ERROR_DOM_QUOTA_REACHED"||error.code===22||error.code===1014);
+      return {ok:false,error:quota?"Browser storage is full. Download a backup and free some site storage before retrying.":"Browser storage is blocked or unavailable. Check your browser privacy settings."};
+    }
+  }
+  return {createBackup,parseBackup,validateState,csvCell,safeStorageSet};
+})());
 const KEY="unisched-v3";
 const CLOUD_API="/api/state";
 const CLOUD_ENABLED=false;
 let cloudTimer=null,lockMode=false,solutionCandidates=[],selectedClassId=null;
+const tableSearchTerms=Object.create(null);
+let modalReturnFocus=null;
 
 function q(id){return document.getElementById(id)}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -70,7 +113,7 @@ let authSession=null;
 function defaultPlatform(){return {universities:[{code:"JU001",name:"JOY UNIVERSITY",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",username:"joyadmin",password:"JU@2026",status:"Active",data:copy(DEFAULT)}]}}
 function loadPlatform(){try{const x=JSON.parse(localStorage.getItem(PLATFORM_KEY)||"null");return x&&Array.isArray(x.universities)?x:defaultPlatform()}catch(e){return defaultPlatform()}}
 let platform=loadPlatform();
-function savePlatform(){localStorage.setItem(PLATFORM_KEY,JSON.stringify(platform))}
+function savePlatform(){const result=USCore.safeStorageSet(localStorage,PLATFORM_KEY,JSON.stringify(platform));if(!result.ok){setSync("Save failed · "+result.error);return false}return true}
 function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?platform.universities.find(u=>u.code===authSession.orgCode):null}
 function showOnly(which){
   const login=q("loginGate"),master=q("masterConsole"),app=q("app");
@@ -104,7 +147,7 @@ function createUniversity(){
   if(!name||!code||!username||!password){q("createUniResult").textContent="Complete all required fields.";return}
   if(platform.universities.some(u=>u.code===code||u.username===username)){q("createUniResult").textContent="University code or owner username already exists.";return}
   const data=normalizeState(copy(DEFAULT));data.organization.name=name;data.organization.code=code;data.organization.school=school;data.organization.timezone=timezone;data.settings.university=name;data.settings.school=school;data.branding.name=name;data.branding.code=code;data.branding.timezone=timezone;
-  platform.universities.push({code,name,school,timezone,username,password,status:"Active",data});savePlatform();renderMasterConsole();refreshLoginUniversities();
+  platform.universities.push({code,name,school,timezone,username,password,status:"Active",data});if(!savePlatform()){platform.universities.pop();q("createUniResult").textContent="Could not save the new university. Browser storage may be full or blocked.";return}renderMasterConsole();refreshLoginUniversities();
   q("createUniResult").innerHTML="<div class='check good'><b>"+esc(name)+" created</b><span>One university owner account is ready.</span></div>";
 }
 function renderMasterConsole(){
@@ -112,7 +155,7 @@ function renderMasterConsole(){
   q("masterStats").innerHTML=[["Universities",platform.universities.length],["Active",platform.universities.filter(u=>u.status==="Active").length],["Suspended",platform.universities.filter(u=>u.status==="Suspended").length],["Owner accounts",platform.universities.length]].map(x=>"<div class='stat'><span>"+x[0]+"</span><strong>"+x[1]+"</strong></div>").join("");
   q("masterUniversities").innerHTML="<table><thead><tr><th>University</th><th>Code</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>"+platform.universities.map(u=>"<tr><td><b>"+esc(u.name)+"</b><small>"+esc(u.school||"")+"</small></td><td>"+esc(u.code)+"</td><td>"+esc(u.username)+"</td><td><span class='badge "+(u.status==="Active"?"good":"bad")+"'>"+u.status+"</span></td><td><button class='btn small' data-toggle-uni='"+u.code+"'>"+(u.status==="Active"?"Suspend":"Activate")+"</button></td></tr>").join("")+"</tbody></table>";
 }
-function toggleUniversity(code){const u=platform.universities.find(x=>x.code===code);if(!u)return;u.status=u.status==="Active"?"Suspended":"Active";u.data.organization.status=u.status;savePlatform();renderMasterConsole();refreshLoginUniversities()}
+function toggleUniversity(code){const u=platform.universities.find(x=>x.code===code);if(!u)return;const previous=u.status;u.status=u.status==="Active"?"Suspended":"Active";u.data.organization.status=u.status;if(!savePlatform()){u.status=previous;u.data.organization.status=previous;return}renderMasterConsole();refreshLoginUniversities()}
 function initAuth(){
   refreshLoginUniversities();
   document.querySelectorAll("[data-login-role]").forEach(b=>b.onclick=()=>switchLoginRole(b.dataset.loginRole));
@@ -553,10 +596,13 @@ function loadLocal(){
 function save(){
   if(sharedSnap)return false;
   db=normalizeState(db);
-  localStorage.setItem(KEY,JSON.stringify(db));
-  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){u.data=copy(db);savePlatform()}}
+  const result=USCore.safeStorageSet(localStorage,KEY,JSON.stringify(db));
+  if(!result.ok){setSync("Save failed · "+result.error);render();return false}
+  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){u.data=copy(db);if(!savePlatform()){setSync("Workspace saved locally, but owner account state could not be saved.");render();return false}}}
   clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
   render();
+  setSync("Saved locally · "+new Date().toLocaleTimeString());
+  return true;
 }
 function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,details,at:now()});db.activityLog=db.activityLog.slice(0,300)}
 function cloudSave(){
@@ -1016,16 +1062,35 @@ function renderPublish(){
   q("copyShare").disabled=!latest;
   q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";renderShareHistory();
 }
+function attachTableSearch(containerId,label){
+  const container=q(containerId);if(!container)return;
+  const table=container.querySelector("table");if(!table)return;
+  const wrap=document.createElement("div");wrap.className="table-search";
+  wrap.innerHTML="<label>"+esc(label)+"<input type='search' autocomplete='off' aria-label='"+esc(label)+"'></label><span class='muted' data-search-count></span>";
+  const input=wrap.querySelector("input"),count=wrap.querySelector("[data-search-count]");
+  input.value=tableSearchTerms[containerId]||"";
+  const filter=()=>{tableSearchTerms[containerId]=input.value;const term=input.value.trim().toLocaleLowerCase();const rows=Array.from(table.querySelectorAll("tbody tr"));let visible=0;rows.forEach(row=>{const match=!term||row.textContent.toLocaleLowerCase().includes(term);row.hidden=!match;if(match)visible++});count.textContent=term?visible+" of "+rows.length+" rows":rows.length+" rows"};
+  input.addEventListener("input",filter);container.insertBefore(wrap,table);filter();
+}
+
 function renderCourses(){
   q("combinedList").innerHTML=db.combinedGroups.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.map(id=>esc(findClass(id)?.section||id)).join(" + ")+" · "+esc(findRoom(g.roomId)?.name||"")+"</small></div></div>").join("")||"<div class='empty-state'><strong>No combined groups.</strong><span>Use this for common lectures or seminars.</span></div>";
   q("electiveList").innerHTML=db.electives.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.length+" class(es) · "+g.courseIds.length+" option(s)</small></div></div>").join("")||"<div class='empty-state'><strong>No elective groups.</strong><span>Create one when students choose between common course options.</span></div>";
   q("coursesTable").innerHTML="<table><thead><tr><th>Code</th><th>Course</th><th>Type</th><th>L</th><th>T</th><th>P</th><th>Credits</th><th>Pattern</th><th>Faculty</th><th>Room</th><th>Classes</th><th>Actions</th></tr></thead><tbody>"+db.courses.map(c=>"<tr><td><b>"+esc(c.code)+"</b></td><td>"+esc(c.name)+"</td><td>"+esc(c.type||"Theory")+"</td><td>"+(c.l||0)+"</td><td>"+(c.t||0)+"</td><td>"+(c.p||0)+"</td><td>"+(c.credits||0)+"</td><td>"+esc(c.sessionPattern||"—")+"</td><td>"+esc(findFaculty(c.faculty)?.name||"—")+"</td><td>"+esc(findRoom(c.room)?.name||"—")+"</td><td>"+(c.shared?"<span class='badge neutral'>SHARED · "+arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(" + ")+"</span>":arr(c.classIds).map(id=>esc(findClass(id)?.name||id)).join(", "))+"</td><td><button class='btn small' data-edit-course='"+c.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>";
+
+  attachTableSearch("coursesTable","Search courses");
 }
 function renderClasses(){
   q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th><th>Actions</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(db.departments.find(d=>d.id===c.department)?.code||c.department||"—")+"</td><td><button class='btn small' data-edit-class='"+c.id+"'>Edit</button> <button class='btn small' data-view-class='"+c.id+"'>Timetable</button></td></tr>").join("")+"</tbody></table>";
+
+  attachTableSearch("classesTable","Search classes");
 }
-function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td><button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
-function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th><th>Actions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td><td><button class='btn small' data-edit-room='"+r.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
+function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td><button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"
+  attachTableSearch("facultyTable","Search faculty");
+}
+function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th><th>Actions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td><td><button class='btn small' data-edit-room='"+r.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"
+  attachTableSearch("roomsTable","Search rooms");
+}
 function breakSelectors(){
   const sc=+q("shortBreakCount").value||0,lc=+q("lunchBreakCount").value||0;
   const opts="<option value='-1'>None</option>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"'>Period "+(i+1)+"</option>").join("");
@@ -1082,10 +1147,16 @@ function renderSettings(){
   q("brandName").value=db.branding.name;q("brandCode").value=db.branding.code;q("brandLogo").value=db.branding.logo;q("brandTimezone").value=db.branding.timezone;
 }
 function openModal(title,html,submit){
-  q("modalTitle").textContent=title;q("modalForm").innerHTML=html;q("modal").classList.add("open");
+  modalReturnFocus=document.activeElement;
+  const modal=q("modal"),dialog=modal.firstElementChild;
+  dialog.id="modalDialog";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");dialog.setAttribute("aria-labelledby","modalTitle");dialog.setAttribute("tabindex","-1");
+  modal.setAttribute("role","presentation");modal.setAttribute("aria-hidden","false");
+  q("modalTitle").textContent=title;q("modalForm").innerHTML=html;modal.classList.add("open");
   q("modalForm").onsubmit=e=>{e.preventDefault();submit(new FormData(e.target));closeModal()};
+  const first=q("modalForm").querySelector("input:not([type=hidden]),select,textarea,button");
+  if(first)first.focus();else dialog.focus();
 }
-function closeModal(){q("modal").classList.remove("open")}
+function closeModal(){const modal=q("modal");modal.classList.remove("open");modal.setAttribute("aria-hidden","true");const target=modalReturnFocus;modalReturnFocus=null;if(target&&target.isConnected&&typeof target.focus==="function")target.focus()}
 
 function addDepartment(){
   openModal("Add Department","<label>Name<input name='name' required></label><label>Code<input name='code' required></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.departments.push({id:uid("DEP"),name:f.get("name"),code:f.get("code").toUpperCase()});log("Department added",f.get("name"));save()})
@@ -1243,7 +1314,7 @@ function sectionMatrixRows(classId){
     return (cr?.code||"")+"\n"+(r?.name||"");
   })]);
 }
-function csvEscape(v){const s=String(v??"");return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function csvEscape(v){return USCore.csvCell(v)}
 function exportCSV(){
   const {scope,entity}=reportSelection(),rows=reportRows(scope,entity);
   if(!rows.length)return alert("No timetable entries found for this export.");
@@ -1349,7 +1420,56 @@ function exportDOCX(){
 }
 function printReport(){window.print()}
 function download(name,data,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-function backup(){download("unischedule-backup.json",JSON.stringify(db,null,2),"application/json")}
+function backup(){try{const payload=USCore.createBackup(db,now());download("unischedule-backup-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(payload,null,2),"application/json");setSync("Backup downloaded · "+new Date().toLocaleTimeString())}catch(error){setSync("Backup failed · invalid workspace data");alert("Backup could not be created: "+error.message)}}
+
+function restoreBackupFile(file){
+  if(sharedSnap){alert("Published snapshots are read-only.");return}
+  if(!file)return;
+  if(file.size>10*1024*1024){alert("Backup files must be 10 MB or smaller.");return}
+  const reader=new FileReader();
+  reader.onerror=()=>{setSync("Backup restore failed · file could not be read");alert("Could not read the selected backup file.")};
+  reader.onload=()=>{
+    const parsed=USCore.parseBackup(String(reader.result||""));
+    if(!parsed.ok){setSync("Backup restore failed · invalid file");alert("Backup was not restored: "+parsed.error);return}
+    const data=parsed.data;
+    const summary=[data.classes.length+" classes",data.courses.length+" courses",data.faculty.length+" faculty records",data.rooms.length+" rooms",data.schedule.length+" timetable entries"].join(", ");
+    const when=parsed.metadata.exportedAt?" exported "+parsed.metadata.exportedAt:(parsed.metadata.legacy?" (legacy backup)":"");
+    if(!confirm("Restore backup"+when+"? This replaces the current workspace. Found: "+summary+". Continue?"))return;
+    const nextDb=normalizeState(copy(data));
+    nextDb.activityLog.unshift({id:uid("ACT"),action:"Backup restored",details:parsed.metadata.legacy?"Legacy JSON backup":"Version "+parsed.metadata.version+" backup",at:now()});
+    nextDb.activityLog=nextDb.activityLog.slice(0,300);
+    let previousLocal;
+    try{previousLocal=localStorage.getItem(KEY)}catch(error){setSync("Backup restore failed · browser storage is unavailable");alert("Backup was not restored because browser storage is unavailable.");return}
+    const localWrite=USCore.safeStorageSet(localStorage,KEY,JSON.stringify(nextDb));
+    if(!localWrite.ok){setSync("Backup restore failed · "+localWrite.error);alert("Backup was not restored: "+localWrite.error);return}
+    let nextPlatform=platform;
+    if(authSession?.role==="UNIVERSITY_OWNER"){
+      nextPlatform=copy(platform);
+      const university=nextPlatform.universities.find(x=>x.code===authSession.orgCode);
+      if(!university){try{if(previousLocal===null)localStorage.removeItem(KEY);else localStorage.setItem(KEY,previousLocal)}catch(error){}setSync("Backup restore failed · owner account was not found");alert("Backup was not restored because the active owner account could not be found.");return}
+      university.data=copy(nextDb);
+      const platformWrite=USCore.safeStorageSet(localStorage,PLATFORM_KEY,JSON.stringify(nextPlatform));
+      if(!platformWrite.ok){try{if(previousLocal===null)localStorage.removeItem(KEY);else localStorage.setItem(KEY,previousLocal)}catch(error){}setSync("Backup restore failed · "+platformWrite.error);alert("Backup was not restored safely: "+platformWrite.error);return}
+    }
+    db=nextDb;platform=nextPlatform;clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);render();setSync("Backup restored · saved locally");
+  };
+  reader.readAsText(file);
+}
+
+function installFeatureUi(){
+  const status=q("syncStatus");if(status){status.setAttribute("role","status");status.setAttribute("aria-live","polite")}
+  const modal=q("modal");if(modal){modal.setAttribute("role","presentation");modal.setAttribute("aria-hidden","true");const dialog=modal.firstElementChild;if(dialog){dialog.id="modalDialog";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");dialog.setAttribute("aria-labelledby","modalTitle");dialog.setAttribute("tabindex","-1")}}
+  const backupButton=q("backupBtn"),actions=backupButton&&backupButton.parentElement;
+  if(actions&&!q("restoreBackupBtn")){
+    const button=document.createElement("button");button.id="restoreBackupBtn";button.className="btn";button.type="button";button.textContent="Restore backup";
+    const input=document.createElement("input");input.id="restoreBackupFile";input.type="file";input.accept=".json,application/json";input.hidden=true;input.setAttribute("aria-label","Choose a UniSchedule JSON backup");
+    actions.insertBefore(button,q("logoutBtn")||null);actions.appendChild(input);
+  }
+  const style=document.createElement("style");
+  style.textContent=".table-search{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}.table-search label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:10px;font-weight:800}.table-search input{width:min(320px,60vw);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}.table-search input:focus-visible{outline:2px solid #3c83b5;outline-offset:2px}.table-search [data-search-count]{font-size:10px;color:var(--muted)}table tbody tr[hidden]{display:none}";
+  document.head.appendChild(style);
+}
+
 
 function addRoomBlock(){
   openModal("Block a room","<label>Room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><label>Day<select name='day'><option value='ALL'>All days</option>"+db.settings.days.map(d=>"<option value='"+d+"'>"+dayLabel(d)+"</option>").join("")+"</select></label><label>Period<select name='period'><option value='-1'>All periods</option>"+Array.from({length:db.settings.periods},(_,i)=>"<option value='"+i+"'>Period "+(i+1)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save</button></div>",f=>{db.roomBlocks.push({id:uid("RB"),roomId:f.get("room"),day:f.get("day"),period:+f.get("period"),blocked:true});log("Room availability rule added",findRoom(f.get("room")).name);save()})
@@ -1411,7 +1531,7 @@ document.addEventListener("click",e=>{
   const editRoomBtn=e.target.closest("[data-edit-room]");if(editRoomBtn)editRoom(editRoomBtn.dataset.editRoom);
   const editCourseBtn=e.target.closest("[data-edit-course]");if(editCourseBtn)editCourse(editCourseBtn.dataset.editCourse);
   const viewClass=e.target.closest("[data-view-class]");if(viewClass){selectedClassId=viewClass.dataset.viewClass;navigate("generate");}
-  if(e.target.id==="backupBtn")backup();
+  if(e.target.id==="backupBtn")backup();if(e.target.id==="restoreBackupBtn")q("restoreBackupFile").click();
   if(e.target.id==="reportPdf")exportPDF();
   if(e.target.id==="reportExcel")exportExcel();
   if(e.target.id==="reportDocx")exportDOCX();
@@ -1440,6 +1560,7 @@ document.addEventListener("input",e=>{
   if(id==="scenarioStrength")q("scenarioStrengthVal").textContent=e.target.value+"%";
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="restoreBackupFile"){restoreBackupFile(e.target.files?.[0]);e.target.value="";return}
   if(e.target.id==="importFile"){window.__importRows=null;renderImport()}
   if(["shortBreakCount","lunchBreakCount","calendarPeriods"].includes(e.target.id))breakSelectors();
   if(e.target.id==="classSelector"){selectedClassId=e.target.value;renderGenerate();}
@@ -1447,6 +1568,16 @@ document.addEventListener("change",e=>{
   if(e.target.id==="reportScope"||e.target.id==="reportEntity"){renderReports();}
 });
 q("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
+document.addEventListener("keydown",e=>{
+  const modal=q("modal");if(!modal?.classList.contains("open"))return;
+  if(e.key==="Escape"){e.preventDefault();closeModal();return}
+  if(e.key!=="Tab")return;
+  const items=Array.from(modal.querySelectorAll("button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[href],[tabindex]:not([tabindex=\"-1\"])")).filter(el=>el.offsetParent!==null);
+  if(!items.length){e.preventDefault();q("modalDialog").focus();return}
+  const first=items[0],last=items[items.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+});
+installFeatureUi();
 q("copyShare").disabled=true;
 if(sharedSnap){
   q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
