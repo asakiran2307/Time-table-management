@@ -206,5 +206,42 @@
 </div>
 <div id="modal" class="modal"><div class="modal-box"><button class="modal-close" id="modalClose">×</button><h3 id="modalTitle"></h3><form id="modalForm"></form></div></div>
 <script src="app.js"></script>
+<script>
+/* Login recovery: keep the login controls usable if app.js fails during startup. */
+(function(){
+  const byId=id=>document.getElementById(id);
+  const select=byId("loginUniversity");
+  if(select && !select.options.length){
+    const option=document.createElement("option");
+    option.value="JU001";
+    option.textContent="JOY UNIVERSITY (JU001)";
+    select.appendChild(option);
+  }
+  document.querySelectorAll("[data-login-role]").forEach(button=>{
+    if(!button.onclick) button.addEventListener("click",()=>{
+      const role=button.dataset.loginRole;
+      document.querySelectorAll("[data-login-role]").forEach(item=>item.classList.toggle("active",item.dataset.loginRole===role));
+      byId("universityLogin")?.classList.toggle("hidden",role!=="university");
+      byId("masterLogin")?.classList.toggle("hidden",role!=="master");
+    });
+  });
+  [["universityLoginBtn","universityLogin"],["masterLoginBtn","masterLogin"]].forEach(([buttonId,handlerName])=>{
+    const button=byId(buttonId);
+    if(button && !button.onclick) button.addEventListener("click",()=>{
+      try{
+        if(typeof window[handlerName]==="function") window[handlerName]();
+        else {
+          const error=byId(handlerName==="universityLogin"?"loginError":"masterError");
+          if(error) error.textContent="The login system did not finish loading. Please refresh the page.";
+        }
+      }catch(error){
+        const target=byId(handlerName==="universityLogin"?"loginError":"masterError");
+        if(target) target.textContent="Login initialization failed. Refresh the page and try again.";
+        console.error("Login recovery:",error);
+      }
+    });
+  });
+})();
+</script>
 </body>
 </html>
