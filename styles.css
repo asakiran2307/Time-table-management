@@ -60,3 +60,97 @@ main{width:calc(100% - 266px);margin-left:266px;min-height:100vh;background:rgba
 @media(max-width:1100px){.export-controls{grid-template-columns:1fr 1fr 1fr 1fr}.export-controls button:last-child{grid-column:span 2}}
 @media(max-width:780px){.export-controls{grid-template-columns:1fr 1fr}.export-controls label{grid-column:1/-1}.export-controls button:last-child{grid-column:1/-1}}
 
+
+
+/* JOY University ERP-inspired brand alignment: navy, academic blue, and gold. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap');
+:root{
+  --ink:#1e3a5f;
+  --ink2:#2d5a87;
+  --muted:#64748b;
+  --line:#dce4ed;
+  --surface:#ffffff;
+  --soft:#f8fafc;
+  --good:#16734a;
+  --warn:#9a6b10;
+  --bad:#b33a32;
+  --joy-navy:#1e3a5f;
+  --joy-blue:#2d5a87;
+  --joy-gold:#c9a227;
+  --shadow:0 8px 24px rgba(30,58,95,.08);
+}
+html{scroll-behavior:auto}
+body{
+  font-family:'Inter',Arial,sans-serif;
+  color:#24364b;
+  background:#f3f6fa;
+}
+h1,h2,h3,.login-title,.brand-title{font-family:'Playfair Display',Georgia,serif}
+button,input,select,textarea{font-family:'Inter',Arial,sans-serif}
+main{background:#f3f6fa}
+.sidebar{background:var(--joy-navy);border-right:1px solid #294a6c;box-shadow:none}
+.brand{border-bottom-color:rgba(255,255,255,.13)}
+.brand-mark{background:#fff;color:var(--joy-navy);border-radius:8px}
+.tenant-card{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);border-radius:8px}
+.nav{border-radius:6px;font-size:12px}
+.nav:hover{background:rgba(255,255,255,.09)}
+.nav.active{background:#fff;color:var(--joy-navy);box-shadow:none;border-left:3px solid var(--joy-gold)}
+.topbar{background:#fff;border-bottom:2px solid var(--joy-gold);box-shadow:0 2px 8px rgba(30,58,95,.04)}
+.topbar-title h1{font-family:'Playfair Display',Georgia,serif;color:var(--joy-navy);letter-spacing:0}
+.eyebrow{color:#7b6a3b;letter-spacing:.11em}
+.btn{border-radius:6px;border-color:#cbd7e4;color:var(--joy-navy);box-shadow:none}
+.btn:hover{background:#f5f8fc}
+.btn.primary{background:var(--joy-navy);border-color:var(--joy-navy);box-shadow:none}
+.btn.primary:hover{background:var(--joy-blue);border-color:var(--joy-blue)}
+.access-pill{background:#f8f3e4;border-color:#e8d9a9;color:#765d13}
+.page{padding:26px}
+.hero{border-radius:10px;border-color:#dce4ed;background:#fff;box-shadow:none}
+.hero h2{font-family:'Playfair Display',Georgia,serif;color:var(--joy-navy);letter-spacing:-.02em}
+.hero-meta{border-radius:8px;background:#f8f5eb;border-color:#eadfb9}
+.hero-meta strong{color:var(--joy-navy)}
+.workflow-header,.workflow-grid{background:#fff;border-color:#dce4ed}
+.workflow-header{border-radius:8px 8px 0 0}
+.workflow-grid{border-radius:0 0 8px 8px}
+.workflow-card{border-radius:7px;box-shadow:none}
+.workflow-card.next{border-color:var(--joy-gold);box-shadow:none}
+.progress-track i{background:var(--joy-gold)}
+.stat,.panel{background:#fff;border-color:#dce4ed;border-radius:8px;box-shadow:none}
+.panel-head h3{color:var(--joy-navy)}
+.badge{border-radius:5px;letter-spacing:.04em}
+.badge.good{background:#edf7f0;border-color:#cce6d3;color:#226644}
+.badge.warn{background:#fbf5e6;border-color:#ead9a9;color:#826116}
+.mini-form input,.calendar-editor input,.calendar-editor select,.generator-bar select,.generator-bar input,.scenario-grid input,.share-preview input{
+  border-radius:6px;border-color:#cbd7e4;
+}
+.mini-form input:focus,.calendar-editor input:focus,.calendar-editor select:focus,.generator-bar select:focus{
+  border-color:var(--joy-blue);box-shadow:0 0 0 2px rgba(45,90,135,.12)
+}
+.timetable th,.panel table th{background:#edf2f7;color:var(--joy-navy)}
+.timetable td{background:#fff}
+.timetable td.empty{background:#f8fafc}
+.timetable td.lab{background:#fbf6e8}
+.timetable td.break{background:#edf1f5;color:#50657b}
+.login-gate{background:#f3f6fa}
+.login-shell{max-width:1120px}
+.login-brand{color:var(--joy-navy)}
+.login-mark{background:var(--joy-navy);color:#fff;border-radius:8px}
+.login-card{border:1px solid #dce4ed;border-radius:10px;box-shadow:0 12px 32px rgba(30,58,95,.09)}
+.login-tabs{border-bottom-color:#e2e8f0}
+.login-tab.active{color:var(--joy-navy);border-bottom:3px solid var(--joy-gold)}
+.login-form h1{font-family:'Playfair Display',Georgia,serif;color:var(--joy-navy)}
+.login-form label{color:#334155}
+.login-form input,.login-form select{border-radius:6px;border-color:#cbd5e1}
+.login-submit{background:var(--joy-navy);border-color:var(--joy-navy)}
+.login-submit:hover{background:var(--joy-blue)}
+.login-error{color:#b42318}
+.demo-note{background:#fbf7e9;border-color:#ead9a9;color:#66531d}
+.login-foot{color:#64748b}
+.master-top{background:#fff;border-color:#dce4ed}
+@media(max-width:900px){
+  .topbar{grid-template-columns:1fr;gap:10px;padding:14px 16px}
+  .topbar-context{border-left:0;padding-left:0}
+  .top-actions{justify-content:flex-start}
+  .page{padding:16px}
+  .hero{grid-template-columns:1fr}
+  .hero-meta{text-align:left}
+}
