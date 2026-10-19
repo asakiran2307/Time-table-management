@@ -154,3 +154,9 @@ main{background:#f3f6fa}
   .hero{grid-template-columns:1fr}
   .hero-meta{text-align:left}
 }
+
+
+/* Separate, compact Master Admin entry below the university login card. */
+.master-login-toggle{grid-column:2;justify-self:center;margin-top:-10px;padding:6px 11px;border:1px solid rgba(255,255,255,.38);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;box-shadow:none}
+.master-login-toggle:hover{background:rgba(255,255,255,.22)}
+@media(max-width:820px){.master-login-toggle{grid-column:1;margin-top:-8px}}
