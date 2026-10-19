@@ -36,7 +36,7 @@ test("malformed, foreign, unsupported, and incomplete backups are rejected", () 
   assert.equal(USCore.parseBackup({ format: "other", version: 1, data: sampleState() }).ok, false);
   assert.equal(USCore.parseBackup({ format: "unischedule-backup", version: 99, data: sampleState() }).ok, false);
   assert.equal(USCore.parseBackup({ organization: {}, settings: {}, courses: [] }).ok, false);
-  assert.throws(() => USCore.createBackup({}), /Backup data must be a JSON object/);
+  assert.throws(() => USCore.createBackup(null), /Backup data must be a JSON object/);
 });
 
 test("CSV cells quote delimiters and neutralize spreadsheet formulas", () => {
