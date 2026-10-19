@@ -1452,8 +1452,15 @@ if(sharedSnap){
   q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
   q("pageTitle").textContent="Shared Timetable";
 }
-render();
-applyCampusBackground();
-if(!sharedSnap)cloudLoad();
-
+// Initialize login controls before rendering the application. A render-time error must
+// never leave the login tabs and submit buttons without click handlers.
 initAuth();
+try {
+  render();
+  applyCampusBackground();
+  if(!sharedSnap) cloudLoad();
+} catch (error) {
+  console.error("UniSchedule startup failed:", error);
+  const loginError=q("loginError");
+  if(loginError) loginError.textContent="The app could not finish loading. Refresh the page and try again.";
+}
