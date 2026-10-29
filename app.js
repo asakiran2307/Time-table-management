@@ -68,7 +68,34 @@ const PLATFORM_KEY="unisched-platform-v1";
 const MASTER_CREDENTIALS={username:"masteradmin",password:"Master@2026"};
 let authSession=null;
 function defaultPlatform(){return {universities:[{code:"JU001",name:"JOY UNIVERSITY",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",username:"joyadmin",password:"JU@2026",status:"Active",data:copy(DEFAULT)}]}}
-function loadPlatform(){try{const x=JSON.parse(localStorage.getItem(PLATFORM_KEY)||"null");return x&&Array.isArray(x.universities)?x:defaultPlatform()}catch(e){return defaultPlatform()}}
+function loadPlatform(){
+  const fallback=defaultPlatform();
+  try{
+    const raw=localStorage.getItem(PLATFORM_KEY);
+    const saved=raw?JSON.parse(raw):null;
+    if(!saved||!Array.isArray(saved.universities))return fallback;
+    const universities=saved.universities.filter(u=>u&&typeof u==="object"&&String(u.code||"").trim()&&String(u.name||"").trim());
+    const joyDefault=fallback.universities[0];
+    const joyIndex=universities.findIndex(u=>String(u.code||"").trim().toUpperCase()==="JU001");
+    if(joyIndex<0)universities.unshift(joyDefault);
+    else{
+      const stored=universities[joyIndex];
+      universities[joyIndex]={
+        ...joyDefault,...stored,
+        code:"JU001",
+        name:String(stored.name||joyDefault.name).trim(),
+        username:String(stored.username||joyDefault.username).trim(),
+        password:stored.password||joyDefault.password,
+        status:String(stored.status||"Active").toLowerCase()==="suspended"?"Suspended":"Active",
+        data:stored.data&&typeof stored.data==="object"?stored.data:copy(joyDefault.data)
+      };
+    }
+    return {universities:universities.map(u=>({...u,status:String(u.status||"Active").toLowerCase()==="suspended"?"Suspended":"Active"}))};
+  }catch(e){
+    console.warn("Saved university list could not be read; using the default university.",e);
+    return fallback;
+  }
+}
 let platform=loadPlatform();
 function savePlatform(){localStorage.setItem(PLATFORM_KEY,JSON.stringify(platform))}
 function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?platform.universities.find(u=>u.code===authSession.orgCode):null}
@@ -85,7 +112,15 @@ function switchLoginRole(role){
 }
 function refreshLoginUniversities(){
   const s=q("loginUniversity");if(!s)return;
-  s.innerHTML=platform.universities.filter(u=>u.status==="Active").map(u=>"<option value='"+esc(u.code)+"'>"+esc(u.name)+" ("+esc(u.code)+")</option>").join("");
+  const active=platform.universities.filter(u=>u&&String(u.status||"Active").toLowerCase()==="active");
+  s.disabled=active.length===0;
+  if(!active.length){
+    s.innerHTML="<option value=''>No active universities available — contact Master Admin</option>";
+    return;
+  }
+  s.innerHTML=active.map(u=>"<option value='"+esc(u.code)+"'>"+esc(u.name)+" ("+esc(u.code)+")</option>").join("");
+  const preferred=active.find(u=>String(u.code).toUpperCase()==="JU001")||active[0];
+  s.value=preferred.code;
 }
 function masterLogin(){
   if(q("masterUsername").value.trim()!==MASTER_CREDENTIALS.username||q("masterPassword").value!==MASTER_CREDENTIALS.password){q("masterError").textContent="Invalid Master Admin credentials.";return}
