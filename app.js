@@ -97,6 +97,8 @@ function loadPlatform(){
   }
 }
 let platform=loadPlatform();
+/* Populate the login selector immediately, before non-critical dashboard rendering runs. */
+try{refreshLoginUniversities()}catch(error){console.error("Could not initialize university selector:",error)}
 function savePlatform(){localStorage.setItem(PLATFORM_KEY,JSON.stringify(platform))}
 function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?platform.universities.find(u=>u.code===authSession.orgCode):null}
 function showOnly(which){
