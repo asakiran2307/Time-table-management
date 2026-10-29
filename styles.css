@@ -60,3 +60,24 @@ main{width:calc(100% - 266px);margin-left:266px;min-height:100vh;background:rgba
 @media(max-width:1100px){.export-controls{grid-template-columns:1fr 1fr 1fr 1fr}.export-controls button:last-child{grid-column:span 2}}
 @media(max-width:780px){.export-controls{grid-template-columns:1fr 1fr}.export-controls label{grid-column:1/-1}.export-controls button:last-child{grid-column:1/-1}}
 
+
+
+/* Mobile login visibility fix: keep the Sign in action reachable on short screens. */
+@media(max-width:820px){
+  .login-gate{display:block;overflow-y:auto;overscroll-behavior:contain;padding:14px 12px calc(24px + env(safe-area-inset-bottom));}
+  .login-shell{width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;align-items:stretch;gap:14px;min-height:0;}
+  .login-brand{justify-content:center;flex:none;padding:8px 0;}
+  .login-card{width:100%;box-sizing:border-box;padding:18px;}
+  .login-form h1{font-size:22px;}
+  .login-form p{margin-bottom:12px;}
+  .login-form label{margin:8px 0;}
+  .login-submit{display:block;width:100%;min-height:46px;position:relative;z-index:2;visibility:visible;}
+  .login-foot{margin:0;padding-bottom:8px;}
+}
+@media(max-height:700px) and (max-width:820px){
+  .login-gate{place-items:start center;}
+  .login-shell{padding-top:2px;}
+  .login-brand small{font-size:9px;}
+  .login-card{padding:15px;}
+  .login-tabs{margin-bottom:12px;}
+}
