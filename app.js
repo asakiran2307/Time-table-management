@@ -1489,8 +1489,8 @@ if(sharedSnap){
   q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
   q("pageTitle").textContent="Shared Timetable";
 }
+/* Wire authentication before non-critical dashboard rendering can fail. */
+initAuth();
 render();
 applyCampusBackground();
 if(!sharedSnap)cloudLoad();
-
-initAuth();
