@@ -38,7 +38,7 @@
         <div class="demo-note">Master Admin access must be provisioned securely.</div>
       </div>
     </div>
-    <div class="login-foot">Protected by Supabase Auth and school-scoped PostgreSQL row-level security.</div>
+    <div class="login-foot">Protected by secure server-side sessions and school-scoped PostgreSQL data access.</div>
   </div>
 </div>
 <div id="masterConsole" class="master-console hidden">
@@ -80,7 +80,7 @@
     <div class="nav-label">SYSTEM</div>
     <button class="nav" data-page="settings">Institution Settings</button>
   </nav>
-  <div class="sidebar-footer"><span class="owner-dot"></span><div><b>Owner access</b><small>One authorized account</small></div></div>
+  <div class="sidebar-footer"><span class="owner-dot"></span><div><b>Owner access</b><small>Two authorized operators</small></div></div>
 </aside>
 
 <main>
@@ -200,12 +200,11 @@
 <section id="settings" class="page"><div class="section-head"><div><span class="eyebrow">SYSTEM</span><h2>Institution Settings</h2><p>Owner-level branding, campus background, backup and product configuration.</p></div></div>
 <div class="two-col"><div class="panel"><h3>Branding</h3><div class="mini-form"><label>Display name<input id="brandName"></label><label>Institution code<input id="brandCode"></label><label>Logo URL<input id="brandLogo"></label><label>Timezone<input id="brandTimezone"></label></div><button class="btn primary" id="saveBranding">Save branding</button></div>
 <div class="panel"><h3>Exact campus background</h3><p class="muted">Upload the original Joy University photo you provided. The browser stores the original JPEG locally without resizing or recompressing it.</p><div class="actions"><input id="backgroundFile" type="file" accept="image/jpeg,image/jpg,image/png"><button class="btn" id="resetBackground">Use default</button></div><div id="backgroundStatus" class="export-hint">No custom campus background saved in this browser.</div></div></div>
-<div class="panel"><h3>Product boundary</h3><div class="policy-card"><b>One university → one authorized user</b><span>Faculty and students exist only as timetable records. Export, publish and share remain owner operations.</span></div><div class="policy-card"><b>Public links are view-only</b><span>Published snapshots never grant editing permission.</span></div><div class="policy-card"><b>Production security</b><span>Use Supabase Auth + PostgreSQL RLS for live tenant isolation; the current browser demo falls back to local/cloud state.</span></div></div></section>
+<div class="panel"><h3>Product boundary</h3><div class="policy-card"><b>One school → two authorized operators</b><span>Faculty and students exist only as timetable records. Export, publish and share remain owner operations.</span></div><div class="policy-card"><b>Public links are view-only</b><span>Published snapshots never grant editing permission.</span></div><div class="policy-card"><b>Production security</b><span>Neon PostgreSQL stores school workspaces. Server-side sessions enforce school membership before every read or write.</span></div></div></section>
 
 </main>
 </div>
 <div id="modal" class="modal"><div class="modal-box"><button class="modal-close" id="modalClose">×</button><h3 id="modalTitle"></h3><form id="modalForm"></form></div></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="auth.js"></script>
 <script src="app.js"></script>
 <script src="section-h.js"></script>
