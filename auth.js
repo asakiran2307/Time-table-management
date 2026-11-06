@@ -11,11 +11,11 @@
   return result;
  }
  async function getRole(){const result=await request("/api/auth");return result.authenticated?result:null;}
- async function signOut(){try{await request("/api/auth",{method:"POST",body:JSON.stringify({action:"logout"})})}finally{location.href="login.html";}}
+ async function signOut(){try{await request("/api/auth",{method:"POST",body:JSON.stringify({action:"logout"})})}finally{location.href="/";}}
  async function require(role){
   if(location.hash.startsWith("#shared="))return {shared:true,type:"PUBLIC_VIEW"};
   try{const r=await getRole();if(!r||r.type!==role){await signOut();return null;}return r;}
-  catch(e){if(!location.pathname.endsWith("login.html"))location.href="login.html?reason="+encodeURIComponent(e.message);return null;}
+  catch(e){if(!location.pathname.endsWith("/"))location.href="/?reason="+encodeURIComponent(e.message);return null;}
  }
  window.USAuth={signIn,getRole,signOut,require};
 })();
