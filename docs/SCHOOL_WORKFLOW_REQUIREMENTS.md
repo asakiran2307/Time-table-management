@@ -38,16 +38,18 @@ Turn UniSchedule into a simple, English-first timetable preparation system for J
 7. Generate faculty candidates from verified subject-expertise mappings.
 8. Auto-assign eligible faculty where possible.
 9. Allow manual related-subject assignment when an operator confirms it.
-10. If a subject still has no real faculty, create a clearly marked New Faculty 1, New Faculty 2, etc. placeholder rather than leaving a faculty slot empty.
+10. If a subject still has no real faculty, create a distinct, clearly marked placeholder for that subject: New Faculty 1, New Faculty 2, etc. Number placeholders sequentially within that subject's shortage list.
 11. Complete timetable generation, conflict checking, review, validation, save, and export.
 
-## Faculty shortage rule
+## Faculty shortage rule — Option B confirmed
 
 - No required teaching slot may silently remain without a faculty allocation.
+- Every unresolved subject shortage gets its own separate placeholder record. A placeholder created for one subject must not be reused or automatically assigned to another subject.
+- Number placeholders sequentially per subject (New Faculty 1, New Faculty 2, etc.). Keep the subject association permanently visible.
 - A placeholder is not a real faculty member and must be visibly labelled as pending recruitment/confirmation.
 - Placeholders must not be counted as verified faculty or hide a staffing shortage.
+- Do not treat a placeholder as a real available instructor for conflict-free timetable generation. It is a visible staffing placeholder; the timetable must show that staffing confirmation is still required.
 - Real faculty assignments must still pass availability and collision checks.
-- Placeholder identity/reuse policy is pending product-owner confirmation.
 
 ## User experience
 
@@ -62,6 +64,6 @@ Turn UniSchedule into a simple, English-first timetable preparation system for J
 - Replace demo/local-only authentication for operational accounts with secure authentication.
 - Remove any public/global state endpoint that allows unauthenticated cross-school access.
 - Keep service-role/database secrets server-side only.
-- Add automated tests for school isolation, two-operator access, faculty-subject eligibility, related-subject manual override, placeholder creation, and timetable collision prevention.
+- Add automated tests for school isolation, two-operator access, faculty-subject eligibility, related-subject manual override, per-subject placeholder numbering and isolation, and timetable collision prevention.
 - Run syntax/build/test checks before merging or deploying.
 - Do not deploy a production migration that cannot be rolled back or whose required secrets/backend are not configured.
