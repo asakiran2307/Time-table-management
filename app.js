@@ -163,7 +163,16 @@ async function universityLogin(){
   }catch(error){q("loginError").textContent=error.message||"Sign-in failed."}
   finally{q("universityLoginBtn").disabled=false}
 }
-async function logout(){
+async async function changeAccountPassword(){
+ const currentPassword=q("currentPassword")?.value||"",newPassword=q("newPassword")?.value||"",status=q("passwordChangeStatus");
+ if(newPassword.length<12){if(status)status.textContent="Use a new password with at least 12 characters.";return;}
+ try{
+  const r=await fetch("/api/auth",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"change-password",currentPassword,newPassword})});
+  const data=await r.json();if(!r.ok)throw new Error(data.error||"Password update failed.");
+  q("currentPassword").value="";q("newPassword").value="";if(status)status.textContent=data.message||"Password updated.";
+ }catch(error){if(status)status.textContent=error.message||"Password update failed."}
+}
+function logout(){
   try{await USAuth.signOut()}catch(error){console.warn("Sign out failed",error)}
   authSession=null;db=normalizeState(copy(DEFAULT));showOnly("login");
   q("loginPassword").value="";
@@ -1533,6 +1542,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="saveVersionBtn")saveDraftVersion();
   if(e.target.id==="refreshInsights")renderIntelligence();if(e.target.id==="downloadTemplate")downloadImportTemplate();
   if(e.target.id==="saveBranding")updateBranding();
+  if(e.target.id==="changePasswordBtn")changeAccountPassword();
   if(e.target.id==="resetBackground")resetCampusBackground();
   if(e.target.id==="backgroundFile")saveCampusBackground(e.target.files?.[0]);
   const removeExpertise=e.target.closest("[data-remove-expertise]");if(removeExpertise){db.facultySubjects=db.facultySubjects.filter(m=>m.id!==removeExpertise.dataset.removeExpertise);log("Subject expertise removed",removeExpertise.dataset.removeExpertise);save();}
