@@ -15,11 +15,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts
       - name: Check JavaScript syntax
         run: |
           node --check app.js
           node --check auth.js
           node --check api/state.js
+          node --check api/auth.js
+          node --check api/_lib/auth.js
           node --check api/auth-config.js
           node --check api/platform/organizations.js
       - name: Test school-scoped API
