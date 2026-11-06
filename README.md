@@ -1,18 +1,18 @@
 # UniSchedule — Intelligent University Timetable Management
 
-A professional university timetable planning and optimization workspace for a single authorized user per university. Faculty and students are scheduling data only; they do not receive application logins.
+A professional timetable planning and optimization workspace. Each school has one isolated workspace and up to two authorized timetable operators. Faculty and students are scheduling data only; they do not receive application logins.
 
 ## Product flow
 
-Master Admin → University → One Owner Account → Prepare Data → Constraints → Build Timetable → Preflight → Compare/Repair → Validate → Publish → Export/Share.
+Platform provisioning → School → Two Operator Accounts → Prepare Data → Constraints → Build Timetable → Preflight → Compare/Repair → Validate → Publish → Export/Share.
 
 The workflow follows the scheduling blueprint in the supplied specification: hard/soft constraints, multiple candidate solutions, lock/repair, versioned releases, owner-only exports and view-only sharing. fileciteturn100file0L2135-L2180
 
 ## Implemented in the current branch
 
 ### Owner workspace
-- One university / one authorized application-user model
-- Owner-only timetable management, publish, export and share
+- One school workspace / up to two authorized operator accounts
+- School-operator timetable management, publish, export and share
 - Faculty/student records are never treated as login accounts
 - Institutional branding and active-term context
 
@@ -78,12 +78,11 @@ The default demo is populated for Joy University, Section K, Semester V, includi
 
 Use Restore Section K seed to return the complete demo dataset.
 
-## Production backend and school isolation
+## Production backend and school isolation (Neon)
 
-The current browser-only demo is **not production-safe for confidential multi-school data**:
+The timetable frontend now uses server-side Neon sessions and school-scoped workspace persistence. Do not enable real users until the production DATABASE_URL is configured and school operator accounts are provisioned.
 - Demo credentials and university data are stored in browser JavaScript/localStorage.
-- The legacy Neon `/api/state` endpoint uses one shared `default` record and does not authenticate requests.
-- The Supabase Auth/RLS path is not yet wired end-to-end into the main timetable UI.
+- The Neon-backed `/api/auth` and `/api/state` endpoints verify a server-side session and resolve the caller's school membership before accessing workspace data.
 
 Do not enter real faculty/student information or use this demo as a production multi-school system until the security work is completed.
 
@@ -92,7 +91,7 @@ Database migration history:
 - `supabase/migrations/003_production_relational_model.sql` — relational model and organization RLS.
 - `supabase/migrations/004_school_operators_and_subject_expertise.sql` — schema groundwork for two authorized operators per school, verified faculty-to-subject mappings, subject-specific shortage placeholders, and explicit manual-related assignments.
 
-In this product model, one organization row represents one school workspace. The migration preserves school-level RLS and enforces a maximum of two memberships per school at the database layer. It does not provision the second Supabase Auth user or complete the frontend login/session flow.
+In this product model, one organization row represents one school workspace. The migration preserves school-level RLS and enforces a maximum of two memberships per school at the database layer. It does not provision the second Neon-backed server sessions user or complete the frontend login/session flow.
 
 The subject expertise table is the source of truth for automatic allocation. Related-subject manual exceptions are marked separately. Placeholder faculty rows are explicitly marked as placeholders and tied to a specific subject and sequence; they must never be counted as verified real faculty.
 
