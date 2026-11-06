@@ -26,9 +26,9 @@
     const master=await sb.from("us_platform_admins").select("user_id").eq("user_id",user.id).maybeSingle();
     if(!master.error&&master.data)return {type:"MASTER_ADMIN",user};
     const member=await sb.from("us_organization_users").select("organization_id,role").eq("user_id",user.id).maybeSingle();
-    if(!member.error&&member.data&&member.data.role==="owner"){
+    if(!member.error&&member.data&&["owner","scheduler"].includes(member.data.role)){
       const org=await sb.from("us_organizations").select("id,name,code,school,timezone,status").eq("id",member.data.organization_id).maybeSingle();
-      if(org.data&&org.data.status==="Active")return {type:"UNIVERSITY_OWNER",organization:org.data,user};
+      if(org.data&&org.data.status==="Active")return {type:"UNIVERSITY_OWNER",membershipRole:member.data.role,organization:org.data,user};
     }
     return null;
   }
