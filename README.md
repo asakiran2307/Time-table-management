@@ -72,30 +72,25 @@ The workflow follows the scheduling blueprint in the supplied specification: har
 - Excel import with workbook preview/validation
 - Downloadable import template
 
-## Seed data
+## Initial workspace data
 
-The default demo is populated for Joy University, Section K, Semester V, including departments, courses, faculty, Room 103, Cloud Computing Lab and a seeded weekly timetable. The Calendar screen also exposes the break counts and their period positions.
+The initial Joy University workspace includes editable sample academic records. These are not treated as verified teaching assignments. The timetable starts without a published/seeded schedule. A school operator must explicitly verify each faculty-to-subject mapping before automatic assignment is allowed.
 
-Use Restore Section K seed to return the complete demo dataset.
+## Neon backend and school isolation
 
-## Production backend and school isolation (Neon)
+- Neon project: `joy-university-timetable` (Free organization, ap-southeast-1, smallest scale-to-zero compute).
+- One `us_organizations` row represents one school workspace.
+- Each school supports at most two operator accounts; a user can belong to only one school.
+- `/api/auth` issues an opaque, HttpOnly, SameSite=Lax session cookie after verifying a scrypt password hash.
+- `/api/state` reads and writes only the organization resolved from that server-side session. The browser cannot choose an organization ID.
+- Workspace data is stored in `us_workspace_state`, keyed by school.
+- `us_faculty_subjects` stores explicit verified or manual-related subject eligibility.
+- `us_placeholder_sequences` supports per-subject recruitment placeholders.
+- Automatic scheduling considers only verified mappings. A related-subject mapping is a deliberate manual exception. When neither exists, the engine creates a subject-specific pending placeholder such as `New Faculty 1`; placeholders are never presented as real faculty.
 
-The timetable frontend now uses server-side Neon sessions and school-scoped workspace persistence. Do not enable real users until the production DATABASE_URL is configured and school operator accounts are provisioned.
-- Demo credentials and university data are stored in browser JavaScript/localStorage.
-- The Neon-backed `/api/auth` and `/api/state` endpoints verify a server-side session and resolve the caller's school membership before accessing workspace data.
+The initial Neon schema has been created. Before the app can authenticate users on Vercel, add the Neon connection string as the encrypted `DATABASE_URL` environment variable for Preview, Production and Development, then redeploy. The two SOCI operator accounts are not yet provisioned because their official email addresses and initial passwords have not been supplied. Do not use the old Supabase migration files for this Neon project; they are retained as historical reference only.
 
-Do not enter real faculty/student information or use this demo as a production multi-school system until the security work is completed.
-
-Database migration history:
-- `supabase/migrations/001_single_owner.sql` — legacy model.
-- `supabase/migrations/003_production_relational_model.sql` — relational model and organization RLS.
-- `supabase/migrations/004_school_operators_and_subject_expertise.sql` — schema groundwork for two authorized operators per school, verified faculty-to-subject mappings, subject-specific shortage placeholders, and explicit manual-related assignments.
-
-In this product model, one organization row represents one school workspace. The migration preserves school-level RLS and enforces a maximum of two memberships per school at the database layer. It does not provision the second Neon-backed server sessions user or complete the frontend login/session flow.
-
-The subject expertise table is the source of truth for automatic allocation. Related-subject manual exceptions are marked separately. Placeholder faculty rows are explicitly marked as placeholders and tied to a specific subject and sequence; they must never be counted as verified real faculty.
-
-**Deployment gate:** migrations must be reviewed and applied to the intended Supabase project, then the Auth provisioning API, session-aware app state, tenant-scoped data access, allocation engine, and automated tests must be completed before production use. The connected Supabase project was previously reported inactive; no live database migration has been applied by this change.
+**Production gate:** database schema is present, but live Vercel database connectivity, operator provisioning, end-to-end login, cross-school isolation tests, and deployed timetable generation still require verification. Do not enter confidential university data until those checks pass.
 
 ## Deploy
 
