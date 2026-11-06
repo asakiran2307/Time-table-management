@@ -19,6 +19,19 @@ module.exports=async function(req,res){
   if(req.method!=="POST"){res.setHeader("Allow","GET, POST");return send(res,405,{error:"Method not allowed"});}
   if(!sameOrigin(req))return send(res,403,{error:"Cross-origin request rejected."});
   const body=typeof req.body==="string"?JSON.parse(req.body||"{}"):(req.body||{});
+  if(body.action==="change-password"){
+   const session=await getSession(req);if(!session)return send(res,401,{error:"Sign in is required"});
+   const currentPassword=String(body.currentPassword||""),newPassword=String(body.newPassword||"");
+   if(newPassword.length<12||newPassword.length>128)return send(res,400,{error:"New password must be 12–128 characters."});
+   const rows=await sql`select password_hash from us_users where id=${session.user.id} limit 1`;
+   if(!rows.length||!passwordMatches(currentPassword,rows[0].password_hash))return send(res,401,{error:"Current password is incorrect."});
+   const salt=crypto.randomBytes(16),hashValue=crypto.scryptSync(newPassword,salt,64);
+   const encoded="scrypt$"+salt.toString("hex")+"$"+hashValue.toString("hex");
+   await sql`update us_users set password_hash=${encoded} where id=${session.user.id}`;
+   const token=cookieValue(req,"us_session"),currentHash=crypto.createHash("sha256").update(token).digest("hex");
+   await sql`delete from us_sessions where user_id=${session.user.id} and token_hash<>${currentHash}`;
+   return send(res,200,{ok:true,message:"Password updated. Other sessions were signed out."});
+  }
   if(body.action==="logout"){
    const token=cookieValue(req,"us_session");
    if(token){const hash=crypto.createHash("sha256").update(token).digest("hex");await sql`delete from us_sessions where token_hash=${hash}`;}
