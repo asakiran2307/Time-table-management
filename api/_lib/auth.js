@@ -2,6 +2,7 @@ const crypto=require("node:crypto");
 const {neon}=require("@neondatabase/serverless");
 function db(){if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is not configured");return neon(process.env.DATABASE_URL);}
 function cookieValue(req,name){const raw=String(req.headers.cookie||"");for(const part of raw.split(";")){const i=part.indexOf("=");if(i>0&&part.slice(0,i).trim()===name)return decodeURIComponent(part.slice(i+1).trim());}return "";}
+function sameOrigin(req){const origin=req.headers.origin;if(!origin)return true;try{const host=req.headers["x-forwarded-host"]||req.headers.host;return !!host&&new URL(origin).host===host;}catch{return false;}}
 function sessionCookie(token,maxAge){const secure=process.env.NODE_ENV==="production"?"; Secure":"";return "us_session="+encodeURIComponent(token)+"; Path=/; HttpOnly; SameSite=Lax; Max-Age="+maxAge+secure;}
 async function getSession(req){
  const token=cookieValue(req,"us_session");if(!token||token.length<40)return null;
@@ -14,4 +15,4 @@ async function getSession(req){
  const r=rows[0];
  return {user:{id:r.user_id,email:r.email,name:r.display_name},membershipRole:r.membership_role,organization:{id:r.organization_id,name:r.organization_name,code:r.code,school:r.school,timezone:r.timezone,status:r.status},type:"UNIVERSITY_OWNER"};
 }
-module.exports={db,getSession,cookieValue,sessionCookie};
+module.exports={db,getSession,cookieValue,sessionCookie,sameOrigin};
