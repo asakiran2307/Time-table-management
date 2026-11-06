@@ -163,7 +163,7 @@ async function universityLogin(){
   }catch(error){q("loginError").textContent=error.message||"Sign-in failed."}
   finally{q("universityLoginBtn").disabled=false}
 }
-async async function changeAccountPassword(){
+async function changeAccountPassword(){
  const currentPassword=q("currentPassword")?.value||"",newPassword=q("newPassword")?.value||"",status=q("passwordChangeStatus");
  if(newPassword.length<12){if(status)status.textContent="Use a new password with at least 12 characters.";return;}
  try{
@@ -172,7 +172,7 @@ async async function changeAccountPassword(){
   q("currentPassword").value="";q("newPassword").value="";if(status)status.textContent=data.message||"Password updated.";
  }catch(error){if(status)status.textContent=error.message||"Password update failed."}
 }
-function logout(){
+async function logout(){
   try{await USAuth.signOut()}catch(error){console.warn("Sign out failed",error)}
   authSession=null;db=normalizeState(copy(DEFAULT));showOnly("login");
   q("loginPassword").value="";
