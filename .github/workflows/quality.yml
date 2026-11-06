@@ -1,0 +1,26 @@
+name: Quality checks
+on:
+  push:
+    branches:
+      - main
+      - feature/school-wise-workflow-2026-11-06
+  pull_request:
+    branches:
+      - main
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check auth.js
+          node --check api/state.js
+          node --check api/auth-config.js
+          node --check api/platform/organizations.js
+      - name: Test school-scoped API
+        run: node --test tests/*.test.js
