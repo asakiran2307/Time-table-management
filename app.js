@@ -1,6 +1,6 @@
 const KEY="unisched-v3";
 const CLOUD_API="/api/state";
-const CLOUD_ENABLED=false;
+const CLOUD_ENABLED=true;
 let cloudTimer=null,lockMode=false,solutionCandidates=[],selectedClassId=null;
 
 function q(id){return document.getElementById(id)}
@@ -65,9 +65,9 @@ const DEFAULT={
 /* Authentication gateway: demo mode until live Supabase Auth is connected. */
 const AUTH_KEY="unisched-demo-auth-v1";
 const PLATFORM_KEY="unisched-platform-v1";
-const MASTER_CREDENTIALS={username:"masteradmin",password:"Master@2026"};
+const MASTER_CREDENTIALS=null;
 let authSession=null;
-function defaultPlatform(){return {universities:[{code:"JU001",name:"JOY UNIVERSITY",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",username:"joyadmin",password:"JU@2026",status:"Active",data:copy(DEFAULT)}]}}
+function defaultPlatform(){return {universities:[]}}
 function loadPlatform(){
   const fallback=defaultPlatform();
   try{
@@ -100,7 +100,7 @@ let platform=loadPlatform();
 /* Populate the login selector immediately, before non-critical dashboard rendering runs. */
 try{refreshLoginUniversities()}catch(error){console.error("Could not initialize university selector:",error)}
 function savePlatform(){localStorage.setItem(PLATFORM_KEY,JSON.stringify(platform))}
-function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?platform.universities.find(u=>u.code===authSession.orgCode):null}
+function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?{code:authSession.orgCode,name:authSession.organization?.name,data:db}:null}
 function showOnly(which){
   const login=q("loginGate"),master=q("masterConsole"),app=q("app");
   if(login)login.classList.toggle("hidden",which!=="login");
@@ -125,17 +125,27 @@ function refreshLoginUniversities(){
   s.value=preferred.code;
 }
 function masterLogin(){
-  if(q("masterUsername").value.trim()!==MASTER_CREDENTIALS.username||q("masterPassword").value!==MASTER_CREDENTIALS.password){q("masterError").textContent="Invalid Master Admin credentials.";return}
-  q("masterError").textContent="";authSession={role:"MASTER_ADMIN"};localStorage.setItem(AUTH_KEY,JSON.stringify(authSession));showOnly("master");renderMasterConsole();
+  q("masterError").textContent="Master Admin accounts must be securely provisioned in Supabase. Local demo login is disabled.";
 }
-function universityLogin(){
-  const u=platform.universities.find(x=>x.code===q("loginUniversity").value);
-  if(!u||u.status!=="Active"){q("loginError").textContent="University account is inactive.";return}
-  if(q("loginUsername").value.trim()!==u.username||q("loginPassword").value!==u.password){q("loginError").textContent="Invalid university username or password.";return}
-  q("loginError").textContent="";authSession={role:"UNIVERSITY_OWNER",orgCode:u.code};localStorage.setItem(AUTH_KEY,JSON.stringify(authSession));
-  db=normalizeState(copy(u.data));showOnly("app");render();setSync("University owner session · local demo");
+async function universityLogin(){
+  const email=q("loginUsername").value.trim(),password=q("loginPassword").value;
+  if(!email||!password){q("loginError").textContent="Enter your university email and password.";return}
+  q("universityLoginBtn").disabled=true;q("loginError").textContent="Signing in…";
+  try{
+    const role=await USAuth.signIn(email,password);
+    authSession={role:"UNIVERSITY_OWNER",orgCode:role.organization.code,organization:role.organization,membershipRole:role.membershipRole};
+    showOnly("app");
+    await cloudLoad();
+    render();
+    setSync("Secure school workspace connected");
+  }catch(error){q("loginError").textContent=error.message||"Sign-in failed."}
+  finally{q("universityLoginBtn").disabled=false}
 }
-function logout(){authSession=null;localStorage.removeItem(AUTH_KEY);showOnly("login");refreshLoginUniversities()}
+async function logout(){
+  try{const sb=await USAuth.client();await sb.auth.signOut()}catch(error){console.warn("Sign out failed",error)}
+  authSession=null;db=normalizeState(copy(DEFAULT));showOnly("login");
+  q("loginPassword").value="";
+}
 function createUniversity(){
   const name=q("newUniName").value.trim(),code=q("newUniCode").value.trim().toUpperCase(),username=q("newOwnerUser").value.trim(),password=q("newOwnerPass").value,school=q("newUniSchool").value.trim(),timezone=q("newUniTimezone").value.trim()||"Asia/Kolkata";
   if(!name||!code||!username||!password){q("createUniResult").textContent="Complete all required fields.";return}
@@ -150,17 +160,27 @@ function renderMasterConsole(){
   q("masterUniversities").innerHTML="<table><thead><tr><th>University</th><th>Code</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>"+platform.universities.map(u=>"<tr><td><b>"+esc(u.name)+"</b><small>"+esc(u.school||"")+"</small></td><td>"+esc(u.code)+"</td><td>"+esc(u.username)+"</td><td><span class='badge "+(u.status==="Active"?"good":"bad")+"'>"+u.status+"</span></td><td><button class='btn small' data-toggle-uni='"+u.code+"'>"+(u.status==="Active"?"Suspend":"Activate")+"</button></td></tr>").join("")+"</tbody></table>";
 }
 function toggleUniversity(code){const u=platform.universities.find(x=>x.code===code);if(!u)return;u.status=u.status==="Active"?"Suspended":"Active";u.data.organization.status=u.status;savePlatform();renderMasterConsole();refreshLoginUniversities()}
-function initAuth(){
-  refreshLoginUniversities();
+async function initAuth(){
   document.querySelectorAll("[data-login-role]").forEach(b=>b.onclick=()=>switchLoginRole(b.dataset.loginRole));
-  q("masterLoginBtn").onclick=masterLogin;q("universityLoginBtn").onclick=universityLogin;
-  q("masterLogout").onclick=logout;q("logoutBtn").onclick=logout;q("createUniversityBtn").onclick=createUniversity;
-  let raw=null;try{raw=JSON.parse(localStorage.getItem(AUTH_KEY)||"null")}catch(e){}
-  authSession=raw;
-  if(sharedSnap){showOnly("app");return}
-  if(authSession?.role==="MASTER_ADMIN"){showOnly("master");renderMasterConsole()}
-  else if(authSession?.role==="UNIVERSITY_OWNER"&&currentUniversity()){db=normalizeState(copy(currentUniversity().data));showOnly("app")}
-  else{authSession=null;showOnly("login")}
+  q("masterLoginBtn").onclick=masterLogin;
+  q("universityLoginBtn").onclick=universityLogin;
+  q("masterLogout").onclick=logout;
+  q("logoutBtn").onclick=logout;
+  q("createUniversityBtn").onclick=createUniversity;
+  if(sharedSnap){showOnly("app");return true}
+  try{
+    const role=await USAuth.getRole();
+    if(!role||role.type!=="UNIVERSITY_OWNER"){showOnly("login");return false}
+    authSession={role:"UNIVERSITY_OWNER",orgCode:role.organization.code,organization:role.organization,membershipRole:role.membershipRole};
+    showOnly("app");
+    await cloudLoad();
+    return true;
+  }catch(error){
+    console.warn("Authentication initialization failed",error);
+    showOnly("login");
+    if(q("loginError"))q("loginError").textContent="Secure sign-in is unavailable. Check the Supabase deployment configuration.";
+    return false;
+  }
 }
 
 function normalizeState(x){
@@ -584,31 +604,37 @@ function appendJoyBcaDemoSchedule(state){
 }
 let db=normalizeState(loadLocal());
 
-function loadLocal(){
-  try{return JSON.parse(localStorage.getItem(KEY)||"null")||copy(DEFAULT)}catch(e){return copy(DEFAULT)}
-}
+function loadLocal(){return copy(DEFAULT)}
 function save(){
   if(sharedSnap)return false;
   db=normalizeState(db);
-  localStorage.setItem(KEY,JSON.stringify(db));
-  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){u.data=copy(db);savePlatform()}}
-  clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(cloudSave,300);
   render();
 }
 function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,details,at:now()});db.activityLog=db.activityLog.slice(0,300)}
-function cloudSave(){
-  if(!CLOUD_ENABLED)return;
-  fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})})
-    .then(r=>r.ok?setSync("Cloud sync enabled"):Promise.reject())
-    .catch(()=>setSync("Local mode · cloud unavailable"));
+async function cloudSave(){
+  if(!CLOUD_ENABLED||!authSession?.role)return;
+  try{
+    const sb=await USAuth.client(),{data:{session}}=await sb.auth.getSession();
+    if(!session?.access_token)throw new Error("Session expired");
+    const r=await fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},body:JSON.stringify({data:db})});
+    if(!r.ok)throw new Error("Secure save failed");
+    setSync("All changes saved securely");
+  }catch(error){setSync("Save failed · reconnect and retry");console.error(error)}
 }
-function cloudLoad(){
-  if(!CLOUD_ENABLED){setSync("Local demo mode · Supabase not connected");return}
-  setSync("Syncing workspace…");
-  fetch(CLOUD_API,{cache:"no-store"}).then(async r=>{if(!r.ok)throw 0;return r.json()}).then(p=>{
-    if(p&&p.data){db=normalizeState(p.data);localStorage.setItem(KEY,JSON.stringify(db));log("Cloud workspace loaded","Remote state");render()}
-    setSync("Cloud sync enabled");
-  }).catch(()=>setSync("Local mode · cloud unavailable"));
+async function cloudLoad(){
+  if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
+  setSync("Loading school workspace…");
+  try{
+    const sb=await USAuth.client(),{data:{session}}=await sb.auth.getSession();
+    if(!session?.access_token)throw new Error("Session expired");
+    const r=await fetch(CLOUD_API,{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"});
+    if(r.status===404){db=normalizeState(copy(DEFAULT));await cloudSave();setSync("New school workspace created");return}
+    if(!r.ok)throw new Error("Secure workspace load failed");
+    const p=await r.json();
+    if(p&&p.data){db=normalizeState(p.data);setSync("School workspace loaded")}
+  }catch(error){setSync("Workspace unavailable · check database setup");console.error(error);throw error}
 }
 function setSync(t){if(q("syncStatus"))q("syncStatus").textContent=t}
 
@@ -1489,8 +1515,7 @@ if(sharedSnap){
   q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
   q("pageTitle").textContent="Shared Timetable";
 }
-/* Wire authentication before non-critical dashboard rendering can fail. */
-initAuth();
-render();
-applyCampusBackground();
-if(!sharedSnap)cloudLoad();
+/* Authenticate and load the isolated school workspace before rendering its data. */
+initAuth().then(ready=>{
+  if(ready){render();applyCampusBackground()}
+});
