@@ -686,8 +686,10 @@ function roomFits(state,rid,cid,courseId){
 function facultyWithinWorkload(state,facultyId,day,duration=1){
   const f=state.faculty.find(x=>x.id===facultyId);if(!f)return false;
   const rows=state.schedule.filter(e=>e.facultyId===facultyId);
-  const week=rows.reduce((n,e)=>n+(Number(e.duration)||1),0);
-  const today=rows.filter(e=>e.day===day).reduce((n,e)=>n+(Number(e.duration)||1),0);
+  const unique=new Map();rows.forEach(e=>{const key=e.activityId||e.id;const old=unique.get(key)||{day:e.day,duration:Number(e.duration)||1};if(old.duration<(Number(e.duration)||1))old.duration=Number(e.duration)||1;unique.set(key,old);});
+  const sessions=[...unique.values()];
+  const week=sessions.reduce((n,e)=>n+e.duration,0);
+  const today=sessions.filter(e=>e.day===day).reduce((n,e)=>n+e.duration,0);
   if(f.maxDay&&today+duration>f.maxDay)return false;
   if(f.maxWeek&&week+duration>f.maxWeek)return false;
   return true;
@@ -769,7 +771,7 @@ function generateCandidate(mode="balanced",trial=1,source=db){
     state.schedule.forEach(e=>{
       if(e.locked){kept.push(e);return}
       const a={classId:e.classId,courseId:e.courseId,duration:e.duration||1};
-      const reason=hardCheck(kept,a,e.day,e.period,e.roomId,[]);
+      const reason=hardCheck({...state,schedule:kept},a,e.day,e.period,e.roomId,[]);
       if(!reason)kept.push(e);
     });
     state.schedule=kept;
