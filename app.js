@@ -21,6 +21,7 @@ const DEFAULT={
   semesters:[{id:"SEM5",name:"Semester V",number:5,academicYear:"AY2627",active:true}],
   sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58}],
   classes:[{id:"CSE5K",name:"B.Tech CSE · Semester V · K",section:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58,incharge:"Ms. S. AMBIKA"}],
+  facultySubjects:[],
   faculty:[
     {id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI",designation:"Professor",maxDay:3,maxWeek:18},
     {id:"F2",name:"Dr. SOFIYA",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
@@ -188,7 +189,7 @@ function normalizeState(x){
   x.organization=Object.assign(copy(DEFAULT.organization),x.organization||{});
   x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});
   x.branding=Object.assign(copy(DEFAULT.branding),x.branding||{});
-  ["departments","programs","academicYears","semesters","sections","classes","faculty","rooms","courses","activities","availability","roomBlocks","classBlocks","combinedGroups","electives","schedule","versions","shareLinks","activityLog"].forEach(k=>x[k]=arr(x[k]));
+  ["departments","programs","academicYears","semesters","sections","classes","faculty","facultySubjects","rooms","courses","activities","availability","roomBlocks","classBlocks","combinedGroups","electives","schedule","versions","shareLinks","activityLog"].forEach(k=>x[k]=arr(x[k]));
   x.preferences=Object.assign(copy(DEFAULT.preferences),x.preferences||{});
   if(!x.sections.length)x.classes.forEach(c=>x.sections.push({id:uid("SEC"),name:"Section "+c.section,code:c.section,department:c.department,program:c.program||"",semester:c.semester||"",strength:c.strength||60}));
   x.settings.shortBreaks=arr(x.settings.shortBreaks).map(Number);
@@ -199,15 +200,8 @@ function normalizeState(x){
   const old=arr(x.schedule);
   x.schedule=old.map(e=>Array.isArray(e)?{id:uid("SCH"),day:e[0],period:e[1],courseId:e[2],facultyId:e[3],roomId:e[4],classId:e[5],duration:1,locked:false}:Object.assign({id:uid("SCH"),duration:1,locked:false},e));
   x.courses.forEach(c=>{if(!c.classIds)c.classIds=x.classes.map(cl=>cl.id);});
-  ensureJoyDemoData(x);
-  ensureJoyDemoDatasetV4(x);
-  ensureJoyDemoDatasetV5(x);
-  ensureJoyDemoDatasetV6(x);
-  ensureJoyDemoDatasetV7(x);
-  ensureJoyDemoDatasetV8(x);
-  ensureJoyDemoDatasetV9(x);
-  if(!x.schedule.length)seedSchedule(x);
-  else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
+  // Keep imported or verified data only. Never silently seed faculty assignments or a timetable.
+  x.facultySubjects=arr(x.facultySubjects);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
   return x;
 }
@@ -689,9 +683,19 @@ function roomFits(state,rid,cid,courseId){
   if(req.some(x=>!have.includes(x)))return false;
   return true;
 }
+function facultyWithinWorkload(state,facultyId,day,duration=1){
+  const f=state.faculty.find(x=>x.id===facultyId);if(!f)return false;
+  const rows=state.schedule.filter(e=>e.facultyId===facultyId);
+  const week=rows.reduce((n,e)=>n+(Number(e.duration)||1),0);
+  const today=rows.filter(e=>e.day===day).reduce((n,e)=>n+(Number(e.duration)||1),0);
+  if(f.maxDay&&today+duration>f.maxDay)return false;
+  if(f.maxWeek&&week+duration>f.maxWeek)return false;
+  return true;
+}
 function hardCheck(state,a,day,p,roomId,ignoreIds=[]){
-  const c=state.courses.find(x=>x.id===a.courseId),f=c&&state.faculty.find(x=>x.id===c.faculty);
+  const c=state.courses.find(x=>x.id===a.courseId),facultyId=a.facultyId||c?.faculty,f=state.faculty.find(x=>x.id===facultyId);
   if(!c||!f)return "Missing course/faculty";
+  if(!facultyWithinWorkload(state,facultyId,day,a.duration||1))return "Faculty workload limit";
   if(state.settings.breaks.includes(p))return "Break period";
   if(!state.settings.days.includes(day))return "Non-working day";
   const classIds=a.shared?arr(a.classIds):[a.classId];
@@ -775,20 +779,42 @@ function generateCandidate(mode="balanced",trial=1,source=db){
     state.schedule=state.schedule.filter(e=>e.locked&&mode!=="fast");
   }
   const acts=activityList(source).sort((a,b)=>b.duration-a.duration||deterministicNoise(a.index+trial*17)-deterministicNoise(b.index+trial*17));
-  const placedIds=new Set();
+  const placedIds=new Set(),courseAssignments=new Map();
   let unscheduled=[];
   for(const a of acts){
     if(placedIds.has(a.id))continue;
     const c=source.courses.find(x=>x.id===a.courseId);if(!c)continue;
+    let assignment=courseAssignments.get(c.id);
+    if(!assignment){
+      const mappings=arr(source.facultySubjects).filter(m=>m.courseId===c.id);
+      const verified=mappings.filter(m=>m.expertiseType==="verified").map(m=>source.faculty.find(f=>f.id===m.facultyId)).filter(f=>f&&!f.isPlaceholder);
+      const related=mappings.filter(m=>m.expertiseType==="manual_related").map(m=>source.faculty.find(f=>f.id===m.facultyId)).filter(f=>f&&!f.isPlaceholder);
+      const eligible=verified.length?verified:related;
+      if(eligible.length){
+        eligible.sort((x,y)=>state.schedule.filter(e=>e.facultyId===x.id).length-state.schedule.filter(e=>e.facultyId===y.id).length);
+        assignment={facultyId:eligible[0].id,type:verified.length?"automatic":"manual_related"};
+      }else{
+        const existing=state.faculty.filter(f=>f.isPlaceholder&&f.placeholderCourseId===c.id).sort((x,y)=>(x.placeholderSequence||0)-(y.placeholderSequence||0));
+        let placeholder=existing[0];
+        if(!placeholder){
+          const sequence=existing.length+1;
+          placeholder={id:uid("PH"),name:"New Faculty "+sequence,designation:"Pending recruitment",department:c.department||source.departments[0]?.id||"",maxDay:4,maxWeek:18,isPlaceholder:true,placeholderCourseId:c.id,placeholderSequence:sequence,staffingStatus:"pending_recruitment"};
+          state.faculty.push(placeholder);
+        }
+        assignment={facultyId:placeholder.id,type:"placeholder"};
+      }
+      courseAssignments.set(c.id,assignment);
+      const stateCourse=state.courses.find(x=>x.id===c.id);if(stateCourse)stateCourse.faculty=assignment.facultyId;
+    }
     const rooms=source.rooms.filter(r=>roomFits(source,r.id,a.classId,a.courseId));
     let candidates=[];
     source.settings.days.forEach(day=>{for(let p=0;p<source.settings.periods;p++){
       if(source.settings.breaks.includes(p))continue;
       for(const r of rooms){
-        const reason=hardCheck(state,a,day,p,r.id);
+        const reason=hardCheck(state,{...a,facultyId:assignment.facultyId},day,p,r.id);
         if(!reason){
           const classIds=a.shared?arr(a.classIds):[a.classId];
-          const temps=classIds.map(cid=>({id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:c.faculty,roomId:r.id,classId:cid,duration:a.duration,locked:false,activityId:a.id,shared:!!a.shared}));
+          const temps=classIds.map(cid=>({id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:assignment.facultyId,assignmentType:assignment.type,roomId:r.id,classId:cid,duration:a.duration,locked:false,activityId:a.id,shared:!!a.shared}));
           const cost=softPenalty(state,temps[0],trial)+(mode==="fast"?deterministicNoise(p+trial):0)+(mode==="best"?deterministicNoise(p*19+trial)*0.15:deterministicNoise(p*31+trial)*1.1);
           candidates.push({temps,cost});
         }
@@ -816,7 +842,10 @@ function preflightData(state=db){
   if(!state.rooms.length)issues.push("No rooms/labs configured.");
   state.classes.forEach(c=>{if((c.strength||0)<=0)warnings.push(c.name+" has no student strength.");if(!c.department)warnings.push(c.name+" has no department.")});
   state.courses.forEach(c=>{
-    if(!state.faculty.some(f=>f.id===c.faculty))issues.push(c.code+" has no valid faculty.");
+    const mapped=arr(state.facultySubjects).some(m=>m.courseId===c.id&&["verified","manual_related"].includes(m.expertiseType)&&state.faculty.some(f=>f.id===m.facultyId&&!f.isPlaceholder));
+    const placeholder=state.faculty.some(f=>f.isPlaceholder&&f.placeholderCourseId===c.id);
+    if(!mapped&&!placeholder)issues.push(c.code+" needs a verified/approved faculty mapping or a generated subject placeholder.");
+    if(placeholder)warnings.push(c.code+" is assigned to a pending placeholder (recruitment/confirmation required).");
     if(!state.courses.includes(c))issues.push("Invalid course record.");
     if(!arr(c.classIds).length)issues.push(c.code+" has no class offering.");
   });
@@ -1084,7 +1113,25 @@ function renderCourses(){
 function renderClasses(){
   q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th><th>Actions</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(db.departments.find(d=>d.id===c.department)?.code||c.department||"—")+"</td><td><button class='btn small' data-edit-class='"+c.id+"'>Edit</button> <button class='btn small' data-view-class='"+c.id+"'>Timetable</button></td></tr>").join("")+"</tbody></table>";
 }
-function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td><button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
+function renderFaculty(){
+ q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation / status</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.isPlaceholder?"PENDING · "+(f.staffingStatus||"recruitment"):(f.designation||"—"))+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td>"+(f.isPlaceholder?"<span class='badge warning'>Not real faculty</span>":"<button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button>")+"</td></tr>").join("")+"</tbody></table>";
+ renderFacultyExpertise();
+}
+function renderFacultyExpertise(){
+ const faculty=q("expertiseFaculty"),subject=q("expertiseSubject"),table=q("expertiseTable");if(!faculty||!subject||!table)return;
+ const real=db.faculty.filter(f=>!f.isPlaceholder);
+ faculty.innerHTML=real.map(f=>"<option value='"+esc(f.id)+"'>"+esc(f.name)+"</option>").join("")||"<option value=''>Add faculty first</option>";
+ subject.innerHTML=db.courses.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.code+" · "+c.name)+"</option>").join("")||"<option value=''>Add subjects first</option>";
+ table.innerHTML=db.facultySubjects.length?"<table><thead><tr><th>Faculty</th><th>Subject</th><th>Eligibility</th><th></th></tr></thead><tbody>"+db.facultySubjects.map(m=>{const f=db.faculty.find(x=>x.id===m.facultyId),c=db.courses.find(x=>x.id===m.courseId);return "<tr><td>"+esc(f?.name||"Unknown")+"</td><td>"+esc(c?.code||m.courseId)+" · "+esc(c?.name||"")+"</td><td>"+(m.expertiseType==="verified"?"Verified · automatic eligible":"Related · manual exception only")+"</td><td><button class='btn small' data-remove-expertise='"+esc(m.id)+"'>Remove</button></td></tr>"}).join("")+"</tbody></table>":"<div class='empty-state'><strong>No subject expertise verified yet.</strong><span>Only verified mappings are eligible for automatic assignment.</span></div>";
+}
+function addFacultySubject(){
+ const facultyId=q("expertiseFaculty")?.value,courseId=q("expertiseSubject")?.value,type=q("expertiseType")?.value;
+ if(!facultyId||!courseId||!["verified","manual_related"].includes(type)){alert("Select a faculty member, subject and eligibility type.");return;}
+ const existing=db.facultySubjects.find(m=>m.facultyId===facultyId&&m.courseId===courseId);
+ if(existing)existing.expertiseType=type;else db.facultySubjects.push({id:uid("EXP"),facultyId,courseId,expertiseType:type});
+ log("Subject expertise updated",(db.faculty.find(f=>f.id===facultyId)?.name||"Faculty")+" · "+(db.courses.find(c=>c.id===courseId)?.code||"Subject")+" · "+type);
+ save();
+}
 function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th><th>Actions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td><td><button class='btn small' data-edit-room='"+r.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
 function breakSelectors(){
   const sc=+q("shortBreakCount").value||0,lc=+q("lunchBreakCount").value||0;
@@ -1449,7 +1496,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="seedBtn")restoreSeed();
   if(e.target.id==="saveInstitution")updateInstitution();
   if(e.target.id==="addDepartment")addDepartment();if(e.target.id==="addProgram")addProgram();if(e.target.id==="addSection")addSection();if(e.target.id==="addClass"||e.target.id==="addClassBtn")addClass();
-  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="addCombinedBtn")addCombined();if(e.target.id==="addElectiveBtn")addElective();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
+  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="addFacultySubjectBtn")addFacultySubject();if(e.target.id==="addCombinedBtn")addCombined();if(e.target.id==="addElectiveBtn")addElective();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
   if(e.target.id==="generateBtn")runGenerate();if(e.target.id==="headerGenerate")navigate("generate");
   if(e.target.id==="lockModeBtn")toggleLockMode();
   if(e.target.id==="clearScheduleBtn")clearUnlocked();
@@ -1465,6 +1512,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="saveBranding")updateBranding();
   if(e.target.id==="resetBackground")resetCampusBackground();
   if(e.target.id==="backgroundFile")saveCampusBackground(e.target.files?.[0]);
+  const removeExpertise=e.target.closest("[data-remove-expertise]");if(removeExpertise){db.facultySubjects=db.facultySubjects.filter(m=>m.id!==removeExpertise.dataset.removeExpertise);log("Subject expertise removed",removeExpertise.dataset.removeExpertise);save();}
   const editDept=e.target.closest("[data-edit-dept]");if(editDept)editDepartment(editDept.dataset.editDept);
   const editClassBtn=e.target.closest("[data-edit-class]");if(editClassBtn)editClass(editClassBtn.dataset.editClass);
   const editFacultyBtn=e.target.closest("[data-edit-faculty]");if(editFacultyBtn)editFaculty(editFacultyBtn.dataset.editFaculty);
