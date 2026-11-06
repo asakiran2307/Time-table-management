@@ -1,7 +1,5 @@
 const crypto=require("node:crypto");
-const {promisify}=require("node:util");
-const scrypt=promisify(crypto.scrypt);
-const {db,getSession,cookieValue,sessionCookie}=require("./_lib/auth");
+const {db,getSession,cookieValue,sessionCookie,sameOrigin}=require("./_lib/auth");
 function send(res,status,data){return res.status(status).json(data);}
 function passwordMatches(password,stored){
  const parts=String(stored||"").split("$");if(parts.length!==3||parts[0]!=="scrypt")return false;
@@ -19,6 +17,7 @@ module.exports=async function(req,res){
    return send(res,200,{authenticated:true,...session});
   }
   if(req.method!=="POST"){res.setHeader("Allow","GET, POST");return send(res,405,{error:"Method not allowed"});}
+  if(!sameOrigin(req))return send(res,403,{error:"Cross-origin request rejected."});
   const body=typeof req.body==="string"?JSON.parse(req.body||"{}"):(req.body||{});
   if(body.action==="logout"){
    const token=cookieValue(req,"us_session");
@@ -27,11 +26,19 @@ module.exports=async function(req,res){
   }
   const email=String(body.email||"").trim().toLowerCase(),password=String(body.password||"");
   if(!email||!password||email.length>254||password.length>256)return send(res,400,{error:"Enter your registered university email and password."});
+  const ip=String(req.headers["x-forwarded-for"]||req.socket?.remoteAddress||"unknown").split(",")[0].trim();
+  const emailKey=crypto.createHash("sha256").update(email).digest("hex"),ipKey=crypto.createHash("sha256").update(ip).digest("hex");
+  const attempts=await sql`select count(*)::int as count from us_login_attempts where email_key=${emailKey} and ip_key=${ipKey} and attempted_at>now()-interval '15 minutes'`;
+  if((attempts[0]?.count||0)>=8)return send(res,429,{error:"Too many sign-in attempts. Try again in 15 minutes."});
   const users=await sql`select u.id,u.email,u.display_name,u.password_hash,u.active,m.role,m.organization_id,o.name as organization_name,o.code,o.school,o.timezone,o.status
    from us_users u join us_organization_users m on m.user_id=u.id join us_organizations o on o.id=m.organization_id
    where lower(u.email)=${email} limit 1`;
   const user=users[0];
-  if(!user||!user.active||user.status!=="Active"||!passwordMatches(password,user.password_hash))return send(res,401,{error:"Email or password is incorrect."});
+  if(!user||!user.active||user.status!=="Active"||!passwordMatches(password,user.password_hash)){
+   await sql`insert into us_login_attempts(email_key,ip_key) values(${emailKey},${ipKey})`;
+   return send(res,401,{error:"Email or password is incorrect."});
+  }
+  await sql`delete from us_login_attempts where email_key=${emailKey} and ip_key=${ipKey}`;
   const token=crypto.randomBytes(32).toString("hex"),hash=crypto.createHash("sha256").update(token).digest("hex");
   await sql`insert into us_sessions(user_id,token_hash,expires_at) values(${user.id},${hash},now()+interval '7 days')`;
   res.setHeader("Set-Cookie",sessionCookie(token,604800));
