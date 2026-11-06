@@ -13,7 +13,7 @@ alter table public.us_organization_users add constraint us_organization_users_ro
   check(role in ('owner','scheduler'));
 -- Keep user_id unique: one login belongs to exactly one school, while a school
 -- may now have two different users. organization_id must no longer be unique.
-alter table public.us_organization_users drop constraint if exists us_one_owner_per_org;
+drop index if exists public.us_one_owner_per_org;
 create index if not exists us_org_membership_by_org on public.us_organization_users(organization_id);
 create index if not exists us_org_membership_by_user on public.us_organization_users(user_id);
 
