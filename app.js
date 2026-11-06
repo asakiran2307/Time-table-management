@@ -62,7 +62,7 @@ const DEFAULT={
 };
 
 
-/* Authentication gateway: demo mode until live Supabase Auth is connected. */
+/* Authentication is handled by the secure Neon-backed API. */
 const AUTH_KEY="unisched-demo-auth-v1";
 const PLATFORM_KEY="unisched-platform-v1";
 const MASTER_CREDENTIALS=null;
@@ -125,7 +125,7 @@ function refreshLoginUniversities(){
   s.value=preferred.code;
 }
 function masterLogin(){
-  q("masterError").textContent="Master Admin accounts must be securely provisioned in Supabase. Local demo login is disabled.";
+  q("masterError").textContent="Master Admin accounts must be provisioned by the platform administrator. Local demo login is disabled.";
 }
 async function universityLogin(){
   const email=q("loginUsername").value.trim(),password=q("loginPassword").value;
@@ -142,7 +142,7 @@ async function universityLogin(){
   finally{q("universityLoginBtn").disabled=false}
 }
 async function logout(){
-  try{const sb=await USAuth.client();await sb.auth.signOut()}catch(error){console.warn("Sign out failed",error)}
+  try{await USAuth.signOut()}catch(error){console.warn("Sign out failed",error)}
   authSession=null;db=normalizeState(copy(DEFAULT));showOnly("login");
   q("loginPassword").value="";
 }
@@ -178,7 +178,7 @@ async function initAuth(){
   }catch(error){
     console.warn("Authentication initialization failed",error);
     showOnly("login");
-    if(q("loginError"))q("loginError").textContent="Secure sign-in is unavailable. Check the Supabase deployment configuration.";
+    if(q("loginError"))q("loginError").textContent="Secure sign-in is unavailable. Check the database configuration.";
     return false;
   }
 }
@@ -616,9 +616,7 @@ function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,det
 async function cloudSave(){
   if(!CLOUD_ENABLED||!authSession?.role)return;
   try{
-    const sb=await USAuth.client(),{data:{session}}=await sb.auth.getSession();
-    if(!session?.access_token)throw new Error("Session expired");
-    const r=await fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},body:JSON.stringify({data:db})});
+    const r=await fetch(CLOUD_API,{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})});
     if(!r.ok)throw new Error("Secure save failed");
     setSync("All changes saved securely");
   }catch(error){setSync("Save failed · reconnect and retry");console.error(error)}
@@ -627,9 +625,7 @@ async function cloudLoad(){
   if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
   setSync("Loading school workspace…");
   try{
-    const sb=await USAuth.client(),{data:{session}}=await sb.auth.getSession();
-    if(!session?.access_token)throw new Error("Session expired");
-    const r=await fetch(CLOUD_API,{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"});
+    const r=await fetch(CLOUD_API,{credentials:"same-origin",cache:"no-store"});
     if(r.status===404){db=normalizeState(copy(DEFAULT));await cloudSave();setSync("New school workspace created");return}
     if(!r.ok)throw new Error("Secure workspace load failed");
     const p=await r.json();
