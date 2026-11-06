@@ -1,10 +1,11 @@
-const {db,getSession}=require("./_lib/auth");
+const {db,getSession,sameOrigin}=require("./_lib/auth");
 const MAX_BODY_BYTES=2*1024*1024;
 function send(res,status,data){return res.status(status).json(data);}
 module.exports=async function(req,res){
  res.setHeader("Cache-Control","no-store, max-age=0");res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("Vary","Cookie");
  if(!["GET","PUT"].includes(req.method)){res.setHeader("Allow","GET, PUT");return send(res,405,{ok:false,error:"Method not allowed"});}
  try{
+  if(req.method==="PUT"&&!sameOrigin(req))return send(res,403,{ok:false,error:"Cross-origin request rejected"});
   const session=await getSession(req);if(!session)return send(res,401,{ok:false,error:"Sign in is required"});
   const sql=db(),org=session.organization.id,user=session.user.id;
   if(req.method==="GET"){
