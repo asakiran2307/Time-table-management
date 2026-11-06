@@ -78,17 +78,26 @@ The default demo is populated for Joy University, Section K, Semester V, includi
 
 Use Restore Section K seed to return the complete demo dataset.
 
-## Production backend
+## Production backend and school isolation
 
-The browser workspace is intentionally usable without credentials for the demo. Production authentication and tenant isolation are prepared under 'supabase/':
-- supabase/migrations/001_single_owner.sql
-- supabase/migrations/003_production_relational_model.sql
-- supabase/seeds/001_joy_section_k.sql
+The current browser-only demo is **not production-safe for confidential multi-school data**:
+- Demo credentials and university data are stored in browser JavaScript/localStorage.
+- The legacy Neon `/api/state` endpoint uses one shared `default` record and does not authenticate requests.
+- The Supabase Auth/RLS path is not yet wired end-to-end into the main timetable UI.
 
-The relational model uses PostgreSQL RLS with one organization owner. Supabase recommends enabling RLS on exposed tables and using ownership predicates with auth.uid()/secure helper functions for row-level isolation. citeturn547338search0turn547338search4
+Do not enter real faculty/student information or use this demo as a production multi-school system until the security work is completed.
 
-The current connected Supabase project is inactive, so the migration is committed but has not been applied to that live project.
+Database migration history:
+- `supabase/migrations/001_single_owner.sql` — legacy model.
+- `supabase/migrations/003_production_relational_model.sql` — relational model and organization RLS.
+- `supabase/migrations/004_school_operators_and_subject_expertise.sql` — schema groundwork for two authorized operators per school, verified faculty-to-subject mappings, subject-specific shortage placeholders, and explicit manual-related assignments.
+
+In this product model, one organization row represents one school workspace. The migration preserves school-level RLS and enforces a maximum of two memberships per school at the database layer. It does not provision the second Supabase Auth user or complete the frontend login/session flow.
+
+The subject expertise table is the source of truth for automatic allocation. Related-subject manual exceptions are marked separately. Placeholder faculty rows are explicitly marked as placeholders and tied to a specific subject and sequence; they must never be counted as verified real faculty.
+
+**Deployment gate:** migrations must be reviewed and applied to the intended Supabase project, then the Auth provisioning API, session-aware app state, tenant-scoped data access, allocation engine, and automated tests must be completed before production use. The connected Supabase project was previously reported inactive; no live database migration has been applied by this change.
 
 ## Deploy
 
-The repo is linked to Vercel and deploys from main.
+Vercel deployments should be checked against the exact branch and commit. A preview deployment is not a production release, and this repository's production branch remains `main`.
