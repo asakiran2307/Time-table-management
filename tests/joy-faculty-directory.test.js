@@ -1,1 +1,16 @@
-const test=require("node:test"),assert=require("node:assert/strict"),{buildPublicTimetable}=require("../lib/public-timetable"),{parseJoyFacultyDirectory}=require("../lib/joy-faculty-directory");test("official directory maps faculty to stated school",()=>{const r=parseJoyFacultyDirectory('<h3>Prof. Dr. Sanjith S</h3><p>Associate Professor - School of Computational Intelligence</p><h3>Prof. Dr. Pooja Krishna J</h3><p>Assistant Professor - School of Agricultural Sciences</p>');assert.equal(r.length,2);assert.equal(r[0].schoolCode,"JU-SOCI");assert.equal(r[1].schoolCode,"JU-SAS")});test("directory does not guess missing school",()=>assert.equal(parseJoyFacultyDirectory('<h3>Prof. Dr. Unknown Person</h3><p>Researcher</p>').length,0));test("public data is published-only and does not expose faculty email",()=>{const r=buildPublicTimetable([{code:"JU-SOCI",school:"SOCI",data:{settings:{year:"2026",semester:"V",start:"09:00",duration:50,days:["MON"]},classes:[{id:"A",name:"Section A",section:"A"}],courses:[{id:"S",code:"SUB1",name:"Subject"}],faculty:[{id:"F",name:"Faculty One",email:"private@example.com"}],rooms:[],versions:[{id:"D",status:"Draft",schedule:[]},{id:"P",name:"Published",status:"Published",at:"2026-11-02",schedule:[{id:"1",day:"MON",period:0,courseId:"S",facultyId:"F",classId:"A"}]}]}}],{school:"JU-SOCI",year:"2026",semester:"V",course:"S",section:"A"});assert.equal(r.entries.length,1);assert.equal(r.entries[0].facultyName,"Faculty One");assert.equal(Object.hasOwn(r.entries[0],"email"),false);assert.equal(r.release.name,"Published")});
+const test=require("node:test"),assert=require("node:assert/strict"),{parseJoyFacultyDirectory}=require("../lib/joy-faculty-directory");
+test("maps profiles to the school named in each official faculty profile",()=>{
+ const html='<h4>Prof. Dr. Bini Marin V</h4><h5>Ph.D. - Business Administration</h5><h6>Professor & Associate Dean - School of Entrepreneurship Management</h6><p>Academic profile</p><h4>Prof. Dr. Chithra D Gracia</h4><h5>Ph.D - NIT</h5><h6>Professor & Dean - School of Computational Intelligence</h6><p>Academic profile</p>';
+ const result=parseJoyFacultyDirectory(html);assert.equal(result.length,2);assert.equal(result[0].schoolCode,"JU-SEAM");assert.equal(result[1].schoolCode,"JU-SOCI");
+});
+test("maps unprefixed faculty names but ignores designation headings",()=>{
+ const html='<h4>L. Babisha Julit</h4><h5>Ph.D. - Mathematics</h5><h6>Assistant Professor - School of Arts & Natural Sciences</h6><h4>Assistant Professor - School of Nursing</h4><p>Not a person name</p>';
+ const result=parseJoyFacultyDirectory(html);assert.equal(result.length,1);assert.equal(result[0].name,"L. Babisha Julit");assert.equal(result[0].schoolCode,"JU-SANS");
+});
+test("does not guess a school when the official profile omits it",()=>{
+ assert.deepEqual(parseJoyFacultyDirectory('<h4>Prof. Dr. Unknown Person</h4><p>Researcher and academician.</p>'),[]);
+});
+test("deduplicates repeated faculty profiles",()=>{
+ const html='<h4>Prof. Dr. Sanjith S</h4><h6>Associate Professor - School of Computational Intelligence</h6><h4>Prof. Dr. Sanjith S</h4><h6>Associate Professor - School of Computational Intelligence</h6>';
+ assert.equal(parseJoyFacultyDirectory(html).length,1);
+});
