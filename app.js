@@ -824,21 +824,40 @@ function softPenalty(state,entry,trial){
 }
 function scheduleScore(state){
   const hard=allConflicts(state);
-  let hardN=hard.length;
+  const hardN=hard.length;
   let classGap=0,facultyGap=0,spread=0,roomWaste=0,edge=0;
   state.classes.forEach(cl=>{
-    const days={};state.schedule.filter(e=>e.classId===cl.id).forEach(e=>(days[e.day]??=[]).push(e.period));
+    const days={};
+    state.schedule.filter(e=>e.classId===cl.id).forEach(e=>(days[e.day]??=[]).push(e.period));
     Object.values(days).forEach(ps=>{ps.sort((a,b)=>a-b);for(let i=1;i<ps.length;i++)classGap+=Math.max(0,ps[i]-ps[i-1]-1)});
   });
   state.faculty.forEach(f=>{
-    const days={};state.schedule.filter(e=>e.facultyId===f.id).forEach(e=>(days[e.day]??=[]).push(e.period));
+    const days={};
+    state.schedule.filter(e=>e.facultyId===f.id).forEach(e=>(days[e.day]??=[]).push(e.period));
     Object.values(days).forEach(ps=>{ps.sort((a,b)=>a-b);for(let i=1;i<ps.length;i++)facultyGap+=Math.max(0,ps[i]-ps[i-1]-1)});
   });
-  state.courses.forEach(cr=>{
-    state.schedule.filter(e=>e.courseId===cr.id).forEach(e=>{const n=state.schedule.filter(x=>x.courseId===cr.id&&x.classId===e.classId&&x.day===e.day).length;if(n>1)spread+=n-1});
+  state.courses.forEach(course=>{
+    state.schedule.filter(e=>e.courseId===course.id).forEach(entry=>{
+      const sameDay=state.schedule.filter(x=>x.courseId===entry.courseId&&x.classId===entry.classId&&x.day===entry.day).length;
+      if(sameDay>1)spread+=sameDay-1;
+    });
   });
-  state.schedule.forEach(e=>{const r=findRoom(e.roomId),cl=findClass(e.classId);if(r&&cl)roomWaste+=Math.max(0,r.capacity-cl.strength);if(e.period===0||e.period===state.settings.periods-1)edge++});
-  const penalty=classGap*state.preferences.classGaps+facultyGap*state.preferences.facultyGaps+spread*state.preferences.spread+roomWaste*0.02*state.preferences.rooms+edge*state.preferences.edges;
+  state.schedule.forEach(entry=>{
+    const room=findRoom(entry.roomId),cl=findClass(entry.classId);
+    if(room&&cl)roomWaste+=Math.max(0,room.capacity-cl.strength);
+    if(entry.period===0||entry.period===state.settings.periods-1)edge++;
+  });
+  const classGapRate=classGap/Math.max(1,state.classes.length);
+  const facultyGapRate=facultyGap/Math.max(1,state.faculty.length);
+  const spreadRate=spread/Math.max(1,state.courses.length*Math.max(1,state.classes.length));
+  const roomWasteRate=roomWaste/Math.max(1,state.schedule.length);
+  const edgeRate=edge/Math.max(1,state.schedule.length);
+  const penalty=
+    classGapRate*state.preferences.classGaps*.15+
+    facultyGapRate*state.preferences.facultyGaps*.15+
+    spreadRate*state.preferences.spread*1.4+
+    roomWasteRate*.02*state.preferences.rooms+
+    edgeRate*state.preferences.edges;
   const score=hardN?Math.max(0,Math.round(100-hardN*20-penalty*.7)):Math.max(0,Math.round(100-penalty*.55));
   return {score,hardN,softPenalty:Math.round(penalty),classGap,facultyGap,spread,roomWaste,edge};
 }
