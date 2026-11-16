@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - feature/school-wise-workflow-2026-11-06
+      - feature/joy-public-timetable-portal
   pull_request:
     branches:
       - main
@@ -26,5 +27,10 @@ jobs:
           node --check api/_lib/auth.js
           node --check api/auth-config.js
           node --check api/platform/organizations.js
-      - name: Test school-scoped API
-        run: node --test tests/*.test.js
+          node --check timetable.js
+          node --check api/public-timetables.js
+          node --check api/faculty-directory.js
+          node --check lib/public-timetable.js
+          node --check lib/joy-faculty-directory.js
+      - name: Test school-scoped and public timetable APIs
+        run: npm test
