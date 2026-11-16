@@ -1,1 +1,73 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Published Timetables | Joy University</title><link rel="stylesheet" href="/public.css"></head><body><header class="site-header"><a class="wordmark" href="/">JOY UNIVERSITY · TIMETABLES</a><nav><a href="/">Home</a><a href="/faculty-login.html">Faculty login</a></nav></header><main class="portal-page"><div class="page-heading"><div><h1>Published Timetables</h1><p>Select school, academic year, semester, course and section.</p></div><button class="print-button" id="print">Print</button></div><section class="filters"><div class="field"><label>School</label><select id="schoolSelect"></select></div><div class="field"><label>Academic year</label><select id="yearSelect"></select></div><div class="field"><label>Semester</label><select id="semesterSelect"></select></div><div class="field"><label>Course</label><select id="courseSelect"></select></div><div class="field"><label>Section</label><select id="sectionSelect"></select></div></section><div class="release-bar"><span id="meta">Loading…</span><b id="status">PUBLIC</b></div><section class="table-card"><div id="tableContainer" class="empty-state">Loading…</div></section></main><footer>Joy University · Only published timetables are shown.</footer><script src="/timetable.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#102b46">
+<title>Published Timetables | Joy University</title>
+<link rel="stylesheet" href="/public.css">
+<style>
+:root{--navy:#102b46;--ink:#17334e;--muted:#6b7e8e;--line:#e0e8ed;--teal:#167c78;--paper:#f3f6f8}
+body{background:var(--paper);color:var(--ink)}
+.site-header{background:#fff;border-bottom:1px solid var(--line)}
+.portal-page{max-width:1240px;margin:34px auto 64px;padding:0 22px}
+.portal-hero{position:relative;overflow:hidden;background:linear-gradient(118deg,#102b46 0%,#174c62 68%,#1a7777 100%);color:#fff;border-radius:20px;padding:34px 38px;margin-bottom:22px;box-shadow:0 18px 48px rgba(16,43,70,.13)}
+.portal-hero:after{content:"JU";position:absolute;right:36px;top:-46px;font-size:210px;font-weight:900;letter-spacing:-.12em;color:rgba(255,255,255,.055);pointer-events:none}
+.portal-kicker{font-size:11px;letter-spacing:.18em;font-weight:800;color:#8de0d6}
+.portal-hero h1{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:12px 0 10px;color:#fff}
+.portal-hero p{max-width:680px;line-height:1.65;color:#d5e4eb;margin:0}
+.hero-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:24px;font-size:12px;color:#d7e8ed}
+.hero-meta span{display:inline-flex;align-items:center;gap:8px}.hero-meta i{width:7px;height:7px;border-radius:50%;background:#73d5c7;display:inline-block}
+.page-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px}
+.page-heading h2{margin:0;font-size:20px}.page-heading p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.print-button{border:1px solid #d6e0e6;border-radius:9px;background:#fff;color:var(--ink);font-weight:700;padding:10px 15px;cursor:pointer}
+.filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;background:#fff;padding:18px;border:1px solid var(--line);border-radius:15px;box-shadow:0 6px 22px rgba(20,52,76,.035)}
+.field label{display:block;font-size:11px;letter-spacing:.06em;font-weight:800;color:#63798a;margin:0 0 7px;text-transform:uppercase}
+.field select{width:100%;min-height:44px;border:1px solid #dbe4e9;border-radius:8px;background:#fbfcfd;padding:0 11px;color:#17334e;font-size:13px;outline:none}
+.field select:focus{border-color:#268d88;box-shadow:0 0 0 3px rgba(38,141,136,.12)}
+.release-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 0;padding:0 2px;color:var(--muted);font-size:12px}
+.status-pill{border-radius:99px;padding:7px 11px;font-size:10px;font-weight:900;letter-spacing:.1em;white-space:nowrap}
+.status-pill.published{background:#e5f5ef;color:#147653}.status-pill.demo{background:#fff2d7;color:#865b08}.status-pill.muted{background:#e9eef2;color:#617382}
+.demo-notice{border:1px solid #efdcae;background:#fff8e8;color:#76551b;padding:12px 15px;border-radius:10px;font-size:12px;line-height:1.5;margin:0 0 14px}
+.table-card{background:#fff;border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:0 8px 26px rgba(20,52,76,.045)}
+.table-scroll{overflow:auto}.public-timetable{width:100%;border-collapse:separate;border-spacing:0;min-width:850px}
+.public-timetable th{background:#f5f8fa;color:#667c8c;text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:14px 13px;border-bottom:1px solid var(--line);position:sticky;top:0}
+.public-timetable td{padding:13px;border-bottom:1px solid #edf1f4;font-size:12px;vertical-align:middle}
+.public-timetable tbody tr:hover{background:#f8fbfc}.public-timetable tbody tr:last-child td{border-bottom:0}
+.time-cell{font-variant-numeric:tabular-nums;white-space:nowrap;color:#3d5669}.course-code{display:inline-block;padding:5px 7px;border-radius:6px;background:#eaf2f5;color:#17445a;font-size:10px;font-weight:800;white-space:nowrap}
+.subject-cell{font-weight:700;color:#203e54}.pending-label{display:block;color:#9a6a13;font-size:10px;margin-top:4px}
+.table-foot{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;background:#fafcfd;border-top:1px solid var(--line);color:#718391;font-size:11px}
+.empty-state,.loading-state{min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:28px;color:var(--muted)}
+.empty-state strong,.loading-state b{font-size:15px;color:var(--ink)}.empty-state span,.loading-state small{max-width:420px;font-size:12px;line-height:1.6}
+.empty-icon{font-size:30px;color:#8ca1ae}.error-state{color:#9a4242}
+.loader-dot{width:22px;height:22px;border:3px solid #d8e7e8;border-top-color:#167c78;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+footer{text-align:center;color:#7a8c99;padding:20px 12px;font-size:11px}
+@media(max-width:900px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.portal-hero{padding:28px}.portal-hero:after{right:10px;font-size:150px}}
+@media(max-width:560px){.portal-page{margin-top:20px;padding:0 12px}.filters{grid-template-columns:1fr;padding:14px}.page-heading{align-items:flex-start}.portal-hero{border-radius:14px;padding:24px}.hero-meta{gap:10px}.release-bar{align-items:flex-start;flex-direction:column}.table-foot{flex-direction:column}}
+@media print{.site-header,.page-heading .print-button,.filters,.portal-hero,footer{display:none!important}.portal-page{margin:0;padding:0}.table-card{border:0;box-shadow:none}.public-timetable th{position:static}}
+</style>
+</head>
+<body>
+<header class="site-header"><a class="wordmark" href="/">JOY UNIVERSITY · ACADEMIC PORTAL</a><nav><a href="/">Home</a><a href="/faculty-login.html">Faculty login</a></nav></header>
+<main class="portal-page">
+<section class="portal-hero">
+ <span class="portal-kicker">JOY UNIVERSITY · STUDENT SERVICES</span>
+ <h1>Published Timetables</h1>
+ <p>Find your class schedule in a few steps. Choose your school, academic year, semester, course and section. No student login is required.</p>
+ <div class="hero-meta"><span><i></i> Student access · No login</span><span><i></i> Updated from published releases</span><span><i></i> India Standard Time</span></div>
+</section>
+<div class="page-heading"><div><h2>Find your timetable</h2><p>Filters update automatically as you make a selection.</p></div><button class="print-button" id="print">Print timetable</button></div>
+<section class="filters" aria-label="Timetable filters">
+ <div class="field"><label for="schoolSelect">School</label><select id="schoolSelect"><option value="">Loading schools…</option></select></div>
+ <div class="field"><label for="yearSelect">Academic year</label><select id="yearSelect"><option value="">Choose year</option></select></div>
+ <div class="field"><label for="semesterSelect">Semester</label><select id="semesterSelect"><option value="">Choose semester</option></select></div>
+ <div class="field"><label for="courseSelect">Course</label><select id="courseSelect"><option value="">All courses</option></select></div>
+ <div class="field"><label for="sectionSelect">Section</label><select id="sectionSelect"><option value="">All sections</option></select></div>
+</section>
+<div class="release-bar"><span id="meta">Loading timetable information…</span><b id="status" class="status-pill muted">LOADING</b></div>
+<div id="demoNotice" class="demo-notice" hidden><b>Demonstration timetable:</b> This is synthetic sample data published for software presentation only. It is not an official Joy University timetable and does not confirm Dean approval.</div>
+<section class="table-card"><div id="tableContainer" class="loading-state"><span class="loader-dot"></span><b>Loading published timetable…</b></div></section>
+</main>
+<footer>Joy University · Public timetable portal · For official notices, follow university communication channels.</footer>
+<script src="/timetable.js"></script>
+</body></html>
