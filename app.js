@@ -13,74 +13,9 @@ function now(){return new Date().toISOString()}
 function arr(v){return Array.isArray(v)?v:[]}
 
 const DEFAULT={
-  organization:{name:"JOY UNIVERSITY",code:"JU001",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",status:"Active",ownerName:"University Timetable Owner",ownerEmail:"timetable@joyuniversity.edu"},
-  settings:{university:"JOY UNIVERSITY",year:"2026–27",semester:"Semester V",title:"TIME TABLE FOR THE ACADEMIC YEAR 2026–27",incharge:"Ms. S. AMBIKA",school:"School of Computational Intelligence",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]},
-  departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],
-  programs:[{id:"BTECH-CSE",name:"B.Tech CSE",department:"SOCI"}],
-  academicYears:[{id:"AY2627",name:"2026–27",active:true}],
-  semesters:[{id:"SEM5",name:"Semester V",number:5,academicYear:"AY2627",active:true}],
-  sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58}],
-  classes:[{id:"CSE5K",name:"B.Tech CSE · Semester V · K",section:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58,incharge:"Ms. S. AMBIKA"}],
-  facultySubjects:[],
-  faculty:[
-    {id:"SOCI-F01",name:"Prof. Dr. Chithra D. Gracia",email:"chithra@joyuniversity.edu.in",department:"SOCI",designation:"Professor & Dean",maxDay:4,maxWeek:18},
-    {id:"SOCI-F02",name:"Prof. Dr. Kala S. Nathan",email:"kalasnathan@joyuniversity.edu.in",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F03",name:"Prof. Dr. Ayappasamy K",email:"ayappasamy.k@joyuniversity.edu.in",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F04",name:"Prof. Dr. Sanjith S",email:"sanjith@joyuniversity.edu.in",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F05",name:"Prof. Dr. P. K. Manoj Kumar",email:"pkmanojkumar@joyuniversity.edu.in",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F06",name:"Prof. Dr. A. Alphonse John Kenneth",email:"johnkenneth.soci@joyuniversity.edu.in",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F07",name:"Prof. Dr. Sakena Benazer S",email:"sakenabenazer@joyuniversity.edu.in",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F08",name:"Prof. Dr. T. Anitha",email:"anitha@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F09",name:"Prof. Dr. P. Deepavathi",email:"deepavathi@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F10",name:"Prof. Dr. Arun Balaji P",email:"arunbalaji@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F11",name:"Prof. Dr. C. Preethi",email:"preethi.c@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F12",name:"Prof. Dr. Chockalingam",email:"chocakalingam.a@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F13",name:"Prof. Dr. Nishi S Das",email:"nishi.s.das@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F14",name:"Prof. Rahul",email:"rahul@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F15",name:"Prof. Dr. Gopi Kannan",email:"dr.gopikannan@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F16",name:"Prof. Dr. I Sofiya",email:"sofia.soci@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F17",name:"Prof. An Belin Felicsona",email:"afelicsona.soci@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F18",name:"Prof. Fernando Sahaya Mary Albeena",email:"maryalbeena.soci@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F19",name:"Prof. Arockia Panimalar S",email:"arockiapanimalar@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F20",name:"Thangaselvi P",email:"thangaselvi@joyuniversity.edu.in",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"SOCI-F21",name:"Jenita Evangelin J",email:"jenitaevangeline.soci@joyuniversity.edu.in",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18},
-    {id:"SOCI-F22",name:"K. Ashika Jebalin",email:"ashikajebaline@joyuniversity.edu.in",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18},
-    {id:"SOCI-F23",name:"Mary Distiva Princy J",email:"princy@joyuniversity.edu.in",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18},
-    {id:"SOCI-F24",name:"Ambika S",email:"ambika@joyuniversity.edu.in",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18},
-    {id:"SOCI-F25",name:"S. Pavitha",email:"pavitha.soci@joyuniversity.edu.in",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18},
-    {id:"SOCI-F26",name:"R. Padma Priya",email:"",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18},
-    {id:"SOCI-F27",name:"L. Abraham David",email:"",department:"SOCI",designation:"Teaching Assistant",maxDay:4,maxWeek:18}
-  ],
-  rooms:[
-    {id:"R103",name:"Room 103",code:"R103",type:"Classroom",capacity:60,building:"Joveena Block",floor:1,features:["projector","smart-board","internet"]},
-    {id:"CCL",name:"Cloud Computing Lab",code:"CCL",type:"Lab",capacity:45,building:"Joveena Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true},
-    {id:"SAK2",name:"SAK Seminar Hall 2nd Floor",code:"SAK2",type:"Seminar Hall",capacity:120,building:"SAK Block",floor:2,features:["projector","smart-board","internet"]}
-  ],
-  courses:[
-    {id:"24BTCY151",code:"24BTCY151",name:"Introduction to Blockchain and Cryptocurrency",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F1",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY152",code:"24BTCY152",name:"Malware Analysis",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F1",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY153",code:"24BTCY153",name:"Computer Architecture",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F2",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY154",code:"24BTCY154",name:"Software Engineering",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F3",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY155",code:"24BTCY155",name:"Criminology and Cyber Crimes",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F4",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY156",code:"24BTCY156",name:"Theory of Computation",type:"Theory",credits:4,l:3,t:1,p:0,credits:4,faculty:"F6",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1 + 1 × 1"},
-    {id:"24BTCY851",code:"24BTCY851",name:"Principles of Management",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F5",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY251",code:"24BTCY251",name:"Introduction to Blockchain and Cryptocurrency Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F1",room:"CCL",lab:true,classIds:["CSE5K"],sessionPattern:"1 × 2"},
-    {id:"24BTCY252",code:"24BTCY252",name:"Malware Analysis Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F1",room:"CCL",lab:true,classIds:["CSE5K"],sessionPattern:"1 × 2"}
-  ],
-  activities:[],
-  availability:[
-    {faculty:"F1",day:"ALL",period:7,blocked:true},{faculty:"F5",day:"MON",period:0,blocked:true}
-  ],
-  roomBlocks:[],
-  classBlocks:[],
-  preferences:{classGaps:8,facultyGaps:7,spread:8,rooms:6,edges:4,workload:7},
-  combinedGroups:[],
-  electives:[],
-  schedule:[],
-  versions:[],
-  shareLinks:[],
-  activityLog:[],
-  branding:{name:"JOY UNIVERSITY",code:"JU001",logo:"",timezone:"Asia/Kolkata"}
+ organization:{name:"Joy University",code:"",school:"",timezone:"Asia/Kolkata",status:"Active"},
+ settings:{university:"JOY UNIVERSITY",year:"",semester:"",title:"JOY UNIVERSITY TIMETABLE",incharge:"",school:"",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]},
+ departments:[],programs:[],academicYears:[],semesters:[],sections:[],classes:[],facultySubjects:[],faculty:[],rooms:[],courses:[],activities:[],availability:[],roomBlocks:[],classBlocks:[],preferences:{classGaps:8,facultyGaps:7,spread:8,rooms:6,edges:4,workload:7},combinedGroups:[],electives:[],schedule:[],versions:[],shareLinks:[],activityLog:[],branding:{name:"JOY UNIVERSITY",code:"",logo:"",timezone:"Asia/Kolkata"},__joyDemoSeedVersion:9
 };
 
 
@@ -191,28 +126,7 @@ function renderMasterConsole(){
   q("masterUniversities").innerHTML="<table><thead><tr><th>University</th><th>Code</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>"+platform.universities.map(u=>"<tr><td><b>"+esc(u.name)+"</b><small>"+esc(u.school||"")+"</small></td><td>"+esc(u.code)+"</td><td>"+esc(u.username)+"</td><td><span class='badge "+(u.status==="Active"?"good":"bad")+"'>"+u.status+"</span></td><td><button class='btn small' data-toggle-uni='"+u.code+"'>"+(u.status==="Active"?"Suspend":"Activate")+"</button></td></tr>").join("")+"</tbody></table>";
 }
 function toggleUniversity(code){const u=platform.universities.find(x=>x.code===code);if(!u)return;u.status=u.status==="Active"?"Suspended":"Active";u.data.organization.status=u.status;savePlatform();renderMasterConsole();refreshLoginUniversities()}
-async function initAuth(){
-  document.querySelectorAll("[data-login-role]").forEach(b=>b.onclick=()=>switchLoginRole(b.dataset.loginRole));
-  q("masterLoginBtn").onclick=masterLogin;
-  q("universityLoginBtn").onclick=universityLogin;
-  q("masterLogout").onclick=logout;
-  q("logoutBtn").onclick=logout;
-  q("createUniversityBtn").onclick=createUniversity;
-  if(sharedSnap){showOnly("app");return true}
-  try{
-    const role=await USAuth.getRole();
-    if(!role||role.type!=="UNIVERSITY_OWNER"){showOnly("login");return false}
-    authSession={role:"UNIVERSITY_OWNER",orgCode:role.organization.code,organization:role.organization,membershipRole:role.membershipRole};
-    showOnly("app");
-    await cloudLoad();
-    return true;
-  }catch(error){
-    console.warn("Authentication initialization failed",error);
-    showOnly("login");
-    if(q("loginError"))q("loginError").textContent="Secure sign-in is unavailable. Check the database configuration.";
-    return false;
-  }
-}
+async function initAuth(){if(sharedSnap){showOnly("app");return true}try{const role=await USAuth.getRole();if(!role||role.type!=="UNIVERSITY_OWNER"){location.replace("/faculty-login.html");return false}authSession={role:"UNIVERSITY_OWNER",orgCode:role.organization.code,organization:role.organization,membershipRole:role.membershipRole,user:role.user};showOnly("app");await cloudLoad();return true}catch(error){console.warn("Authentication initialization failed",error);location.replace("/faculty-login.html?unavailable=1");return false}}
 
 function normalizeState(x){
   x=Object.assign(copy(DEFAULT),x||{});
@@ -645,16 +559,11 @@ async function cloudSave(){
     setSync("All changes saved securely");
   }catch(error){setSync("Save failed · reconnect and retry");console.error(error)}
 }
+function createSchoolWorkspace(organization){const state=copy(DEFAULT),school=String(organization?.school||"");state.organization={name:"Joy University",code:String(organization?.code||""),school:school,timezone:organization?.timezone||"Asia/Kolkata",status:"Active"};state.settings.university="JOY UNIVERSITY";state.settings.school=school;state.departments=school?[{id:String(organization.code),name:school,code:String(organization.code)}]:[];state.branding={name:"JOY UNIVERSITY",code:String(organization?.code||""),logo:"",timezone:organization?.timezone||"Asia/Kolkata"};return normalizeState(state)}
 async function cloudLoad(){
-  if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
-  setSync("Loading school workspace…");
-  try{
-    const r=await fetch(CLOUD_API,{credentials:"same-origin",cache:"no-store"});
-    if(r.status===404){db=normalizeState(copy(DEFAULT));await cloudSave();setSync("New school workspace created");return}
-    if(!r.ok)throw new Error("Secure workspace load failed");
-    const p=await r.json();
-    if(p&&p.data){db=normalizeState(p.data);setSync("School workspace loaded")}
-  }catch(error){setSync("Workspace unavailable · check database setup");console.error(error);throw error}
+ if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
+ setSync("Loading school workspace…");
+ try{const r=await fetch(CLOUD_API,{credentials:"same-origin",cache:"no-store"});if(r.status===404){db=createSchoolWorkspace(authSession.organization);await cloudSave();setSync("New private school workspace created");return}if(!r.ok)throw new Error("Secure workspace load failed");const p=await r.json();if(p&&p.data){db=normalizeState(p.data);db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:authSession.organization.timezone||"Asia/Kolkata"};db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;setSync("School workspace loaded")}}catch(error){setSync("Workspace unavailable · check database setup");console.error(error);throw error}
 }
 function setSync(t){if(q("syncStatus"))q("syncStatus").textContent=t}
 
@@ -1130,13 +1039,7 @@ function renderPreflight(){
   (pf.d.issues||[]).forEach(x=>rows.push("<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>"));
   q("issueReport").innerHTML=rows.length?rows.slice(0,60).join(""):"<div class='empty-state'><strong>Validation passed.</strong><span>The current timetable can move to release review.</span></div>";
 }
-function renderPublish(){
-  const latest=db.versions.find(v=>v.status==="Published"),pf=preflight();
-  q("publishReadiness").innerHTML=pf.ok?"<div class='release-ready'><span class='status-dot'></span><div><b>Ready to publish</b><span>0 hard conflicts and complete activity coverage.</span></div></div>":"<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing blocked</b><span>Resolve preflight issues before releasing this timetable.</span></div></div>";
-  q("publishBtn").disabled=!pf.ok;
-  q("copyShare").disabled=!latest;
-  q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";renderShareHistory();
-}
+function renderPublish(){const latest=db.versions.find(v=>v.status==="Published"),pf=preflight(),approval=q("manualDeanApproval");q("publishReadiness").innerHTML=pf.ok?"<div class='release-ready'><span class='status-dot'></span><div><b>Draft ready for offline Dean review</b><span>Print this version and obtain manual approval before publication.</span></div></div>":"<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing blocked</b><span>Resolve preflight issues before release.</span></div></div>";q("publishBtn").disabled=!pf.ok||!approval?.checked||!!sharedSnap;q("copyShare").disabled=!latest;q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries · offline Dean approval confirmed</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";renderShareHistory()}
 function renderCourses(){
   q("combinedList").innerHTML=db.combinedGroups.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.map(id=>esc(findClass(id)?.section||id)).join(" + ")+" · "+esc(findRoom(g.roomId)?.name||"")+"</small></div></div>").join("")||"<div class='empty-state'><strong>No combined groups.</strong><span>Use this for common lectures or seminars.</span></div>";
   q("electiveList").innerHTML=db.electives.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.length+" class(es) · "+g.courseIds.length+" option(s)</small></div></div>").join("")||"<div class='empty-state'><strong>No elective groups.</strong><span>Create one when students choose between common course options.</span></div>";
@@ -1145,7 +1048,7 @@ function renderCourses(){
 function renderClasses(){
   q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th><th>Actions</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(db.departments.find(d=>d.id===c.department)?.code||c.department||"—")+"</td><td><button class='btn small' data-edit-class='"+c.id+"'>Edit</button> <button class='btn small' data-view-class='"+c.id+"'>Timetable</button></td></tr>").join("")+"</tbody></table>";
 }
-function renderFaculty(){
+async function syncOfficialFacultyDirectory(){const b=q("syncFacultyDirectoryBtn");if(b)b.disabled=true;try{const r=await fetch("/api/faculty-directory",{cache:"no-store"}),p=await r.json();if(!r.ok)throw Error(p.error||"Faculty directory unavailable");const code=String(authSession?.organization?.code||""),school=String(authSession?.organization?.school||""),items=arr(p.faculty).filter(x=>x.schoolCode===code);if(!items.length)throw Error("No official profiles mapped to "+school+".");const dept=db.departments[0]?.id||code;let added=0,updated=0;items.forEach(x=>{let f=db.faculty.find(y=>y.directoryId===x.id||String(y.name||"").trim().toLowerCase()===x.name.trim().toLowerCase());if(f){f.directoryId=x.id;f.designation=x.designation||f.designation||"";f.officialProfileUrl=x.profileUrl;f.directorySource=x.source;f.directorySyncedAt=p.fetchedAt;if(!f.department)f.department=dept;updated++}else{db.faculty.push({id:uid("FAC"),directoryId:x.id,name:x.name,email:"",designation:x.designation||"",department:dept,maxDay:4,maxWeek:18,officialProfileUrl:x.profileUrl,directorySource:x.source,directorySyncedAt:p.fetchedAt});added++}});log("Official faculty directory synced",added+" added · "+updated+" updated");save();alert("Official directory sync: "+added+" added, "+updated+" updated. Verify teaching subjects before assignment.")}catch(e){alert(e.message||"Directory sync failed")}finally{if(b)b.disabled=false}}function renderFaculty(){
  q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Email</th><th>Designation / status</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.email||"—")+"</td><td>"+esc(f.isPlaceholder?"PENDING · "+(f.staffingStatus||"recruitment"):(f.designation||"—"))+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td>"+(f.isPlaceholder?"<span class='badge warning'>Not real faculty</span>":"<button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button>")+"</td></tr>").join("")+"</tbody></table>";
  renderFacultyExpertise();
 }
@@ -1311,12 +1214,7 @@ function applySolution(index,closePage=true){
 }
 function clearUnlocked(){db.schedule=db.schedule.filter(e=>e.locked);log("Unlocked timetable entries cleared","");save()}
 function toggleLockMode(){lockMode=!lockMode;q("lockHint").textContent=lockMode?"Click any filled cell to lock/unlock":"Click a filled cell to inspect it";q("lockModeBtn").classList.toggle("active",lockMode)}
-function publishCurrent(){
-  const pf=preflight();if(!pf.ok){alert("Publishing is blocked. Run Preflight and resolve the listed issues.");navigate("preflight");return}
-  db.versions.filter(v=>v.status==="Published").forEach(v=>v.status="Archived");
-  const release={id:uid("VER"),name:"Release "+(db.versions.length+1),status:"Published",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule)};
-  db.versions.unshift(release);log("Timetable published",release.name);save();navigate("publish");
-}
+function publishCurrent(){if(sharedSnap||!authSession){alert("Only an authorized faculty coordinator can publish.");return}if(!q("manualDeanApproval")?.checked){alert("Print the draft and obtain the Dean's manual approval before publishing.");return}const pf=preflight();if(!pf.ok){alert("Publishing is blocked. Run Preflight and resolve the listed issues.");navigate("preflight");return}db.versions.filter(v=>v.status==="Published").forEach(v=>v.status="Archived");const release={id:uid("VER"),name:"Release "+(db.versions.length+1),status:"Published",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule),snapshot:{settings:copy(db.settings),classes:copy(db.classes),courses:copy(db.courses),faculty:copy(db.faculty),rooms:copy(db.rooms)},approval:{method:"manual_offline",confirmedBy:authSession.user?.email||"",confirmedAt:now()}};db.versions.unshift(release);log("Timetable published after manual Dean approval",release.name);q("manualDeanApproval").checked=false;save();navigate("publish")}
 function createShare(){
   const latest=db.versions.find(v=>v.status==="Published");if(!latest){alert("Publish a version first.");return}
   const scope=q("shareScope").value;const cid=q("classSelector").value;
@@ -1518,8 +1416,8 @@ function saveCalendar(){
 function restoreSeed(){if(!confirm("Restore the complete Joy University Section K seed data? Current demo data will be replaced."))return;db=normalizeState(copy(DEFAULT));log("Section K seed restored","Joy University Semester V");save()}
 function saveDraftVersion(){const sc=scheduleScore(db);const note=prompt("Version note","Draft timetable");if(note===null)return;db.versions.unshift({id:uid("VER"),name:"Draft "+(db.versions.length+1),status:"Draft",note,at:now(),score:sc.score,schedule:copy(db.schedule)});log("Draft version saved",note);save()}
 function restoreVersion(id){const v=db.versions.find(x=>x.id===id);if(!v)return;if(confirm("Restore "+v.name+"? Current draft will be replaced.")){db.schedule=copy(v.schedule);log("Version restored",v.name);save()}}
-function updateBranding(){db.branding.name=q("brandName").value;db.branding.code=q("brandCode").value;db.branding.logo=q("brandLogo").value;db.branding.timezone=q("brandTimezone").value;db.organization.name=db.branding.name;db.organization.code=db.branding.code;log("Branding updated",db.branding.name);save()}
-function updateInstitution(){db.settings.university=q("setUniversity").value;db.organization.code=q("setOrgCode").value;db.settings.year=q("setYear").value;db.settings.semester=q("setSemester").value;db.settings.school=q("setSchool").value;db.settings.incharge=q("setIncharge").value;db.organization.name=db.settings.university;log("Institution settings updated",db.organization.name);save()}
+function updateBranding(){db.branding.name="JOY UNIVERSITY";db.branding.code=authSession?.organization?.code||db.organization.code;db.branding.logo=q("brandLogo").value;db.branding.timezone=q("brandTimezone").value;db.organization.name="Joy University";db.organization.code=authSession?.organization?.code||db.organization.code;log("School branding updated",db.organization.school);save()}
+function updateInstitution(){db.settings.university="JOY UNIVERSITY";db.settings.year=q("setYear").value;db.settings.semester=q("setSemester").value;db.settings.school=authSession?.organization?.school||db.organization.school;db.settings.incharge=q("setIncharge").value;db.organization.name="Joy University";db.organization.code=authSession?.organization?.code||db.organization.code;db.organization.school=db.settings.school;log("Academic term settings updated",db.settings.year+" · "+db.settings.semester);save()}
 
 document.addEventListener("click",e=>{
   const nav=e.target.closest(".nav");if(nav){navigate(nav.dataset.page);return}
@@ -1528,7 +1426,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="seedBtn")restoreSeed();
   if(e.target.id==="saveInstitution")updateInstitution();
   if(e.target.id==="addDepartment")addDepartment();if(e.target.id==="addProgram")addProgram();if(e.target.id==="addSection")addSection();if(e.target.id==="addClass"||e.target.id==="addClassBtn")addClass();
-  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="addFacultySubjectBtn")addFacultySubject();if(e.target.id==="addCombinedBtn")addCombined();if(e.target.id==="addElectiveBtn")addElective();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
+  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="syncFacultyDirectoryBtn")syncOfficialFacultyDirectory();if(e.target.id==="addFacultySubjectBtn")addFacultySubject();if(e.target.id==="addCombinedBtn")addCombined();if(e.target.id==="addElectiveBtn")addElective();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
   if(e.target.id==="generateBtn")runGenerate();if(e.target.id==="headerGenerate")navigate("generate");
   if(e.target.id==="lockModeBtn")toggleLockMode();
   if(e.target.id==="clearScheduleBtn")clearUnlocked();
@@ -1587,6 +1485,7 @@ document.addEventListener("change",e=>{
   if(e.target.id==="dashboardClassSelector"){selectedClassId=e.target.value;renderDashboard();}
   if(e.target.id==="reportScope"||e.target.id==="reportEntity"){renderReports();}
 });
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="manualDeanApproval")q("publishBtn").disabled=!preflight().ok||!e.target.checked||!!sharedSnap});
 q("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 q("copyShare").disabled=true;
 if(sharedSnap){
