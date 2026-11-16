@@ -5,7 +5,8 @@ This application is exclusively for Joy University. Nine school workspaces are a
 - Each school has two authorized faculty timetable coordinators with equal permissions inside that school's private workspace.
 - Students and visitors do not log in. They use one public timetable portal at /timetable.html.
 - The Dean has no application login or dashboard. The Dean reviews printed drafts manually, offline.
-- There is no Master Admin login and no university-creation flow. Coordinator accounts are provisioned securely outside the public application.
+- A clearly labelled demo environment is available at `/demo.html`: one-click Central Admin access and two demo coordinator profiles for each of the nine schools. Demo workspaces are isolated per school and saved only in the current browser; they do not authenticate real university users or write to Neon.
+- Production faculty authentication remains email/password based. The demo shortcut is not production authentication.
 
 ## Faculty directory
 The faculty workspace syncs public profiles from https://joyuniversity.edu.in/our-faculties. Profiles are mapped only when the profile text names a school. Email addresses are not invented, and research interests are not treated as teaching assignments. Coordinators must verify actual subjects before automatic allocation.
