@@ -561,9 +561,95 @@ async function cloudSave(){
   }catch(error){setSync("Save failed · reconnect and retry");console.error(error)}
 }
 function createSchoolWorkspace(organization){const state=copy(DEFAULT),school=String(organization?.school||"");state.organization={name:"Joy University",code:String(organization?.code||""),school:school,timezone:organization?.timezone||"Asia/Kolkata",status:"Active"};state.settings.university="JOY UNIVERSITY";state.settings.school=school;state.departments=school?[{id:String(organization.code),name:school,code:String(organization.code)}]:[];state.branding={name:"JOY UNIVERSITY",code:String(organization?.code||""),logo:"",timezone:organization?.timezone||"Asia/Kolkata"};return normalizeState(state)}
+
+const DEMO_SCHOOL_DATA=[
+ {code:"JU-SANS",school:"School of Arts & Natural Sciences",program:"B.Sc. Mathematics",classId:"SANS-MATH-V-A",className:"B.Sc. Mathematics · Semester V · A",strength:36,room:"Science Block · Room 201",lab:"Science Laboratory",subjects:[["SANS501","Linear Algebra",2],["SANS502","Applied Statistics",2],["SANS503","Differential Equations",2],["SANS504","Scientific Computing",2],["SANSL501","Computational Mathematics Lab",0,true]]},
+ {code:"JU-SAS",school:"School of Agricultural Sciences",program:"B.Sc. Agriculture",classId:"SAS-AGRI-V-A",className:"B.Sc. Agriculture · Semester V · A",strength:40,room:"Agriculture Block · Room 105",lab:"Soil & Crop Science Lab",subjects:[["SAS501","Agronomy and Crop Production",2],["SAS502","Soil Fertility Management",2],["SAS503","Agricultural Economics",2],["SAS504","Plant Pathology",2],["SASL501","Soil Testing Practical",0,true]]},
+ {code:"JU-SEAM",school:"School of Entrepreneurship and Management",program:"BBA",classId:"SEAM-BBA-V-A",className:"BBA · Semester V · A",strength:42,room:"Management Block · Room 301",lab:"Business Analytics Lab",subjects:[["SEAM501","Strategic Management",2],["SEAM502","Entrepreneurship Development",2],["SEAM503","Marketing Management",2],["SEAM504","Financial Management",2],["SEAML501","Business Analytics Practical",0,true]]},
+ {code:"JU-SLHS",school:"School of Life & Health Sciences",program:"B.Sc. Biotechnology",classId:"SLHS-BT-V-A",className:"B.Sc. Biotechnology · Semester V · A",strength:34,room:"Life Sciences Block · Room 202",lab:"Biotechnology Laboratory",subjects:[["SLHS501","Molecular Biology",2],["SLHS502","Genetics",2],["SLHS503","Immunology",2],["SLHS504","Bioinformatics",2],["SLHSL501","Molecular Biology Practical",0,true]]},
+ {code:"JU-SOCI",school:"School of Computational Intelligence",program:"B.Tech CSE (Cyber Security)",classId:"SOCI-CY-V-A",className:"B.Tech CSE Cyber Security · Semester V · A",strength:48,room:"Computing Block · Room 305",lab:"Cyber Security Lab",subjects:[["SOCI501","Network Security",2],["SOCI502","Digital Forensics",2],["SOCI503","Secure Software Engineering",2],["SOCI504","Cryptography",2],["SOCIL501","Cyber Security Practical",0,true]]},
+ {code:"JU-SOET",school:"School of Engineering and Technology",program:"B.Tech Electronics & Communication",classId:"SOET-ECE-V-A",className:"B.Tech ECE · Semester V · A",strength:45,room:"Engineering Block · Room 210",lab:"Electronics & Embedded Systems Lab",subjects:[["SOET501","Digital Signal Processing",2],["SOET502","Microprocessors",2],["SOET503","Communication Systems",2],["SOET504","Control Systems",2],["SOETL501","Embedded Systems Practical",0,true]]},
+ {code:"JU-SOL",school:"School of Law",program:"B.A. LL.B.",classId:"SOL-LAW-V-A",className:"B.A. LL.B. · Semester V · A",strength:38,room:"Law Block · Moot Court Room",lab:"Moot Court",subjects:[["SOL501","Constitutional Law",2],["SOL502","Criminal Procedure",2],["SOL503","Law of Evidence",2],["SOL504","Jurisprudence",2],["SOLL501","Moot Court Practice",0,true]]},
+ {code:"JU-SON",school:"School of Nursing",program:"B.Sc. Nursing",classId:"SON-NUR-V-A",className:"B.Sc. Nursing · Semester V · A",strength:40,room:"Nursing Block · Room 104",lab:"Nursing Skills Lab",subjects:[["SON501","Medical Surgical Nursing",2],["SON502","Child Health Nursing",2],["SON503","Mental Health Nursing",2],["SON504","Community Health Nursing",2],["SONL501","Clinical Skills Practical",0,true]]},
+ {code:"JU-SOP",school:"School of Pharmacy",program:"B.Pharm",classId:"SOP-PHARM-V-A",className:"B.Pharm · Semester V · A",strength:42,room:"Pharmacy Block · Room 205",lab:"Pharmaceutics Laboratory",subjects:[["SOP501","Medicinal Chemistry",2],["SOP502","Pharmacology",2],["SOP503","Pharmacognosy",2],["SOP504","Industrial Pharmacy",2],["SOPL501","Pharmaceutics Practical",0,true]]}
+];
+function createSeededDemoWorkspace(organization){
+ const code=String(organization?.code||"");
+ const spec=DEMO_SCHOOL_DATA.find(x=>x.code===code);
+ const state=createSchoolWorkspace(organization);
+ if(!spec)return state;
+ const depId=code;
+ const programId=code+"-PROGRAM-V";
+ const classId=spec.classId;
+ state.organization={name:"Joy University",code,school:spec.school,timezone:"Asia/Kolkata",status:"Active"};
+ state.settings={...state.settings,university:"JOY UNIVERSITY",school:spec.school,year:"2026–27",semester:"Semester V",title:"JOY UNIVERSITY · "+spec.school+" · Semester V",incharge:"Demo School Coordinator",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]};
+ sanitizeBreaks(state.settings);
+ state.departments=[{id:depId,name:spec.school,code}];
+ state.programs=[{id:programId,name:spec.program,department:depId,durationYears:spec.program==="BBA"||spec.program==="B.Sc. Mathematics"||spec.program==="B.Sc. Agriculture"||spec.program==="B.Sc. Biotechnology"||spec.program==="B.Sc. Nursing"?3:5}];
+ state.academicYears=[{id:"AY-2026-27",name:"2026–27"}];
+ state.semesters=[{id:"SEM-V",name:"Semester V",number:5}];
+ state.sections=[{id:"SEC-"+classId,name:"Section A",code:"A",department:depId,program:programId,semester:"SEM-V",strength:spec.strength}];
+ state.classes=[{id:classId,name:spec.className,section:"A",department:depId,program:programId,semester:"SEM-V",strength:spec.strength,incharge:"Demo Class In-charge"}];
+ state.faculty=[];
+ state.facultySubjects=[];
+ state.rooms=[
+  {id:code+"-ROOM",name:spec.room,code:code+"-ROOM",type:"Classroom",capacity:60,building:spec.school,floor:2,features:["projector","smart-board","internet"]},
+  {id:code+"-LAB",name:spec.lab,code:code+"-LAB",type:"Lab",capacity:60,building:spec.school,floor:1,features:["computers","internet","projector","practical"],lab:true}
+ ];
+ state.courses=[];
+ spec.subjects.forEach((subject,index)=>{
+  const [courseCode,courseName,hours,isLab]=subject;
+  const facultyId=code+"-FAC-"+(index+1);
+  const facultyName="Demo Faculty "+String(index+1).padStart(2,"0");
+  state.faculty.push({id:facultyId,name:facultyName,designation:index===0?"Associate Professor":"Assistant Professor",department:depId,maxDay:4,maxWeek:18,demoRecord:true});
+  const courseId=code+"-COURSE-"+(index+1);
+  const course={id:courseId,code:courseCode,name:courseName,type:isLab?"Lab":"Theory",credits:isLab?1:2,l:isLab?0:hours,t:0,p:isLab?2:0,faculty:facultyId,room:isLab?code+"-LAB":code+"-ROOM",classIds:[classId],sessionPattern:isLab?"1 × 2":"2 × 1",lab:!!isLab,department:depId,demoRecord:true};
+  state.courses.push(course);
+  state.facultySubjects.push({id:code+"-MAP-"+(index+1),facultyId,courseId,expertiseType:"verified",notes:"Synthetic demonstration mapping"});
+ });
+ state.__demoSeedVersion=1;
+ state.schedule=[];
+ const result=rebuildConflictFreeSchedule(state,false);
+ const previous=db;
+ db=state;
+ const score=scheduleScore(state).score;
+ db=previous;
+ state.versions=[{id:"DEMO-DRAFT-"+code,name:"Generated demo draft · "+code,status:"Draft",note:"Synthetic sample data for product demonstration. Not an approved university timetable.",at:now(),score,schedule:copy(state.schedule)}];
+ state.activityLog=[{id:"DEMO-SEED-"+code,action:"Demo dataset generated",details:state.classes.length+" class · "+state.courses.length+" courses · "+state.faculty.length+" sample faculty · "+state.schedule.length+" timetable rows · "+result.missing.length+" unscheduled activities",at:now()}];
+ state.__demoSeedUnscheduled=result.missing.length;
+ return normalizeState(state);
+}
+function seedAllDemoSchoolWorkspaces(){
+ DEMO_SCHOOL_DATA.forEach(spec=>{
+  const key="ju-demo-workspace-"+spec.code;
+  try{
+   const raw=localStorage.getItem(key);
+   if(raw){
+    const saved=normalizeState(JSON.parse(raw));
+    if(saved.__demoSeedVersion===1||saved.classes.length||saved.courses.length)return;
+   }
+   const org={id:"demo-"+spec.code,code:spec.code,name:"Joy University",school:spec.school,timezone:"Asia/Kolkata",status:"Active"};
+   localStorage.setItem(key,JSON.stringify(createSeededDemoWorkspace(org)));
+  }catch(error){console.warn("Could not seed demo workspace for "+spec.code,error)}
+ });
+}
+
 async function cloudLoad(){
  if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
- if(authSession.demo){const key="ju-demo-workspace-"+authSession.organization.code;try{const saved=localStorage.getItem(key);db=saved?normalizeState(JSON.parse(saved)):createSchoolWorkspace(authSession.organization);db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:"Asia/Kolkata"};db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;setSync("Demo mode · saved in this browser only");}catch(e){db=createSchoolWorkspace(authSession.organization);setSync("Demo workspace · local only");}return}
+ if(authSession.demo){
+  seedAllDemoSchoolWorkspaces();
+  const key="ju-demo-workspace-"+authSession.organization.code;
+  try{
+   const saved=localStorage.getItem(key);
+   db=saved?normalizeState(JSON.parse(saved)):createSeededDemoWorkspace(authSession.organization);
+   db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:"Asia/Kolkata"};
+   db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;
+   db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;
+   if(!saved)localStorage.setItem(key,JSON.stringify(db));
+   setSync("Demo mode · sample timetable saved in this browser only");
+  }catch(e){db=createSeededDemoWorkspace(authSession.organization);setSync("Demo workspace · local only")}
+  return;
+ }
  setSync("Loading school workspace…");
  try{const r=await fetch(CLOUD_API,{credentials:"same-origin",cache:"no-store"});if(r.status===404){db=createSchoolWorkspace(authSession.organization);await cloudSave();setSync("New private school workspace created");return}if(!r.ok)throw new Error("Secure workspace load failed");const p=await r.json();if(p&&p.data){db=normalizeState(p.data);db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:authSession.organization.timezone||"Asia/Kolkata"};db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;setSync("School workspace loaded")}}catch(error){setSync("Workspace unavailable · check database setup");console.error(error);throw error}
 }
