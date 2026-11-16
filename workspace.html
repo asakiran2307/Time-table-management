@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="UniSchedule — intelligent university timetable management and optimization workspace.">
+<meta name="theme-color" content="#17334e">
+<title>Joy University | Faculty Timetable Workspace</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=fb276c7">
+<style>#loginGate,#masterConsole{display:none!important}.approval-check{display:flex;gap:10px;padding:14px;border:1px solid #d9e4e8;border-radius:10px;background:#f6faf9;margin:14px 0;font-size:13px}.portal-link-button{display:inline-flex;padding:9px 12px;border:1px solid #d6e0e5;border-radius:8px;color:#23445b;text-decoration:none;font-size:12px;font-weight:700}</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@9.5.1/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div id="loginGate" class="login-gate">
+  <div class="login-shell">
+    <div class="login-brand"><div class="login-mark">U</div><div><b>UniSchedule</b><small>Intelligent University Timetable Management</small></div></div>
+    <div class="login-card">
+      <div class="login-tabs"><button class="login-tab active" data-login-role="university">School Operator</button><button class="login-tab" data-login-role="master">Master Admin</button></div>
+      <div id="universityLogin" class="login-form">
+        <span class="eyebrow">SCHOOL WORKSPACE</span><h1>Sign in to your school</h1><p>Two authorized timetable operators share each school workspace. Faculty and students do not have application logins.</p>
+        
+        <label>School email<input id="loginUsername" type="email" autocomplete="username" placeholder="Your registered school email"></label>
+        <label>Password<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password"></label>
+        <button class="btn primary login-submit" id="universityLoginBtn">Sign in</button>
+        <div id="loginError" class="login-error"></div>
+        <div class="demo-note">Use the email and password provisioned for your school account. Contact the platform administrator if you need access.</div>
+      </div>
+      <div id="masterLogin" class="login-form hidden">
+        <span class="eyebrow">PLATFORM CONTROL</span><h1>Master Admin</h1><p>Manage universities, create the single owner account for each institution, and suspend or activate access.</p>
+        <label>Username<input id="masterUsername" autocomplete="username" value="masteradmin"></label>
+        <label>Password<input id="masterPassword" type="password" autocomplete="current-password" placeholder="Master password"></label>
+        <button class="btn primary login-submit" id="masterLoginBtn">Enter platform</button>
+        <div id="masterError" class="login-error"></div>
+        <div class="demo-note">Master Admin access must be provisioned securely.</div>
+      </div>
+    </div>
+    <div class="login-foot">Protected by secure server-side sessions and school-scoped PostgreSQL data access.</div>
+  </div>
+</div>
+<div id="masterConsole" class="master-console hidden">
+  <div class="master-top"><div><span class="eyebrow">UNISCHEDULE PLATFORM</span><h1>Master Admin</h1><p>Create and control one owner account per university.</p></div><button class="btn" id="masterLogout">Sign out</button></div>
+  <div class="master-grid">
+    <div class="panel"><div class="panel-head"><h3>Platform overview</h3><span class="badge good">MASTER</span></div><div id="masterStats" class="stats"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Create university</h3></div>
+      <div class="mini-form"><label>University name<input id="newUniName"></label><label>University code<input id="newUniCode"></label><label>Owner username<input id="newOwnerUser"></label><label>Owner password<input id="newOwnerPass" type="password"></label><label>School / unit<input id="newUniSchool"></label><label>Timezone<input id="newUniTimezone" value="Asia/Kolkata"></label></div>
+      <button class="btn primary" id="createUniversityBtn">Create university + owner</button><div id="createUniResult"></div>
+    </div>
+  </div>
+  <div class="panel"><div class="panel-head"><h3>Universities</h3></div><div id="masterUniversities"></div></div>
+</div>
+<div id="app" style="display:none">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">U</div><div><b>UniSchedule</b><small>Academic Planning</small></div></div>
+  <div class="tenant-card"><span>SCHOOL OPERATOR</span><strong id="tenantName">JOY UNIVERSITY</strong><small id="tenantCode">JU001 · PRIVATE WORKSPACE</small></div>
+  <nav id="nav">
+    <div class="nav-label">WORKSPACE</div>
+    <button class="nav active" data-page="dashboard">Dashboard</button>
+    <button class="nav" data-page="master">01 · Prepare Data</button>
+    <button class="nav" data-page="constraints">02 · Constraints</button>
+    <button class="nav" data-page="generate">03 · Build Timetable</button>
+    <button class="nav" data-page="preflight">04 · Validate</button>
+    <button class="nav" data-page="publish">05 · Publish & Share</button>
+    <div class="nav-label">ACADEMIC</div>
+    <button class="nav" data-page="courses">Courses & Activities</button>
+    <button class="nav" data-page="classes">Classes & Sections</button>
+    <button class="nav" data-page="faculty">Faculty Records</button>
+    <button class="nav" data-page="rooms">Rooms & Labs</button>
+    <button class="nav" data-page="calendar">Calendar</button>
+    <button class="nav" data-page="import">Data Import</button>
+    <div class="nav-label">ANALYSIS</div>
+    <button class="nav" data-page="compare">Solution Compare</button>
+    <button class="nav" data-page="scenarios">What-if Scenarios</button>
+    <button class="nav" data-page="reports">Reports & Export</button>
+    <button class="nav" data-page="versions">Versions & History</button>
+    <button class="nav" data-page="intelligence">Scheduling Intelligence</button>
+    <div class="nav-label">SYSTEM</div>
+    <button class="nav" data-page="settings">Institution Settings</button>
+  </nav>
+  <div class="sidebar-footer"><span class="owner-dot"></span><div><b>School operator access</b><small>Two authorized operators</small></div></div>
+</aside>
+
+<main>
+<header class="topbar">
+  <div class="topbar-title"><span class="eyebrow">ACADEMIC SCHEDULING WORKSPACE</span><h1 id="pageTitle">Dashboard</h1></div>
+  <div class="topbar-context"><span id="termLabel">2026–27 · Semester V</span><small id="syncStatus">Local workspace</small></div>
+  <div class="top-actions"><span class="access-pill">SCHOOL OPERATOR</span><a class="portal-link-button" href="/timetable.html">Public timetable</a><button id="backupBtn">Backup</button><button class="btn" id="logoutBtn">Sign out</button><button class="btn primary" id="headerGenerate">Generate timetable</button></div>
+</header>
+
+<section id="dashboard" class="page active">
+  <div class="hero">
+    <div><span class="eyebrow">JOY UNIVERSITY · TIMETABLE CONTROL CENTRE</span><h2>Plan. Optimize. Publish.</h2><p>Two authorized school operators share one workspace, prepare academic data, generate schedules, validate releases and manage exports or share links.</p>
+      <div class="hero-actions"><button class="btn primary" data-go="master">Prepare data</button><button class="btn" data-go="generate">Open timetable</button></div>
+    </div>
+    <div class="hero-meta"><span>SECTION K SEEDED</span><strong id="heroScore">—</strong><small>current quality score</small></div>
+  </div>
+  <div class="workflow-header"><div><span class="eyebrow">SCHEDULING WORKFLOW</span><h3>From setup to published release</h3><p>Every stage reports its own readiness instead of hiding failures inside generation.</p></div><div class="workflow-progress"><strong id="progressText">0% complete</strong><div class="progress-track"><i id="progressBar"></i></div></div></div>
+  <div id="workflow" class="workflow-grid"></div>
+  <div id="dashboardStats" class="stats"></div>
+  <div class="dashboard-table-panel panel">
+    <div class="panel-head">
+      <div><span class="eyebrow">CURRENT RELEASE · CLASS VIEW</span><h3 id="releaseTitle">Draft timetable</h3></div>
+      <div class="grid-tools"><label class="inline-select">Class <select id="dashboardClassSelector"></select></label><span id="releaseBadge" class="badge">DRAFT</span><button class="btn small" data-go="generate">Open full timetable</button></div>
+    </div>
+    <div class="dashboard-table-fit"><div id="dashboardTable"></div></div>
+  </div>
+</section>
+
+<section id="master" class="page">
+  <div class="section-head"><div><span class="eyebrow">STAGE 01</span><h2>Prepare Data</h2><p>Set the academic hierarchy and timetable resources before generating.</p></div><div class="section-actions"><button class="btn primary" data-go="constraints">Continue to constraints</button></div></div>
+  <div class="setup-grid">
+    <div class="panel"><div class="panel-head"><h3>Institution</h3><span class="badge neutral">OWNER</span></div><div class="mini-form">
+      <label>University<input id="setUniversity" readonly></label><label>School code<input id="setOrgCode" readonly></label><label>Academic Year<input id="setYear"></label><label>Semester<input id="setSemester"></label><label>School<input id="setSchool" readonly></label><label>Default In-charge<input id="setIncharge"></label>
+    </div><button class="btn primary" id="saveInstitution">Save institution</button></div>
+    <div class="panel"><div class="panel-head"><h3>Academic hierarchy</h3><span class="badge neutral">STRUCTURE</span></div><div id="academicHierarchy" class="hierarchy"></div><div class="quick-actions"><button class="btn" id="addDepartment">+ Department</button><button class="btn" id="addProgram">+ Program</button><button class="btn" id="addSection">+ Section</button><button class="btn" id="addClass">+ Class</button></div></div>
+  </div>
+  <div class="data-grid">
+    <div class="panel"><div class="panel-head"><h3>Departments & Programs</h3></div><div id="departmentList"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Classes / Sections</h3></div><div id="classList"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Faculty records</h3></div><div id="facultyMiniList"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Rooms & labs</h3></div><div id="roomMiniList"></div></div>
+  </div>
+</section>
+
+<section id="constraints" class="page">
+  <div class="section-head"><div><span class="eyebrow">STAGE 02</span><h2>Constraints & Preferences</h2><p>Hard rules block invalid schedules; soft preferences improve schedule quality.</p></div><div class="section-actions"><button class="btn" id="addAvailability">+ Faculty availability</button><button class="btn primary" data-go="generate">Build timetable</button></div></div>
+  <div class="constraint-layout">
+    <div class="panel"><div class="panel-head"><h3>Hard constraints</h3><span class="badge good">MUST PASS</span></div><div class="rule-list">
+      <label><input type="checkbox" checked disabled> No class collision</label><label><input type="checkbox" checked disabled> No faculty double-booking</label><label><input type="checkbox" checked disabled> No room double-booking</label><label><input type="checkbox" checked disabled> Room capacity must fit class strength</label><label><input type="checkbox" checked disabled> Respect faculty unavailability</label><label><input type="checkbox" checked disabled> Respect breaks and working days</label><label><input type="checkbox" checked disabled> Labs require consecutive periods</label><label><input type="checkbox" checked disabled> Required weekly sessions must be covered</label>
+    </div></div>
+    <div class="panel"><div class="panel-head"><h3>Soft preferences</h3><button class="btn small" id="resetPreferences">Reset</button></div><div class="preference-list">
+      <label>Minimize class gaps <input type="range" id="prefClassGaps" min="0" max="10" value="8"><b id="prefClassGapsVal">8</b></label>
+      <label>Minimize faculty gaps <input type="range" id="prefFacultyGaps" min="0" max="10" value="7"><b id="prefFacultyGapsVal">7</b></label>
+      <label>Spread repeated courses <input type="range" id="prefSpread" min="0" max="10" value="8"><b id="prefSpreadVal">8</b></label>
+      <label>Prefer stable rooms <input type="range" id="prefRooms" min="0" max="10" value="6"><b id="prefRoomsVal">6</b></label>
+      <label>Avoid first/last periods <input type="range" id="prefEdges" min="0" max="10" value="4"><b id="prefEdgesVal">4</b></label>
+      <label>Balance faculty workload <input type="range" id="prefWorkload" min="0" max="10" value="7"><b id="prefWorkloadVal">7</b></label>
+    </div></div>
+  </div>
+  <div class="panel"><div class="panel-head"><h3>Faculty availability</h3><span class="badge neutral">DATA ONLY · NO FACULTY LOGIN</span></div><div id="availabilityGrid"></div></div>
+</section>
+
+<section id="generate" class="page">
+  <div class="section-head"><div><span class="eyebrow">STAGE 03</span><h2>Build Timetable</h2><p>Generate multiple candidates, compare them and keep locked/manual assignments safe.</p></div></div>
+  <div class="generator-bar">
+    <div><label>View<select id="classSelector"></select></label></div>
+    <div><label>Generation mode<select id="generationMode"><option value="balanced">Balanced</option><option value="fast">Fast feasible</option><option value="best">Best quality</option><option value="repair">Repair existing</option><option value="manual">Manual + optimize</option></select></label></div>
+    <button class="btn primary" id="generateBtn">Generate 3 solutions</button><button class="btn" id="lockModeBtn">Lock / unlock</button><button class="btn" id="clearScheduleBtn">Clear unlocked</button>
+    <span id="generateStatus" class="generator-status"></span>
+  </div>
+  <div id="qualityPanel" class="quality-panel"></div>
+  <div class="panel timetable-panel"><div class="panel-head"><div><span class="eyebrow">DRAFT GRID</span><h3 id="gridTitle">Section K timetable</h3></div><div class="grid-tools"><span id="lockHint">Click a filled cell to inspect it</span><button class="btn small" data-go="compare">Compare solutions</button></div></div><div class="table-wrap"><div id="builderTable"></div></div></div>
+  <div class="two-col">
+    <div class="panel"><div class="panel-head"><h3>Unscheduled / conflicts</h3><button class="btn small" data-go="preflight">Validate</button></div><div id="unscheduledList"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Course coverage</h3></div><div id="coverageList"></div></div>
+  </div>
+</section>
+
+<section id="preflight" class="page">
+  <div class="section-head"><div><span class="eyebrow">STAGE 04</span><h2>Preflight Validation</h2><p>Generation is never considered ready until the data and draft pass validation.</p></div><div class="section-actions"><button class="btn" id="runPreflight">Run full preflight</button><button class="btn primary" id="markValidated">Mark current draft validated</button></div></div>
+  <div id="preflightSummary" class="preflight-summary"></div>
+  <div class="two-col"><div class="panel"><div class="panel-head"><h3>Hard constraints</h3></div><div id="hardReport"></div></div><div class="panel"><div class="panel-head"><h3>Data readiness</h3></div><div id="dataReport"></div></div></div>
+  <div class="panel"><div class="panel-head"><h3>Problems & recommendations</h3></div><div id="issueReport"></div></div>
+</section>
+
+<section id="publish" class="page">
+  <div class="section-head"><div><span class="eyebrow">STAGE 05</span><h2>Publish & Share</h2><p>Print the draft and obtain the Dean’s approval offline. An authorized faculty coordinator publishes only after that manual approval.</p></div></div>
+  <div class="two-col"><div class="panel"><div class="panel-head"><h3>Release readiness</h3></div><div id="publishReadiness"></div><label class="approval-check"><input type="checkbox" id="manualDeanApproval"> <span>I confirm that the printed timetable has been reviewed and approved by the Dean offline. The Dean does not log in or approve inside this system.</span></label><button class="btn primary full" id="publishBtn" disabled>Publish approved timetable</button></div>
+    <div class="panel"><div class="panel-head"><h3>View-only sharing</h3><span class="badge neutral">NO EDIT ACCESS</span></div><p class="muted">A share link contains a published snapshot. It does not create a faculty or student account.</p><div id="shareControls"><label>Share scope<select id="shareScope"><option value="university">Whole university</option><option value="class">Current class</option><option value="department">Department</option></select></label><div class="actions"><button class="btn" id="createShare">Create link</button><button class="btn" id="copyShare" disabled>Copy link</button></div></div><div id="shareResult"></div><div id="shareQr" class="share-qr"></div><div id="shareHistory"></div></div></div>
+  <div class="panel"><div class="panel-head"><h3>Published releases</h3></div><div id="publishedList"></div></div>
+</section>
+
+<section id="courses" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Courses & Activities</h2><p>Separate course catalog, offering details, session patterns, combined groups and electives.</p></div><div class="section-actions"><button class="btn" id="addCombinedBtn">+ Combined group</button><button class="btn" id="addElectiveBtn">+ Elective group</button><button class="btn primary" id="addCourseBtn">+ Add course</button></div></div><div class="panel"><div id="coursesTable"></div></div><div class="two-col"><div class="panel"><div class="panel-head"><h3>Combined classes</h3></div><div id="combinedList"></div></div><div class="panel"><div class="panel-head"><h3>Elective groups</h3></div><div id="electiveList"></div></div></div></section>
+<section id="classes" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Classes & Sections</h2><p>Every seeded class/section has an editable record and a direct timetable view.</p></div><button class="btn primary" id="addClassBtn">+ Add class</button></div><div class="panel"><div id="classesTable"></div></div></section>
+<section id="faculty" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Faculty Records</h2><p>Official Joy University faculty profiles are imported into this school. Verify actual teaching subjects before assignment.</p></div><button class="btn" id="syncFacultyDirectoryBtn">Sync official faculty directory</button><button class="btn primary" id="addFacultyBtn">+ Add faculty</button></div><div class="panel"><div id="facultyTable"></div></div><div class="panel"><div class="panel-head"><h3>Faculty-to-subject eligibility</h3><span class="badge neutral">ASSIGNMENT RULES</span></div><p class="muted">Verified subjects can be assigned automatically. Related-subject mappings are explicit manual exceptions. Uncovered subjects receive their own pending New Faculty 1, New Faculty 2 sequence.</p><div class="mini-form"><label>Faculty<select id="expertiseFaculty"></select></label><label>Subject / course<select id="expertiseSubject"></select></label><label>Eligibility<select id="expertiseType"><option value="verified">Verified · automatic eligible</option><option value="manual_related">Related · manual exception only</option></select></label></div><button class="btn primary" id="addFacultySubjectBtn">Save subject eligibility</button><div id="expertiseTable"></div></div></section>
+<section id="rooms" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Rooms & Labs</h2><p>Capacity, building, floor, features and availability drive room assignment.</p></div><button class="btn primary" id="addRoomBtn">+ Add room/lab</button></div><div class="panel"><div id="roomsTable"></div></section>
+<section id="calendar" class="page"><div class="section-head"><div><span class="eyebrow">ACADEMIC</span><h2>Calendar & Breaks</h2><p>Choose working days, period structure and the number of short/lunch breaks.</p></div><button class="btn primary" id="saveCalendarBtn">Save calendar</button></div><div class="calendar-editor">
+  <div class="panel"><div class="mini-form"><label>Working days<input id="calendarDays"></label><label>Number of periods<input id="calendarPeriods" type="number" min="1" max="16"></label><label>Start time<input id="calendarStart" type="time"></label><label>Period duration<input id="calendarDuration" type="number" min="1"></label><label>Short breaks<input id="shortBreakCount" type="number" min="0" max="4"></label><label>Lunch breaks<input id="lunchBreakCount" type="number" min="0" max="2"></label></div></div>
+  <div class="panel"><h3>Break positions</h3><div class="break-columns"><div><span class="eyebrow">SHORT BREAKS</span><div id="shortBreakSelectors"></div></div><div><span class="eyebrow">LUNCH BREAKS</span><div id="lunchBreakSelectors"></div></div></div></div>
+</div><div class="panel"><h3>Live calendar preview</h3><div id="calendarPreview"></div></section>
+
+<section id="compare" class="page"><div class="section-head"><div><span class="eyebrow">OPTIMIZATION</span><h2>Solution Compare</h2><p>Generate candidates, inspect their hard/soft scores and apply the best one.</p></div><button class="btn primary" id="compareGenerate">Generate candidates</button></div><div id="solutionCards" class="solution-grid"></div><div class="panel"><h3>Comparison matrix</h3><div id="comparisonTable"></div></section>
+<section id="scenarios" class="page"><div class="section-head"><div><span class="eyebrow">SIMULATION</span><h2>What-if Scenarios</h2><p>Test changes without touching the active timetable.</p></div><button class="btn primary" id="runScenario">Run scenario</button></div><div class="scenario-grid">
+  <div class="panel"><h3>Scenario changes</h3><label><input type="checkbox" id="scenarioSaturday"> Disable Saturday</label><label><input type="checkbox" id="scenarioRoom"> Make CCL unavailable</label><label><input type="checkbox" id="scenarioFaculty"> Make first faculty unavailable</label><label>Class strength multiplier<input id="scenarioStrength" type="range" min="80" max="140" value="100"><b id="scenarioStrengthVal">100%</b></label><label>Add one extra lab<input type="checkbox" id="scenarioExtraLab"></label></div>
+  <div class="panel"><h3>Scenario result</h3><div id="scenarioResult"><div class="empty-state"><strong>No scenario run yet.</strong><span>Change the inputs and run the simulation.</span></div></div></div>
+</div></section>
+
+<section id="reports" class="page"><div class="section-head"><div><span class="eyebrow">OUTPUT</span><h2>Reports & Export</h2><p>Export the timetable separately by section, course, faculty, room, or as one complete university workbook.</p></div><div class="section-actions"><button class="btn" data-export="ics">Calendar (.ics)</button><button class="btn" data-export="print">Print</button><button class="btn" data-export="json">Backup JSON</button></div></div>
+<div class="panel export-center"><div class="panel-head"><div><h3>Timetable export centre</h3><span class="muted">Choose exactly what the owner needs to distribute.</span></div><span class="badge good">OWNER EXPORT</span></div><div class="export-controls"><label>Export scope<select id="reportScope"><option value="university">Whole university</option><option value="class">Section / Class</option><option value="course">Course</option><option value="faculty">Faculty</option><option value="room">Room / Lab</option></select></label><label>Record<select id="reportEntity"></select></label><button class="btn primary" id="reportPdf">PDF</button><button class="btn" id="reportExcel">Excel</button><button class="btn" id="reportDocx">DOCX</button><button class="btn" id="reportCsv">CSV</button><button class="btn" data-export="workbook">Complete Excel workbook</button></div><div class="export-hint"><b>Complete workbook includes:</b> Overview · All Schedule · Sections · Courses · Faculty · Rooms · one timetable sheet per section.</div></div>
+<div class="report-grid"><div class="panel"><h3>Class timetable</h3><div id="reportClass"></div></div><div class="panel"><h3>Faculty workload</h3><div id="reportFaculty"></div></div><div class="panel"><h3>Room utilization</h3><div id="reportRooms"></div></div><div class="panel"><h3>Conflict & coverage</h3><div id="reportQuality"></div></div></div></section>
+
+<section id="versions" class="page"><div class="section-head"><div><span class="eyebrow">RELEASES</span><h2>Versions & History</h2><p>Draft, validated, published and archived snapshots with restore and comparison support.</p></div><button class="btn primary" id="saveVersionBtn">Save draft version</button></div><div class="panel"><div id="versionsTable"></div></section>
+
+<section id="intelligence" class="page"><div class="section-head"><div><span class="eyebrow">SCHEDULING INTELLIGENCE</span><h2>Insights & Explanations</h2><p>Explain unscheduled activities and highlight changes that can improve schedule quality.</p></div><button class="btn primary" id="refreshInsights">Refresh insights</button></div><div class="insight-grid"><div class="panel"><h3>Quality breakdown</h3><div id="qualityBreakdown"></div></div><div class="panel"><h3>Recommendations</h3><div id="insightList"></div></div></div></section>
+
+<section id="import" class="page"><div class="section-head"><div><span class="eyebrow">DATA TOOLS</span><h2>Excel Import</h2><p>Upload a prepared workbook, validate the rows, preview errors and import only valid records.</p></div></div><div class="two-col"><div class="panel"><h3>Workbook</h3><p class="muted">Supported sheets: Departments, Programs, Classes, Faculty, Rooms, Courses. Headers are flexible but should match the field names shown in the preview.</p><input id="importFile" type="file" accept=".xlsx,.xls,.csv"><div class="actions"><button class="btn" id="downloadTemplate">Download template</button><button class="btn primary" id="validateImport">Validate workbook</button></div></div><div class="panel"><h3>Import summary</h3><div id="importSummary"><div class="empty-state"><strong>No workbook loaded.</strong><span>Upload an Excel file to begin.</span></div></div></div></div><div class="panel"><h3>Preview</h3><div id="importPreview"></div><div class="actions"><button class="btn primary" id="applyImport" disabled>Import valid rows</button></div></div></section>
+<section id="settings" class="page"><div class="section-head"><div><span class="eyebrow">SYSTEM</span><h2>Institution Settings</h2><p>School-operator branding, campus background, backup and product configuration.</p></div></div>
+<div class="two-col"><div class="panel"><h3>Branding</h3><div class="mini-form"><label>Display name<input id="brandName"></label><label>Institution code<input id="brandCode"></label><label>Logo URL<input id="brandLogo"></label><label>Timezone<input id="brandTimezone"></label></div><button class="btn primary" id="saveBranding">Save branding</button></div>
+<div class="panel"><h3>Exact campus background</h3><p class="muted">Upload the original Joy University photo you provided. The browser stores the original JPEG locally without resizing or recompressing it.</p><div class="actions"><input id="backgroundFile" type="file" accept="image/jpeg,image/jpg,image/png"><button class="btn" id="resetBackground">Use default</button></div><div id="backgroundStatus" class="export-hint">No custom campus background saved in this browser.</div></div></div>
+<div class="panel"><h3>Account security</h3><p class="muted">Change your operator password. Use at least 12 characters.</p><div class="mini-form"><label>Current password<input id="currentPassword" type="password" autocomplete="current-password"></label><label>New password<input id="newPassword" type="password" minlength="12" autocomplete="new-password"></label></div><button class="btn primary" id="changePasswordBtn">Update password</button><div id="passwordChangeStatus" class="export-hint"></div></div>
+<div class="panel"><h3>Product boundary</h3><div class="policy-card"><b>One school → two authorized operators</b><span>Faculty and students exist only as timetable records. Export, publish and share remain owner operations.</span></div><div class="policy-card"><b>Public links are view-only</b><span>Published snapshots never grant editing permission.</span></div><div class="policy-card"><b>Production security</b><span>Neon PostgreSQL stores school workspaces. Server-side sessions enforce school membership before every read or write.</span></div></div></section>
+
+</main>
+</div>
+<div id="modal" class="modal"><div class="modal-box"><button class="modal-close" id="modalClose">×</button><h3 id="modalTitle"></h3><form id="modalForm"></form></div></div>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script src="section-h.js"></script>
+</body>
+</html>

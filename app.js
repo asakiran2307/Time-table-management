@@ -1,6 +1,6 @@
 const KEY="unisched-v3";
 const CLOUD_API="/api/state";
-const CLOUD_ENABLED=false;
+const CLOUD_ENABLED=true;
 let cloudTimer=null,lockMode=false,solutionCandidates=[],selectedClassId=null;
 
 function q(id){return document.getElementById(id)}
@@ -13,61 +13,18 @@ function now(){return new Date().toISOString()}
 function arr(v){return Array.isArray(v)?v:[]}
 
 const DEFAULT={
-  organization:{name:"JOY UNIVERSITY",code:"JU001",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",status:"Active",ownerName:"University Timetable Owner",ownerEmail:"timetable@joyuniversity.edu"},
-  settings:{university:"JOY UNIVERSITY",year:"2026–27",semester:"Semester V",title:"TIME TABLE FOR THE ACADEMIC YEAR 2026–27",incharge:"Ms. S. AMBIKA",school:"School of Computational Intelligence",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]},
-  departments:[{id:"SOCI",name:"School of Computational Intelligence",code:"SOCI"},{id:"SOET",name:"School of Engineering and Technology",code:"SOET"}],
-  programs:[{id:"BTECH-CSE",name:"B.Tech CSE",department:"SOCI"}],
-  academicYears:[{id:"AY2627",name:"2026–27",active:true}],
-  semesters:[{id:"SEM5",name:"Semester V",number:5,academicYear:"AY2627",active:true}],
-  sections:[{id:"SEC-K",name:"Section K",code:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58}],
-  classes:[{id:"CSE5K",name:"B.Tech CSE · Semester V · K",section:"K",department:"SOCI",program:"BTECH-CSE",semester:"SEM5",strength:58,incharge:"Ms. S. AMBIKA"}],
-  faculty:[
-    {id:"F1",name:"Dr. MARIYAPPAN KANDASAMY",department:"SOCI",designation:"Professor",maxDay:3,maxWeek:18},
-    {id:"F2",name:"Dr. SOFIYA",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"F3",name:"Ms. AMBIKA",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"F4",name:"Dr. MANOJKUMAR",department:"SOCI",designation:"Associate Professor",maxDay:4,maxWeek:18},
-    {id:"F5",name:"MS. MARY DISILVA PRINCY",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18},
-    {id:"F6",name:"NEW FACULTY 14",department:"SOCI",designation:"Assistant Professor",maxDay:4,maxWeek:18}
-  ],
-  rooms:[
-    {id:"R103",name:"Room 103",code:"R103",type:"Classroom",capacity:60,building:"Joveena Block",floor:1,features:["projector","smart-board","internet"]},
-    {id:"CCL",name:"Cloud Computing Lab",code:"CCL",type:"Lab",capacity:45,building:"Joveena Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true},
-    {id:"SAK2",name:"SAK Seminar Hall 2nd Floor",code:"SAK2",type:"Seminar Hall",capacity:120,building:"SAK Block",floor:2,features:["projector","smart-board","internet"]}
-  ],
-  courses:[
-    {id:"24BTCY151",code:"24BTCY151",name:"Introduction to Blockchain and Cryptocurrency",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F1",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY152",code:"24BTCY152",name:"Malware Analysis",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F1",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY153",code:"24BTCY153",name:"Computer Architecture",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F2",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY154",code:"24BTCY154",name:"Software Engineering",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F3",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY155",code:"24BTCY155",name:"Criminology and Cyber Crimes",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F4",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY156",code:"24BTCY156",name:"Theory of Computation",type:"Theory",credits:4,l:3,t:1,p:0,credits:4,faculty:"F6",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1 + 1 × 1"},
-    {id:"24BTCY851",code:"24BTCY851",name:"Principles of Management",type:"Theory",credits:3,l:3,t:0,p:0,faculty:"F5",room:"R103",classIds:["CSE5K"],sessionPattern:"3 × 1"},
-    {id:"24BTCY251",code:"24BTCY251",name:"Introduction to Blockchain and Cryptocurrency Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F1",room:"CCL",lab:true,classIds:["CSE5K"],sessionPattern:"1 × 2"},
-    {id:"24BTCY252",code:"24BTCY252",name:"Malware Analysis Lab",type:"Lab",credits:1,l:0,t:0,p:2,faculty:"F1",room:"CCL",lab:true,classIds:["CSE5K"],sessionPattern:"1 × 2"}
-  ],
-  activities:[],
-  availability:[
-    {faculty:"F1",day:"ALL",period:7,blocked:true},{faculty:"F5",day:"MON",period:0,blocked:true}
-  ],
-  roomBlocks:[],
-  classBlocks:[],
-  preferences:{classGaps:8,facultyGaps:7,spread:8,rooms:6,edges:4,workload:7},
-  combinedGroups:[],
-  electives:[],
-  schedule:[],
-  versions:[],
-  shareLinks:[],
-  activityLog:[],
-  branding:{name:"JOY UNIVERSITY",code:"JU001",logo:"",timezone:"Asia/Kolkata"}
+ organization:{name:"Joy University",code:"",school:"",timezone:"Asia/Kolkata",status:"Active"},
+ settings:{university:"JOY UNIVERSITY",year:"",semester:"",title:"JOY UNIVERSITY TIMETABLE",incharge:"",school:"",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]},
+ departments:[],programs:[],academicYears:[],semesters:[],sections:[],classes:[],facultySubjects:[],faculty:[],rooms:[],courses:[],activities:[],availability:[],roomBlocks:[],classBlocks:[],preferences:{classGaps:8,facultyGaps:7,spread:8,rooms:6,edges:4,workload:7},combinedGroups:[],electives:[],schedule:[],versions:[],shareLinks:[],activityLog:[],branding:{name:"JOY UNIVERSITY",code:"",logo:"",timezone:"Asia/Kolkata"},__joyDemoSeedVersion:9
 };
 
 
-/* Authentication gateway: demo mode until live Supabase Auth is connected. */
+/* Authentication is handled by the secure Neon-backed API. */
 const AUTH_KEY="unisched-demo-auth-v1";
 const PLATFORM_KEY="unisched-platform-v1";
-const MASTER_CREDENTIALS={username:"masteradmin",password:"Master@2026"};
+const MASTER_CREDENTIALS=null;
 let authSession=null;
-function defaultPlatform(){return {universities:[{code:"JU001",name:"JOY UNIVERSITY",school:"School of Computational Intelligence",timezone:"Asia/Kolkata",username:"joyadmin",password:"JU@2026",status:"Active",data:copy(DEFAULT)}]}}
+function defaultPlatform(){return {universities:[]}}
 function loadPlatform(){
   const fallback=defaultPlatform();
   try{
@@ -100,7 +57,7 @@ let platform=loadPlatform();
 /* Populate the login selector immediately, before non-critical dashboard rendering runs. */
 try{refreshLoginUniversities()}catch(error){console.error("Could not initialize university selector:",error)}
 function savePlatform(){localStorage.setItem(PLATFORM_KEY,JSON.stringify(platform))}
-function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?platform.universities.find(u=>u.code===authSession.orgCode):null}
+function currentUniversity(){return authSession?.role==="UNIVERSITY_OWNER"?{code:authSession.orgCode,name:authSession.organization?.name,data:db}:null}
 function showOnly(which){
   const login=q("loginGate"),master=q("masterConsole"),app=q("app");
   if(login)login.classList.toggle("hidden",which!=="login");
@@ -125,17 +82,36 @@ function refreshLoginUniversities(){
   s.value=preferred.code;
 }
 function masterLogin(){
-  if(q("masterUsername").value.trim()!==MASTER_CREDENTIALS.username||q("masterPassword").value!==MASTER_CREDENTIALS.password){q("masterError").textContent="Invalid Master Admin credentials.";return}
-  q("masterError").textContent="";authSession={role:"MASTER_ADMIN"};localStorage.setItem(AUTH_KEY,JSON.stringify(authSession));showOnly("master");renderMasterConsole();
+  q("masterError").textContent="Master Admin accounts must be provisioned by the platform administrator. Local demo login is disabled.";
 }
-function universityLogin(){
-  const u=platform.universities.find(x=>x.code===q("loginUniversity").value);
-  if(!u||u.status!=="Active"){q("loginError").textContent="University account is inactive.";return}
-  if(q("loginUsername").value.trim()!==u.username||q("loginPassword").value!==u.password){q("loginError").textContent="Invalid university username or password.";return}
-  q("loginError").textContent="";authSession={role:"UNIVERSITY_OWNER",orgCode:u.code};localStorage.setItem(AUTH_KEY,JSON.stringify(authSession));
-  db=normalizeState(copy(u.data));showOnly("app");render();setSync("University owner session · local demo");
+async function universityLogin(){
+  const email=q("loginUsername").value.trim(),password=q("loginPassword").value;
+  if(!email||!password){q("loginError").textContent="Enter your university email and password.";return}
+  q("universityLoginBtn").disabled=true;q("loginError").textContent="Signing in…";
+  try{
+    const role=await USAuth.signIn(email,password);
+    authSession={role:"UNIVERSITY_OWNER",orgCode:role.organization.code,organization:role.organization,membershipRole:role.membershipRole};
+    showOnly("app");
+    await cloudLoad();
+    render();
+    setSync("Secure school workspace connected");
+  }catch(error){q("loginError").textContent=error.message||"Sign-in failed."}
+  finally{q("universityLoginBtn").disabled=false}
 }
-function logout(){authSession=null;localStorage.removeItem(AUTH_KEY);showOnly("login");refreshLoginUniversities()}
+async function changeAccountPassword(){
+ const currentPassword=q("currentPassword")?.value||"",newPassword=q("newPassword")?.value||"",status=q("passwordChangeStatus");
+ if(newPassword.length<12){if(status)status.textContent="Use a new password with at least 12 characters.";return;}
+ try{
+  const r=await fetch("/api/auth",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"change-password",currentPassword,newPassword})});
+  const data=await r.json();if(!r.ok)throw new Error(data.error||"Password update failed.");
+  q("currentPassword").value="";q("newPassword").value="";if(status)status.textContent=data.message||"Password updated.";
+ }catch(error){if(status)status.textContent=error.message||"Password update failed."}
+}
+async function logout(){
+  try{await USAuth.signOut()}catch(error){console.warn("Sign out failed",error)}
+  authSession=null;db=normalizeState(copy(DEFAULT));showOnly("login");
+  q("loginPassword").value="";
+}
 function createUniversity(){
   const name=q("newUniName").value.trim(),code=q("newUniCode").value.trim().toUpperCase(),username=q("newOwnerUser").value.trim(),password=q("newOwnerPass").value,school=q("newUniSchool").value.trim(),timezone=q("newUniTimezone").value.trim()||"Asia/Kolkata";
   if(!name||!code||!username||!password){q("createUniResult").textContent="Complete all required fields.";return}
@@ -150,25 +126,14 @@ function renderMasterConsole(){
   q("masterUniversities").innerHTML="<table><thead><tr><th>University</th><th>Code</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>"+platform.universities.map(u=>"<tr><td><b>"+esc(u.name)+"</b><small>"+esc(u.school||"")+"</small></td><td>"+esc(u.code)+"</td><td>"+esc(u.username)+"</td><td><span class='badge "+(u.status==="Active"?"good":"bad")+"'>"+u.status+"</span></td><td><button class='btn small' data-toggle-uni='"+u.code+"'>"+(u.status==="Active"?"Suspend":"Activate")+"</button></td></tr>").join("")+"</tbody></table>";
 }
 function toggleUniversity(code){const u=platform.universities.find(x=>x.code===code);if(!u)return;u.status=u.status==="Active"?"Suspended":"Active";u.data.organization.status=u.status;savePlatform();renderMasterConsole();refreshLoginUniversities()}
-function initAuth(){
-  refreshLoginUniversities();
-  document.querySelectorAll("[data-login-role]").forEach(b=>b.onclick=()=>switchLoginRole(b.dataset.loginRole));
-  q("masterLoginBtn").onclick=masterLogin;q("universityLoginBtn").onclick=universityLogin;
-  q("masterLogout").onclick=logout;q("logoutBtn").onclick=logout;q("createUniversityBtn").onclick=createUniversity;
-  let raw=null;try{raw=JSON.parse(localStorage.getItem(AUTH_KEY)||"null")}catch(e){}
-  authSession=raw;
-  if(sharedSnap){showOnly("app");return}
-  if(authSession?.role==="MASTER_ADMIN"){showOnly("master");renderMasterConsole()}
-  else if(authSession?.role==="UNIVERSITY_OWNER"&&currentUniversity()){db=normalizeState(copy(currentUniversity().data));showOnly("app")}
-  else{authSession=null;showOnly("login")}
-}
+async function initAuth(){if(sharedSnap){showOnly("app");return true}try{const role=await USAuth.getRole();if(!role||role.type!=="UNIVERSITY_OWNER"){location.replace("/faculty-login.html");return false}authSession={role:"UNIVERSITY_OWNER",orgCode:role.organization.code,organization:role.organization,membershipRole:role.membershipRole,user:role.user};showOnly("app");await cloudLoad();return true}catch(error){console.warn("Authentication initialization failed",error);location.replace("/faculty-login.html?unavailable=1");return false}}
 
 function normalizeState(x){
   x=Object.assign(copy(DEFAULT),x||{});
   x.organization=Object.assign(copy(DEFAULT.organization),x.organization||{});
   x.settings=Object.assign(copy(DEFAULT.settings),x.settings||{});
   x.branding=Object.assign(copy(DEFAULT.branding),x.branding||{});
-  ["departments","programs","academicYears","semesters","sections","classes","faculty","rooms","courses","activities","availability","roomBlocks","classBlocks","combinedGroups","electives","schedule","versions","shareLinks","activityLog"].forEach(k=>x[k]=arr(x[k]));
+  ["departments","programs","academicYears","semesters","sections","classes","faculty","facultySubjects","rooms","courses","activities","availability","roomBlocks","classBlocks","combinedGroups","electives","schedule","versions","shareLinks","activityLog"].forEach(k=>x[k]=arr(x[k]));
   x.preferences=Object.assign(copy(DEFAULT.preferences),x.preferences||{});
   if(!x.sections.length)x.classes.forEach(c=>x.sections.push({id:uid("SEC"),name:"Section "+c.section,code:c.section,department:c.department,program:c.program||"",semester:c.semester||"",strength:c.strength||60}));
   x.settings.shortBreaks=arr(x.settings.shortBreaks).map(Number);
@@ -179,15 +144,8 @@ function normalizeState(x){
   const old=arr(x.schedule);
   x.schedule=old.map(e=>Array.isArray(e)?{id:uid("SCH"),day:e[0],period:e[1],courseId:e[2],facultyId:e[3],roomId:e[4],classId:e[5],duration:1,locked:false}:Object.assign({id:uid("SCH"),duration:1,locked:false},e));
   x.courses.forEach(c=>{if(!c.classIds)c.classIds=x.classes.map(cl=>cl.id);});
-  ensureJoyDemoData(x);
-  ensureJoyDemoDatasetV4(x);
-  ensureJoyDemoDatasetV5(x);
-  ensureJoyDemoDatasetV6(x);
-  ensureJoyDemoDatasetV7(x);
-  ensureJoyDemoDatasetV8(x);
-  ensureJoyDemoDatasetV9(x);
-  if(!x.schedule.length)seedSchedule(x);
-  else if(x.__joyDemoSeedVersion===2&&x.organization?.code==="JU001"&&!x.schedule.some(e=>e.classId==="BCAC5A"))appendJoyBcaDemoSchedule(x);
+  // Keep imported or verified data only. Never silently seed faculty assignments or a timetable.
+  x.facultySubjects=arr(x.facultySubjects);
   x.activities.forEach(a=>{if(!a.classId)a.classId=a.classIds?.[0]||x.classes?.[0]?.id});
   return x;
 }
@@ -584,31 +542,28 @@ function appendJoyBcaDemoSchedule(state){
 }
 let db=normalizeState(loadLocal());
 
-function loadLocal(){
-  try{return JSON.parse(localStorage.getItem(KEY)||"null")||copy(DEFAULT)}catch(e){return copy(DEFAULT)}
-}
+function loadLocal(){return copy(DEFAULT)}
 function save(){
   if(sharedSnap)return false;
   db=normalizeState(db);
-  localStorage.setItem(KEY,JSON.stringify(db));
-  if(authSession?.role==="UNIVERSITY_OWNER"){const u=currentUniversity();if(u){u.data=copy(db);savePlatform()}}
-  clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,300);
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(cloudSave,300);
   render();
 }
 function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,details,at:now()});db.activityLog=db.activityLog.slice(0,300)}
-function cloudSave(){
-  if(!CLOUD_ENABLED)return;
-  fetch(CLOUD_API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})})
-    .then(r=>r.ok?setSync("Cloud sync enabled"):Promise.reject())
-    .catch(()=>setSync("Local mode · cloud unavailable"));
+async function cloudSave(){
+  if(!CLOUD_ENABLED||!authSession?.role)return;
+  try{
+    const r=await fetch(CLOUD_API,{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})});
+    if(!r.ok)throw new Error("Secure save failed");
+    setSync("All changes saved securely");
+  }catch(error){setSync("Save failed · reconnect and retry");console.error(error)}
 }
-function cloudLoad(){
-  if(!CLOUD_ENABLED){setSync("Local demo mode · Supabase not connected");return}
-  setSync("Syncing workspace…");
-  fetch(CLOUD_API,{cache:"no-store"}).then(async r=>{if(!r.ok)throw 0;return r.json()}).then(p=>{
-    if(p&&p.data){db=normalizeState(p.data);localStorage.setItem(KEY,JSON.stringify(db));log("Cloud workspace loaded","Remote state");render()}
-    setSync("Cloud sync enabled");
-  }).catch(()=>setSync("Local mode · cloud unavailable"));
+function createSchoolWorkspace(organization){const state=copy(DEFAULT),school=String(organization?.school||"");state.organization={name:"Joy University",code:String(organization?.code||""),school:school,timezone:organization?.timezone||"Asia/Kolkata",status:"Active"};state.settings.university="JOY UNIVERSITY";state.settings.school=school;state.departments=school?[{id:String(organization.code),name:school,code:String(organization.code)}]:[];state.branding={name:"JOY UNIVERSITY",code:String(organization?.code||""),logo:"",timezone:organization?.timezone||"Asia/Kolkata"};return normalizeState(state)}
+async function cloudLoad(){
+ if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
+ setSync("Loading school workspace…");
+ try{const r=await fetch(CLOUD_API,{credentials:"same-origin",cache:"no-store"});if(r.status===404){db=createSchoolWorkspace(authSession.organization);await cloudSave();setSync("New private school workspace created");return}if(!r.ok)throw new Error("Secure workspace load failed");const p=await r.json();if(p&&p.data){db=normalizeState(p.data);db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:authSession.organization.timezone||"Asia/Kolkata"};db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;setSync("School workspace loaded")}}catch(error){setSync("Workspace unavailable · check database setup");console.error(error);throw error}
 }
 function setSync(t){if(q("syncStatus"))q("syncStatus").textContent=t}
 
@@ -667,9 +622,21 @@ function roomFits(state,rid,cid,courseId){
   if(req.some(x=>!have.includes(x)))return false;
   return true;
 }
+function facultyWithinWorkload(state,facultyId,day,duration=1){
+  const f=state.faculty.find(x=>x.id===facultyId);if(!f)return false;
+  const rows=state.schedule.filter(e=>e.facultyId===facultyId);
+  const unique=new Map();rows.forEach(e=>{const key=e.activityId||e.id;const old=unique.get(key)||{day:e.day,duration:Number(e.duration)||1};if(old.duration<(Number(e.duration)||1))old.duration=Number(e.duration)||1;unique.set(key,old);});
+  const sessions=[...unique.values()];
+  const week=sessions.reduce((n,e)=>n+e.duration,0);
+  const today=sessions.filter(e=>e.day===day).reduce((n,e)=>n+e.duration,0);
+  if(f.maxDay&&today+duration>f.maxDay)return false;
+  if(f.maxWeek&&week+duration>f.maxWeek)return false;
+  return true;
+}
 function hardCheck(state,a,day,p,roomId,ignoreIds=[]){
-  const c=state.courses.find(x=>x.id===a.courseId),f=c&&state.faculty.find(x=>x.id===c.faculty);
+  const c=state.courses.find(x=>x.id===a.courseId),facultyId=a.facultyId||c?.faculty,f=state.faculty.find(x=>x.id===facultyId);
   if(!c||!f)return "Missing course/faculty";
+  if(!facultyWithinWorkload(state,facultyId,day,a.duration||1))return "Faculty workload limit";
   if(state.settings.breaks.includes(p))return "Break period";
   if(!state.settings.days.includes(day))return "Non-working day";
   const classIds=a.shared?arr(a.classIds):[a.classId];
@@ -743,7 +710,7 @@ function generateCandidate(mode="balanced",trial=1,source=db){
     state.schedule.forEach(e=>{
       if(e.locked){kept.push(e);return}
       const a={classId:e.classId,courseId:e.courseId,duration:e.duration||1};
-      const reason=hardCheck(kept,a,e.day,e.period,e.roomId,[]);
+      const reason=hardCheck({...state,schedule:kept},a,e.day,e.period,e.roomId,[]);
       if(!reason)kept.push(e);
     });
     state.schedule=kept;
@@ -753,20 +720,42 @@ function generateCandidate(mode="balanced",trial=1,source=db){
     state.schedule=state.schedule.filter(e=>e.locked&&mode!=="fast");
   }
   const acts=activityList(source).sort((a,b)=>b.duration-a.duration||deterministicNoise(a.index+trial*17)-deterministicNoise(b.index+trial*17));
-  const placedIds=new Set();
+  const placedIds=new Set(),courseAssignments=new Map();
   let unscheduled=[];
   for(const a of acts){
     if(placedIds.has(a.id))continue;
     const c=source.courses.find(x=>x.id===a.courseId);if(!c)continue;
+    let assignment=courseAssignments.get(c.id);
+    if(!assignment){
+      const mappings=arr(source.facultySubjects).filter(m=>m.courseId===c.id);
+      const verified=mappings.filter(m=>m.expertiseType==="verified").map(m=>source.faculty.find(f=>f.id===m.facultyId)).filter(f=>f&&!f.isPlaceholder);
+      const related=mappings.filter(m=>m.expertiseType==="manual_related").map(m=>source.faculty.find(f=>f.id===m.facultyId)).filter(f=>f&&!f.isPlaceholder);
+      const eligible=verified.length?verified:related;
+      if(eligible.length){
+        eligible.sort((x,y)=>state.schedule.filter(e=>e.facultyId===x.id).length-state.schedule.filter(e=>e.facultyId===y.id).length);
+        assignment={facultyId:eligible[0].id,type:verified.length?"automatic":"manual_related"};
+      }else{
+        const existing=state.faculty.filter(f=>f.isPlaceholder&&f.placeholderCourseId===c.id).sort((x,y)=>(x.placeholderSequence||0)-(y.placeholderSequence||0));
+        let placeholder=existing[0];
+        if(!placeholder){
+          const sequence=existing.length+1;
+          placeholder={id:uid("PH"),name:"New Faculty "+sequence,designation:"Pending recruitment",department:c.department||source.departments[0]?.id||"",maxDay:4,maxWeek:18,isPlaceholder:true,placeholderCourseId:c.id,placeholderSequence:sequence,staffingStatus:"pending_recruitment"};
+          state.faculty.push(placeholder);
+        }
+        assignment={facultyId:placeholder.id,type:"placeholder"};
+      }
+      courseAssignments.set(c.id,assignment);
+      const stateCourse=state.courses.find(x=>x.id===c.id);if(stateCourse)stateCourse.faculty=assignment.facultyId;
+    }
     const rooms=source.rooms.filter(r=>roomFits(source,r.id,a.classId,a.courseId));
     let candidates=[];
     source.settings.days.forEach(day=>{for(let p=0;p<source.settings.periods;p++){
       if(source.settings.breaks.includes(p))continue;
       for(const r of rooms){
-        const reason=hardCheck(state,a,day,p,r.id);
+        const reason=hardCheck(state,{...a,facultyId:assignment.facultyId},day,p,r.id);
         if(!reason){
           const classIds=a.shared?arr(a.classIds):[a.classId];
-          const temps=classIds.map(cid=>({id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:c.faculty,roomId:r.id,classId:cid,duration:a.duration,locked:false,activityId:a.id,shared:!!a.shared}));
+          const temps=classIds.map(cid=>({id:uid("SCH"),day,period:p,courseId:a.courseId,facultyId:assignment.facultyId,assignmentType:assignment.type,roomId:r.id,classId:cid,duration:a.duration,locked:false,activityId:a.id,shared:!!a.shared}));
           const cost=softPenalty(state,temps[0],trial)+(mode==="fast"?deterministicNoise(p+trial):0)+(mode==="best"?deterministicNoise(p*19+trial)*0.15:deterministicNoise(p*31+trial)*1.1);
           candidates.push({temps,cost});
         }
@@ -794,7 +783,10 @@ function preflightData(state=db){
   if(!state.rooms.length)issues.push("No rooms/labs configured.");
   state.classes.forEach(c=>{if((c.strength||0)<=0)warnings.push(c.name+" has no student strength.");if(!c.department)warnings.push(c.name+" has no department.")});
   state.courses.forEach(c=>{
-    if(!state.faculty.some(f=>f.id===c.faculty))issues.push(c.code+" has no valid faculty.");
+    const mapped=arr(state.facultySubjects).some(m=>m.courseId===c.id&&["verified","manual_related"].includes(m.expertiseType)&&state.faculty.some(f=>f.id===m.facultyId&&!f.isPlaceholder));
+    const placeholder=state.faculty.some(f=>f.isPlaceholder&&f.placeholderCourseId===c.id);
+    if(!mapped&&!placeholder)issues.push(c.code+" needs a verified/approved faculty mapping or a generated subject placeholder.");
+    if(placeholder)warnings.push(c.code+" is assigned to a pending placeholder (recruitment/confirmation required).");
     if(!state.courses.includes(c))issues.push("Invalid course record.");
     if(!arr(c.classIds).length)issues.push(c.code+" has no class offering.");
   });
@@ -948,7 +940,8 @@ function resetCampusBackground(){
   if(master)master.style.backgroundImage="";
   const status=q("backgroundStatus");if(status)status.textContent="Default background restored.";
 }
-\nfunction render(){
+
+function render(){
   syncHeader();renderCurrentPage();
 }
 function syncHeader(){
@@ -1046,13 +1039,7 @@ function renderPreflight(){
   (pf.d.issues||[]).forEach(x=>rows.push("<div class='issue-row'><span class='issue-dot'></span><span>"+esc(x)+"</span></div>"));
   q("issueReport").innerHTML=rows.length?rows.slice(0,60).join(""):"<div class='empty-state'><strong>Validation passed.</strong><span>The current timetable can move to release review.</span></div>";
 }
-function renderPublish(){
-  const latest=db.versions.find(v=>v.status==="Published"),pf=preflight();
-  q("publishReadiness").innerHTML=pf.ok?"<div class='release-ready'><span class='status-dot'></span><div><b>Ready to publish</b><span>0 hard conflicts and complete activity coverage.</span></div></div>":"<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing blocked</b><span>Resolve preflight issues before releasing this timetable.</span></div></div>";
-  q("publishBtn").disabled=!pf.ok;
-  q("copyShare").disabled=!latest;
-  q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";renderShareHistory();
-}
+function renderPublish(){const latest=db.versions.find(v=>v.status==="Published"),pf=preflight(),approval=q("manualDeanApproval");q("publishReadiness").innerHTML=pf.ok?"<div class='release-ready'><span class='status-dot'></span><div><b>Draft ready for offline Dean review</b><span>Print this version and obtain manual approval before publication.</span></div></div>":"<div class='release-blocked'><span class='status-dot'></span><div><b>Publishing blocked</b><span>Resolve preflight issues before release.</span></div></div>";q("publishBtn").disabled=!pf.ok||!approval?.checked||!!sharedSnap;q("copyShare").disabled=!latest;q("publishedList").innerHTML=db.versions.filter(v=>v.status==="Published").map(v=>"<div class='list-row'><div><b>"+esc(v.name)+"</b><small>"+new Date(v.at).toLocaleString()+" · "+v.schedule.length+" entries · offline Dean approval confirmed</small></div><span class='release-badge'>PUBLISHED</span></div>").join("")||"<div class='empty-state'><strong>No published release.</strong></div>";renderShareHistory()}
 function renderCourses(){
   q("combinedList").innerHTML=db.combinedGroups.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.map(id=>esc(findClass(id)?.section||id)).join(" + ")+" · "+esc(findRoom(g.roomId)?.name||"")+"</small></div></div>").join("")||"<div class='empty-state'><strong>No combined groups.</strong><span>Use this for common lectures or seminars.</span></div>";
   q("electiveList").innerHTML=db.electives.map(g=>"<div class='list-row'><div><b>"+esc(g.name)+"</b><small>"+g.classIds.length+" class(es) · "+g.courseIds.length+" option(s)</small></div></div>").join("")||"<div class='empty-state'><strong>No elective groups.</strong><span>Create one when students choose between common course options.</span></div>";
@@ -1061,7 +1048,25 @@ function renderCourses(){
 function renderClasses(){
   q("classesTable").innerHTML="<table><thead><tr><th>Class</th><th>Section</th><th>Program</th><th>Semester</th><th>Strength</th><th>Department</th><th>Actions</th></tr></thead><tbody>"+db.classes.map(c=>"<tr><td><b>"+esc(c.name)+"</b></td><td>"+esc(c.section)+"</td><td>"+esc(db.programs.find(p=>p.id===c.program)?.name||c.program||"—")+"</td><td>"+esc(db.semesters.find(s=>s.id===c.semester)?.name||c.semester||"—")+"</td><td>"+c.strength+"</td><td>"+esc(db.departments.find(d=>d.id===c.department)?.code||c.department||"—")+"</td><td><button class='btn small' data-edit-class='"+c.id+"'>Edit</button> <button class='btn small' data-view-class='"+c.id+"'>Timetable</button></td></tr>").join("")+"</tbody></table>";
 }
-function renderFaculty(){q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Designation</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.designation||"—")+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td><button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
+async function syncOfficialFacultyDirectory(){const b=q("syncFacultyDirectoryBtn");if(b)b.disabled=true;try{const r=await fetch("/api/faculty-directory",{cache:"no-store"}),p=await r.json();if(!r.ok)throw Error(p.error||"Faculty directory unavailable");const code=String(authSession?.organization?.code||""),school=String(authSession?.organization?.school||""),items=arr(p.faculty).filter(x=>x.schoolCode===code);if(!items.length)throw Error("No official profiles mapped to "+school+".");const dept=db.departments[0]?.id||code;let added=0,updated=0;items.forEach(x=>{let f=db.faculty.find(y=>y.directoryId===x.id||String(y.name||"").trim().toLowerCase()===x.name.trim().toLowerCase());if(f){f.directoryId=x.id;f.designation=x.designation||f.designation||"";f.officialProfileUrl=x.profileUrl;f.directorySource=x.source;f.directorySyncedAt=p.fetchedAt;if(!f.department)f.department=dept;updated++}else{db.faculty.push({id:uid("FAC"),directoryId:x.id,name:x.name,email:"",designation:x.designation||"",department:dept,maxDay:4,maxWeek:18,officialProfileUrl:x.profileUrl,directorySource:x.source,directorySyncedAt:p.fetchedAt});added++}});log("Official faculty directory synced",added+" added · "+updated+" updated");save();alert("Official directory sync: "+added+" added, "+updated+" updated. Verify teaching subjects before assignment.")}catch(e){alert(e.message||"Directory sync failed")}finally{if(b)b.disabled=false}}function renderFaculty(){
+ q("facultyTable").innerHTML="<table><thead><tr><th>Faculty</th><th>Email</th><th>Designation / status</th><th>Department</th><th>Max/day</th><th>Max/week</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>"+db.faculty.map(f=>"<tr><td><b>"+esc(f.name)+"</b></td><td>"+esc(f.email||"—")+"</td><td>"+esc(f.isPlaceholder?"PENDING · "+(f.staffingStatus||"recruitment"):(f.designation||"—"))+"</td><td>"+esc(f.department)+"</td><td>"+(f.maxDay||0)+"</td><td>"+(f.maxWeek||0)+"</td><td>"+db.schedule.filter(e=>e.facultyId===f.id).length+"</td><td>"+(f.isPlaceholder?"<span class='badge warning'>Not real faculty</span>":"<button class='btn small' data-edit-faculty='"+f.id+"'>Edit</button>")+"</td></tr>").join("")+"</tbody></table>";
+ renderFacultyExpertise();
+}
+function renderFacultyExpertise(){
+ const faculty=q("expertiseFaculty"),subject=q("expertiseSubject"),table=q("expertiseTable");if(!faculty||!subject||!table)return;
+ const real=db.faculty.filter(f=>!f.isPlaceholder);
+ faculty.innerHTML=real.map(f=>"<option value='"+esc(f.id)+"'>"+esc(f.name)+"</option>").join("")||"<option value=''>Add faculty first</option>";
+ subject.innerHTML=db.courses.map(c=>"<option value='"+esc(c.id)+"'>"+esc(c.code+" · "+c.name)+"</option>").join("")||"<option value=''>Add subjects first</option>";
+ table.innerHTML=db.facultySubjects.length?"<table><thead><tr><th>Faculty</th><th>Subject</th><th>Eligibility</th><th></th></tr></thead><tbody>"+db.facultySubjects.map(m=>{const f=db.faculty.find(x=>x.id===m.facultyId),c=db.courses.find(x=>x.id===m.courseId);return "<tr><td>"+esc(f?.name||"Unknown")+"</td><td>"+esc(c?.code||m.courseId)+" · "+esc(c?.name||"")+"</td><td>"+(m.expertiseType==="verified"?"Verified · automatic eligible":"Related · manual exception only")+"</td><td><button class='btn small' data-remove-expertise='"+esc(m.id)+"'>Remove</button></td></tr>"}).join("")+"</tbody></table>":"<div class='empty-state'><strong>No subject expertise verified yet.</strong><span>Only verified mappings are eligible for automatic assignment.</span></div>";
+}
+function addFacultySubject(){
+ const facultyId=q("expertiseFaculty")?.value,courseId=q("expertiseSubject")?.value,type=q("expertiseType")?.value;
+ if(!facultyId||!courseId||!["verified","manual_related"].includes(type)){alert("Select a faculty member, subject and eligibility type.");return;}
+ const existing=db.facultySubjects.find(m=>m.facultyId===facultyId&&m.courseId===courseId);
+ if(existing)existing.expertiseType=type;else db.facultySubjects.push({id:uid("EXP"),facultyId,courseId,expertiseType:type});
+ log("Subject expertise updated",(db.faculty.find(f=>f.id===facultyId)?.name||"Faculty")+" · "+(db.courses.find(c=>c.id===courseId)?.code||"Subject")+" · "+type);
+ save();
+}
 function renderRooms(){q("roomsTable").innerHTML="<table><thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Building</th><th>Features</th><th>Sessions</th><th>Actions</th></tr></thead><tbody>"+db.rooms.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+esc(r.type)+"</td><td>"+r.capacity+"</td><td>"+esc(r.building)+"</td><td>"+arr(r.features).map(esc).join(", ")+"</td><td>"+db.schedule.filter(e=>e.roomId===r.id).length+"</td><td><button class='btn small' data-edit-room='"+r.id+"'>Edit</button></td></tr>").join("")+"</tbody></table>"}
 function breakSelectors(){
   const sc=+q("shortBreakCount").value||0,lc=+q("lunchBreakCount").value||0;
@@ -1130,7 +1135,7 @@ function addDepartment(){
 function addProgram(){openModal("Add Program","<label>Name<input name='name' required></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.programs.push({id:uid("PRG"),name:f.get("name"),department:f.get("department")});log("Program added",f.get("name"));save()})}
 function addSection(){openModal("Add Section","<label>Name<input name='name' placeholder='Section K' required></label><label>Code<input name='code' required></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Program<select name='program'>"+db.programs.map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select></label><label>Strength<input name='strength' type='number' min='1' value='60'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const id=uid("SEC"),code=f.get("code").toUpperCase(),obj={id,name:f.get("name"),code,department:f.get("department"),program:f.get("program"),semester:db.semesters[0]?.id||"",strength:+f.get("strength")};db.sections.push(obj);db.classes.push({id:uid("CLS"),name:"B.Tech CSE · "+code,section:code,department:obj.department,program:obj.program,semester:obj.semester,strength:obj.strength,incharge:""});log("Section added",code);save()})}
 function addClass(){openModal("Add Class","<label>Class name<input name='name' required></label><label>Section code<input name='section' required></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Program<select name='program'>"+db.programs.map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select></label><label>Strength<input name='strength' type='number' min='1' value='60'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.classes.push({id:uid("CLS"),name:f.get("name"),section:f.get("section").toUpperCase(),department:f.get("department"),program:f.get("program"),semester:db.semesters[0]?.id||"",strength:+f.get("strength"),incharge:""});log("Class added",f.get("name"));save()})}
-function addFaculty(){openModal("Add Faculty","<label>Name<input name='name' required></label><label>Designation<input name='designation' value='Assistant Professor'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Maximum hours/day<input name='maxDay' type='number' value='4'></label><label>Maximum hours/week<input name='maxWeek' type='number' value='18'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.faculty.push({id:uid("FAC"),name:f.get("name"),designation:f.get("designation"),department:f.get("department"),maxDay:+f.get("maxDay"),maxWeek:+f.get("maxWeek")});log("Faculty added",f.get("name"));save()})}
+function addFaculty(){openModal("Add Faculty","<label>Name<input name='name' required></label><label>University email<input name='email' type='email'></label><label>Designation<input name='designation' value='Assistant Professor'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"'>"+esc(d.name)+"</option>").join("")+"</select></label><label>Maximum hours/day<input name='maxDay' type='number' value='4'></label><label>Maximum hours/week<input name='maxWeek' type='number' value='18'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{db.faculty.push({id:uid("FAC"),name:f.get("name"),email:f.get("email"),designation:f.get("designation"),department:f.get("department"),maxDay:+f.get("maxDay"),maxWeek:+f.get("maxWeek")});log("Faculty added",f.get("name"));save()})}
 function addRoom(){openModal("Add Room / Lab","<label>Name<input name='name' required></label><label>Code<input name='code' required></label><label>Type<select name='type'><option>Classroom</option><option>Lab</option><option>Seminar Hall</option></select></label><label>Capacity<input name='capacity' type='number' min='1' value='60'></label><label>Building<input name='building' value='Joveena Block'></label><label>Floor<input name='floor' type='number' value='1'></label><label>Features<input name='features' value='projector,smart-board,internet'></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Add</button></div>",f=>{const type=f.get("type"),r={id:uid("ROOM"),name:f.get("name"),code:f.get("code").toUpperCase(),type,capacity:+f.get("capacity"),building:f.get("building"),floor:+f.get("floor"),features:f.get("features").split(",").map(s=>s.trim()).filter(Boolean),lab:type==="Lab"};db.rooms.push(r);log("Room added",r.name);save()})}
 function addCombined(){
   openModal("Create combined class group","<label>Group name<input name='name' placeholder='Common lecture group' required></label><label>Classes<select name='classes' multiple size='5'>"+db.classes.map(c=>"<option value='"+c.id+"'>"+esc(c.name)+"</option>").join("")+"</select></label><label>Shared room<select name='room'>"+db.rooms.map(r=>"<option value='"+r.id+"'>"+esc(r.name)+"</option>").join("")+"</select></label><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Create group</button></div>",f=>{const ids=Array.from(q("modalForm").querySelector("[name=classes]").selectedOptions).map(o=>o.value);if(ids.length<2)return alert("Select at least two classes.");db.combinedGroups.push({id:uid("CG"),name:f.get("name"),classIds:ids,roomId:f.get("room")});log("Combined class group created",f.get("name"));save()})
@@ -1176,7 +1181,7 @@ function editClass(id){
 }
 function editFaculty(id){
   const f=db.faculty.find(x=>x.id===id);if(!f)return;
-  openModal("Edit Faculty","<label>Name<input name='name' required value='"+esc(f.name)+"'></label><label>Designation<input name='designation' value='"+esc(f.designation||"")+"'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"' "+(d.id===f.department?"selected":"")+">"+esc(d.name)+"</option>").join("")+"</select></label><div class='mini-form'><label>Max hours/day<input name='maxDay' type='number' min='1' value='"+(f.maxDay||4)+"'></label><label>Max hours/week<input name='maxWeek' type='number' min='1' value='"+(f.maxWeek||18)+"'></label></div><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save faculty</button></div>",form=>{f.name=form.get("name").trim();f.designation=form.get("designation").trim();f.department=form.get("department");f.maxDay=+form.get("maxDay")||4;f.maxWeek=+form.get("maxWeek")||18;log("Faculty updated",f.name);save()});
+  openModal("Edit Faculty","<label>Name<input name='name' required value='"+esc(f.name)+"'></label><label>University email<input name='email' type='email' value='"+esc(f.email||"")+"'></label><label>Designation<input name='designation' value='"+esc(f.designation||"")+"'></label><label>Department<select name='department'>"+db.departments.map(d=>"<option value='"+d.id+"' "+(d.id===f.department?"selected":"")+">"+esc(d.name)+"</option>").join("")+"</select></label><div class='mini-form'><label>Max hours/day<input name='maxDay' type='number' min='1' value='"+(f.maxDay||4)+"'></label><label>Max hours/week<input name='maxWeek' type='number' min='1' value='"+(f.maxWeek||18)+"'></label></div><div class='modal-actions'><button type='button' onclick='closeModal()'>Cancel</button><button class='btn primary'>Save faculty</button></div>",form=>{f.name=form.get("name").trim();f.email=form.get("email").trim();f.designation=form.get("designation").trim();f.department=form.get("department");f.maxDay=+form.get("maxDay")||4;f.maxWeek=+form.get("maxWeek")||18;log("Faculty updated",f.name);save()});
 }
 function editRoom(id){
   const r=db.rooms.find(x=>x.id===id);if(!r)return;
@@ -1209,12 +1214,7 @@ function applySolution(index,closePage=true){
 }
 function clearUnlocked(){db.schedule=db.schedule.filter(e=>e.locked);log("Unlocked timetable entries cleared","");save()}
 function toggleLockMode(){lockMode=!lockMode;q("lockHint").textContent=lockMode?"Click any filled cell to lock/unlock":"Click a filled cell to inspect it";q("lockModeBtn").classList.toggle("active",lockMode)}
-function publishCurrent(){
-  const pf=preflight();if(!pf.ok){alert("Publishing is blocked. Run Preflight and resolve the listed issues.");navigate("preflight");return}
-  db.versions.filter(v=>v.status==="Published").forEach(v=>v.status="Archived");
-  const release={id:uid("VER"),name:"Release "+(db.versions.length+1),status:"Published",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule)};
-  db.versions.unshift(release);log("Timetable published",release.name);save();navigate("publish");
-}
+function publishCurrent(){if(sharedSnap||!authSession){alert("Only an authorized faculty coordinator can publish.");return}if(!q("manualDeanApproval")?.checked){alert("Print the draft and obtain the Dean's manual approval before publishing.");return}const pf=preflight();if(!pf.ok){alert("Publishing is blocked. Run Preflight and resolve the listed issues.");navigate("preflight");return}db.versions.filter(v=>v.status==="Published").forEach(v=>v.status="Archived");const release={id:uid("VER"),name:"Release "+(db.versions.length+1),status:"Published",at:now(),score:scheduleScore(db).score,schedule:copy(db.schedule),snapshot:{settings:copy(db.settings),classes:copy(db.classes),courses:copy(db.courses),faculty:copy(db.faculty),rooms:copy(db.rooms)},approval:{method:"manual_offline",confirmedBy:authSession.user?.email||"",confirmedAt:now()}};db.versions.unshift(release);log("Timetable published after manual Dean approval",release.name);q("manualDeanApproval").checked=false;save();navigate("publish")}
 function createShare(){
   const latest=db.versions.find(v=>v.status==="Published");if(!latest){alert("Publish a version first.");return}
   const scope=q("shareScope").value;const cid=q("classSelector").value;
@@ -1416,8 +1416,8 @@ function saveCalendar(){
 function restoreSeed(){if(!confirm("Restore the complete Joy University Section K seed data? Current demo data will be replaced."))return;db=normalizeState(copy(DEFAULT));log("Section K seed restored","Joy University Semester V");save()}
 function saveDraftVersion(){const sc=scheduleScore(db);const note=prompt("Version note","Draft timetable");if(note===null)return;db.versions.unshift({id:uid("VER"),name:"Draft "+(db.versions.length+1),status:"Draft",note,at:now(),score:sc.score,schedule:copy(db.schedule)});log("Draft version saved",note);save()}
 function restoreVersion(id){const v=db.versions.find(x=>x.id===id);if(!v)return;if(confirm("Restore "+v.name+"? Current draft will be replaced.")){db.schedule=copy(v.schedule);log("Version restored",v.name);save()}}
-function updateBranding(){db.branding.name=q("brandName").value;db.branding.code=q("brandCode").value;db.branding.logo=q("brandLogo").value;db.branding.timezone=q("brandTimezone").value;db.organization.name=db.branding.name;db.organization.code=db.branding.code;log("Branding updated",db.branding.name);save()}
-function updateInstitution(){db.settings.university=q("setUniversity").value;db.organization.code=q("setOrgCode").value;db.settings.year=q("setYear").value;db.settings.semester=q("setSemester").value;db.settings.school=q("setSchool").value;db.settings.incharge=q("setIncharge").value;db.organization.name=db.settings.university;log("Institution settings updated",db.organization.name);save()}
+function updateBranding(){db.branding.name="JOY UNIVERSITY";db.branding.code=authSession?.organization?.code||db.organization.code;db.branding.logo=q("brandLogo").value;db.branding.timezone=q("brandTimezone").value;db.organization.name="Joy University";db.organization.code=authSession?.organization?.code||db.organization.code;log("School branding updated",db.organization.school);save()}
+function updateInstitution(){db.settings.university="JOY UNIVERSITY";db.settings.year=q("setYear").value;db.settings.semester=q("setSemester").value;db.settings.school=authSession?.organization?.school||db.organization.school;db.settings.incharge=q("setIncharge").value;db.organization.name="Joy University";db.organization.code=authSession?.organization?.code||db.organization.code;db.organization.school=db.settings.school;log("Academic term settings updated",db.settings.year+" · "+db.settings.semester);save()}
 
 document.addEventListener("click",e=>{
   const nav=e.target.closest(".nav");if(nav){navigate(nav.dataset.page);return}
@@ -1426,7 +1426,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="seedBtn")restoreSeed();
   if(e.target.id==="saveInstitution")updateInstitution();
   if(e.target.id==="addDepartment")addDepartment();if(e.target.id==="addProgram")addProgram();if(e.target.id==="addSection")addSection();if(e.target.id==="addClass"||e.target.id==="addClassBtn")addClass();
-  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="addCombinedBtn")addCombined();if(e.target.id==="addElectiveBtn")addElective();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
+  if(e.target.id==="addFacultyBtn")addFaculty();if(e.target.id==="syncFacultyDirectoryBtn")syncOfficialFacultyDirectory();if(e.target.id==="addFacultySubjectBtn")addFacultySubject();if(e.target.id==="addCombinedBtn")addCombined();if(e.target.id==="addElectiveBtn")addElective();if(e.target.id==="addRoomBtn")addRoom();if(e.target.id==="addCourseBtn")addCourse();
   if(e.target.id==="generateBtn")runGenerate();if(e.target.id==="headerGenerate")navigate("generate");
   if(e.target.id==="lockModeBtn")toggleLockMode();
   if(e.target.id==="clearScheduleBtn")clearUnlocked();
@@ -1440,8 +1440,10 @@ document.addEventListener("click",e=>{
   if(e.target.id==="saveVersionBtn")saveDraftVersion();
   if(e.target.id==="refreshInsights")renderIntelligence();if(e.target.id==="downloadTemplate")downloadImportTemplate();
   if(e.target.id==="saveBranding")updateBranding();
+  if(e.target.id==="changePasswordBtn")changeAccountPassword();
   if(e.target.id==="resetBackground")resetCampusBackground();
   if(e.target.id==="backgroundFile")saveCampusBackground(e.target.files?.[0]);
+  const removeExpertise=e.target.closest("[data-remove-expertise]");if(removeExpertise){db.facultySubjects=db.facultySubjects.filter(m=>m.id!==removeExpertise.dataset.removeExpertise);log("Subject expertise removed",removeExpertise.dataset.removeExpertise);save();}
   const editDept=e.target.closest("[data-edit-dept]");if(editDept)editDepartment(editDept.dataset.editDept);
   const editClassBtn=e.target.closest("[data-edit-class]");if(editClassBtn)editClass(editClassBtn.dataset.editClass);
   const editFacultyBtn=e.target.closest("[data-edit-faculty]");if(editFacultyBtn)editFaculty(editFacultyBtn.dataset.editFaculty);
@@ -1483,14 +1485,14 @@ document.addEventListener("change",e=>{
   if(e.target.id==="dashboardClassSelector"){selectedClassId=e.target.value;renderDashboard();}
   if(e.target.id==="reportScope"||e.target.id==="reportEntity"){renderReports();}
 });
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="manualDeanApproval")q("publishBtn").disabled=!preflight().ok||!e.target.checked||!!sharedSnap});
 q("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 q("copyShare").disabled=true;
 if(sharedSnap){
   q("syncStatus").textContent="VIEW-ONLY PUBLISHED SNAPSHOT";
   q("pageTitle").textContent="Shared Timetable";
 }
-/* Wire authentication before non-critical dashboard rendering can fail. */
-initAuth();
-render();
-applyCampusBackground();
-if(!sharedSnap)cloudLoad();
+/* Authenticate and load the isolated school workspace before rendering its data. */
+initAuth().then(ready=>{
+  if(ready){render();applyCampusBackground()}
+});

@@ -1,94 +1,25 @@
-# UniSchedule — Intelligent University Timetable Management
+# Joy University Timetable Management
 
-A professional university timetable planning and optimization workspace for a single authorized user per university. Faculty and students are scheduling data only; they do not receive application logins.
+This application is exclusively for Joy University. Nine school workspaces are already present in Neon.
 
-## Product flow
+- Each school has two authorized faculty timetable coordinators with equal permissions inside that school's private workspace.
+- Students and visitors do not log in. They use one public timetable portal at /timetable.html.
+- The Dean has no application login or dashboard. The Dean reviews printed drafts manually, offline.
+- There is no Master Admin login and no university-creation flow. Coordinator accounts are provisioned securely outside the public application.
 
-Master Admin → University → One Owner Account → Prepare Data → Constraints → Build Timetable → Preflight → Compare/Repair → Validate → Publish → Export/Share.
+## Faculty directory
+The faculty workspace syncs public profiles from https://joyuniversity.edu.in/our-faculties. Profiles are mapped only when the profile text names a school. Email addresses are not invented, and research interests are not treated as teaching assignments. Coordinators must verify actual subjects before automatic allocation.
 
-The workflow follows the scheduling blueprint in the supplied specification: hard/soft constraints, multiple candidate solutions, lock/repair, versioned releases, owner-only exports and view-only sharing. fileciteturn100file0L2135-L2180
+## Workflow
+Academic year and semester → courses and subjects → years and sections → official faculty import → verified teaching subjects → faculty allocation and exchange → automatic generation and validation → print draft → Dean approval offline → faculty coordinator confirms approval and publishes → students view published snapshots.
 
-## Implemented in the current branch
+## Security
+- The server derives the school scope from the authenticated faculty session.
+- PostgreSQL limits each school to two operator memberships.
+- Public API returns published snapshots only and omits account emails and private data.
+- Preview deployments remain protected; Production is intended for public student access.
 
-### Owner workspace
-- One university / one authorized application-user model
-- Owner-only timetable management, publish, export and share
-- Faculty/student records are never treated as login accounts
-- Institutional branding and active-term context
+## Checks
+Run npm install, npm test and npm run check.
 
-### Academic setup
-- University, code, school, academic year and semester
-- Departments, programs, sections and classes
-- Student strength by class
-- Faculty records with day/week workload limits
-- Rooms/labs with capacity, building, floor and features
-- Course catalogue with L/T/P, credits, session patterns, faculty and room requirements
-- Combined class groups and elective groups
-
-### Calendar
-- Working days
-- Up to 16 periods/day
-- Configurable start time and period duration
-- 0–4 short breaks
-- 0–2 lunch breaks
-- Unique break-period validation
-- Breaks automatically excluded from scheduling
-
-### Scheduling engine
-- Global multi-class activity generation
-- Hard constraints: class/faculty/room collision, availability, capacity, lab features, consecutive labs, working days and breaks
-- Soft scoring: class gaps, faculty gaps, repeated-course spread, room waste and edge-period use
-- Fast, balanced, best-quality, repair and manual+optimize modes
-- Three candidate solutions with score comparison
-- Locked timetable cells
-- Repair mode that preserves valid existing assignments where possible
-- Human-readable unscheduled/coverage explanations
-
-### Validation and release
-- Preflight data readiness
-- Hard-conflict report
-- Coverage report
-- Explicit Validated state
-- Draft → Validated → Published → Archived lifecycle
-- Published snapshots
-- Version restore/history
-
-### Sharing and export
-- Owner-only PDF, Excel, CSV, DOCX, ICS and print export
-- View-only snapshot share links
-- QR code generation
-- Share-link history in the owner workspace
-
-### Operations and analysis
-- Faculty availability editor
-- Room availability blocks
-- Class restrictions
-- What-if scenario simulation
-- Faculty workload report
-- Room utilization report
-- Course coverage report
-- Scheduling quality breakdown
-- Scheduling Intelligence recommendations
-- Excel import with workbook preview/validation
-- Downloadable import template
-
-## Seed data
-
-The default demo is populated for Joy University, Section K, Semester V, including departments, courses, faculty, Room 103, Cloud Computing Lab and a seeded weekly timetable. The Calendar screen also exposes the break counts and their period positions.
-
-Use Restore Section K seed to return the complete demo dataset.
-
-## Production backend
-
-The browser workspace is intentionally usable without credentials for the demo. Production authentication and tenant isolation are prepared under 'supabase/':
-- supabase/migrations/001_single_owner.sql
-- supabase/migrations/003_production_relational_model.sql
-- supabase/seeds/001_joy_section_k.sql
-
-The relational model uses PostgreSQL RLS with one organization owner. Supabase recommends enabling RLS on exposed tables and using ownership predicates with auth.uid()/secure helper functions for row-level isolation. citeturn547338search0turn547338search4
-
-The current connected Supabase project is inactive, so the migration is committed but has not been applied to that live project.
-
-## Deploy
-
-The repo is linked to Vercel and deploys from main.
+Vercel Production uses the existing encrypted DATABASE_URL. The current Neon database has two active SOCI coordinator accounts; the other eight schools require their two coordinators to be provisioned after names and university email addresses are confirmed. Directory entries do not automatically receive login access.

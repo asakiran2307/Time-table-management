@@ -4,5 +4,9 @@
   "version": "1.0.0",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check app.js && node --check auth.js && node --check timetable.js && node --check api/auth.js && node --check api/state.js && node --check api/_lib/auth.js && node --check api/public-timetables.js && node --check api/faculty-directory.js && node --check lib/public-timetable.js && node --check lib/joy-faculty-directory.js"
   }
 }

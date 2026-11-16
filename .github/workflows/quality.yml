@@ -1,0 +1,36 @@
+name: Quality checks
+on:
+  push:
+    branches:
+      - main
+      - feature/school-wise-workflow-2026-11-06
+      - feature/joy-public-timetable-portal
+  pull_request:
+    branches:
+      - main
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check auth.js
+          node --check api/state.js
+          node --check api/auth.js
+          node --check api/_lib/auth.js
+          node --check api/auth-config.js
+          node --check api/platform/organizations.js
+          node --check timetable.js
+          node --check api/public-timetables.js
+          node --check api/faculty-directory.js
+          node --check lib/public-timetable.js
+          node --check lib/joy-faculty-directory.js
+      - name: Test school-scoped and public timetable APIs
+        run: npm test
