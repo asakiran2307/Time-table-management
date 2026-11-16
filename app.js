@@ -553,6 +553,7 @@ function save(){
 function log(action,details=""){db.activityLog.unshift({id:uid("ACT"),action,details,at:now()});db.activityLog=db.activityLog.slice(0,300)}
 async function cloudSave(){
   if(!CLOUD_ENABLED||!authSession?.role)return;
+  if(authSession.demo){try{localStorage.setItem("ju-demo-workspace-"+authSession.organization.code,JSON.stringify(db));setSync("Demo changes saved in this browser");}catch(e){setSync("Demo storage is full");}return;}
   try{
     const r=await fetch(CLOUD_API,{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:db})});
     if(!r.ok)throw new Error("Secure save failed");
@@ -562,6 +563,7 @@ async function cloudSave(){
 function createSchoolWorkspace(organization){const state=copy(DEFAULT),school=String(organization?.school||"");state.organization={name:"Joy University",code:String(organization?.code||""),school:school,timezone:organization?.timezone||"Asia/Kolkata",status:"Active"};state.settings.university="JOY UNIVERSITY";state.settings.school=school;state.departments=school?[{id:String(organization.code),name:school,code:String(organization.code)}]:[];state.branding={name:"JOY UNIVERSITY",code:String(organization?.code||""),logo:"",timezone:organization?.timezone||"Asia/Kolkata"};return normalizeState(state)}
 async function cloudLoad(){
  if(!CLOUD_ENABLED||!authSession?.role){setSync("Sign in to load the school workspace");return}
+ if(authSession.demo){const key="ju-demo-workspace-"+authSession.organization.code;try{const saved=localStorage.getItem(key);db=saved?normalizeState(JSON.parse(saved)):createSchoolWorkspace(authSession.organization);db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:"Asia/Kolkata"};db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;setSync("Demo mode · saved in this browser only");}catch(e){db=createSchoolWorkspace(authSession.organization);setSync("Demo workspace · local only");}return}
  setSync("Loading school workspace…");
  try{const r=await fetch(CLOUD_API,{credentials:"same-origin",cache:"no-store"});if(r.status===404){db=createSchoolWorkspace(authSession.organization);await cloudSave();setSync("New private school workspace created");return}if(!r.ok)throw new Error("Secure workspace load failed");const p=await r.json();if(p&&p.data){db=normalizeState(p.data);db.organization={...db.organization,name:"Joy University",code:authSession.organization.code,school:authSession.organization.school,timezone:authSession.organization.timezone||"Asia/Kolkata"};db.settings.university="JOY UNIVERSITY";db.settings.school=authSession.organization.school;db.branding.name="JOY UNIVERSITY";db.branding.code=authSession.organization.code;setSync("School workspace loaded")}}catch(error){setSync("Workspace unavailable · check database setup");console.error(error);throw error}
 }
