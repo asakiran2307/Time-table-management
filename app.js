@@ -573,11 +573,74 @@ const DEMO_SCHOOL_DATA=[
  {code:"JU-SON",school:"School of Nursing",program:"B.Sc. Nursing",classId:"SON-NUR-V-A",className:"B.Sc. Nursing · Semester V · A",strength:40,room:"Nursing Block · Room 104",lab:"Nursing Skills Lab",subjects:[["SON501","Medical Surgical Nursing",2],["SON502","Child Health Nursing",2],["SON503","Mental Health Nursing",2],["SON504","Community Health Nursing",2],["SONL501","Clinical Skills Practical",0,true]]},
  {code:"JU-SOP",school:"School of Pharmacy",program:"B.Pharm",classId:"SOP-PHARM-V-A",className:"B.Pharm · Semester V · A",strength:42,room:"Pharmacy Block · Room 205",lab:"Pharmaceutics Laboratory",subjects:[["SOP501","Medicinal Chemistry",2],["SOP502","Pharmacology",2],["SOP503","Pharmacognosy",2],["SOP504","Industrial Pharmacy",2],["SOPL501","Pharmaceutics Practical",0,true]]}
 ];
+function createSociThirdYearDemoWorkspace(state){
+ const code="JU-SOCI",school="School of Computational Intelligence",departmentId=code,programId="SOCI-BTECH-CYBER";
+ state.organization={name:"Joy University",code,school,timezone:"Asia/Kolkata",status:"Active"};
+ state.settings={...state.settings,university:"JOY UNIVERSITY",school,year:"2026–27",semester:"Semester VI",title:"JOY UNIVERSITY · SOCI · B.Tech CSE (Cyber Security) · Third Year",incharge:"SOCI Demo Coordinator",start:"09:00",duration:50,periods:8,days:["MON","TUE","WED","THU","FRI"],shortBreaks:[2],lunchBreaks:[5]};
+ sanitizeBreaks(state.settings);
+ state.departments=[{id:departmentId,name:school,code}];
+ state.programs=[{id:programId,name:"B.Tech CSE (Cyber Security)",department:departmentId,durationYears:4}];
+ state.academicYears=[{id:"AY-2026-27",name:"2026–27"}];
+ state.semesters=[{id:"SEM-VI",name:"Semester VI",number:6}];
+ const letters="ABCDEFGHIJKL".split("");
+ state.sections=letters.map(letter=>({id:"SOCI-Y3-"+letter+"-SECTION",name:"Section "+letter,code:letter,department:departmentId,program:programId,semester:"SEM-VI",strength:48}));
+ state.classes=letters.map(letter=>({id:"SOCI-Y3-"+letter,name:"B.Tech CSE (Cyber Security) · Third Year · Section "+letter,section:letter,department:departmentId,program:programId,semester:"SEM-VI",strength:48,incharge:"SOCI Demo Coordinator"}));
+ state.faculty=[];state.facultySubjects=[];state.courses=[];state.rooms=[];
+ letters.forEach((letter,index)=>state.rooms.push({id:"SOCI-Y3-ROOM-"+letter,name:"SOCI Classroom "+(301+index),code:"SOCI-"+(301+index),type:"Classroom",capacity:60,building:"Computing Block",floor:3,features:["projector","smart-board","internet"]}));
+ state.rooms.push({id:"SOCI-Y3-NETLAB",name:"Network Security Lab",code:"SOCI-NETLAB",type:"Lab",capacity:60,building:"Cyber Security Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true});
+ state.rooms.push({id:"SOCI-Y3-FORENSICLAB",name:"Digital Forensics Lab",code:"SOCI-FORENSICLAB",type:"Lab",capacity:60,building:"Cyber Security Block",floor:1,features:["computers","internet","projector","linux","cybersecurity"],lab:true});
+ const theory=[
+  ["24BTCY361","Operating Systems"],
+  ["24BTCY362","Computer Networks"],
+  ["24BTCY363","Network Security"],
+  ["24BTCY364","Digital Forensics"],
+  ["24BTCY365","Cryptography & Applied Mathematics"],
+  ["24BTCY366","Cyber Law & Incident Response"]
+ ];
+ theory.forEach(([courseCode,courseName,],subjectIndex)=>{
+  for(let group=0;group<3;group++){
+   const facultyId="SOCI-Y3-FAC-T"+(subjectIndex+1)+"-G"+(group+1);
+   const faculty={id:facultyId,name:"Demo Faculty · "+courseCode+" · Group "+(group+1),designation:subjectIndex===0?"Associate Professor":"Assistant Professor",department:departmentId,maxDay:4,maxWeek:18,demoRecord:true};
+   state.faculty.push(faculty);
+   const courseId="SOCI-Y3-COURSE-"+courseCode+"-G"+(group+1);
+   const classIds=letters.slice(group*4,group*4+4).map(letter=>"SOCI-Y3-"+letter);
+   state.courses.push({id:courseId,code:courseCode,name:courseName,type:"Theory",credits:3,l:2,t:0,p:0,faculty:facultyId,room:"SOCI-Y3-ROOM-"+letters[group*4],classIds,sessionPattern:"2 × 1",lab:false,department:departmentId,demoRecord:true});
+   state.facultySubjects.push({id:"SOCI-Y3-MAP-"+courseCode+"-"+(group+1),facultyId,courseId,expertiseType:"verified",notes:"Synthetic demonstration mapping"});
+  }
+ });
+ const labs=[
+  ["24BTCY367P","Network Security Lab","SOCI-Y3-NETLAB"],
+  ["24BTCY368P","Digital Forensics Lab","SOCI-Y3-FORENSICLAB"]
+ ];
+ labs.forEach(([courseCode,courseName,roomId],labIndex)=>{
+  for(let group=0;group<2;group++){
+   const facultyId="SOCI-Y3-FAC-L"+(labIndex+1)+"-G"+(group+1);
+   state.faculty.push({id:facultyId,name:"Demo Lab Faculty · "+courseCode+" · Group "+(group+1),designation:"Assistant Professor",department:departmentId,maxDay:4,maxWeek:18,demoRecord:true});
+   const courseId="SOCI-Y3-COURSE-"+courseCode+"-G"+(group+1);
+   const classIds=letters.slice(group*6,group*6+6).map(letter=>"SOCI-Y3-"+letter);
+   state.courses.push({id:courseId,code:courseCode,name:courseName,type:"Lab",credits:1,l:0,t:0,p:2,faculty:facultyId,room:roomId,classIds,sessionPattern:"1 × 2",lab:true,department:departmentId,demoRecord:true});
+   state.facultySubjects.push({id:"SOCI-Y3-MAP-"+courseCode+"-"+(group+1),facultyId,courseId,expertiseType:"verified",notes:"Synthetic demonstration mapping"});
+  }
+ });
+ state.schedule=[];
+ const previous=db;db=state;
+ const result=rebuildConflictFreeSchedule(state,false);
+ const score=scheduleScore(state).score;
+ db=previous;
+ if(result.missing.length)throw new Error("SOCI third-year timetable generation left "+result.missing.length+" activities unscheduled.");
+ const release={id:"DEMO-PUBLISHED-JU-SOCI-Y3",name:"Demo Release · Third Year · Semester VI",status:"Published",demoOnly:true,note:"Synthetic demonstration release for presentation only. Not an official university timetable or proof of Dean approval.",at:now(),score,schedule:copy(state.schedule),snapshot:{settings:copy(state.settings),classes:copy(state.classes),courses:copy(state.courses),faculty:copy(state.faculty),rooms:copy(state.rooms)},approval:{method:"demo_only",confirmedBy:"DEMO ONLY",confirmedAt:now()}};
+ state.versions=[release];
+ state.activityLog=[{id:"DEMO-SEED-JU-SOCI-Y3",action:"Third-year SOCI demo timetable generated and published",details:"12 sections A–L · "+state.courses.length+" course offerings · "+state.faculty.length+" sample faculty · "+state.schedule.length+" timetable rows · 0 unscheduled activities",at:now()}];
+ state.__demoSeedVersion=2;state.__demoSeedUnscheduled=0;
+ return normalizeState(state);
+}
+
 function createSeededDemoWorkspace(organization){
  const code=String(organization?.code||"");
  const spec=DEMO_SCHOOL_DATA.find(x=>x.code===code);
  const state=createSchoolWorkspace(organization);
  if(!spec)return state;
+ if(code==="JU-SOCI")return createSociThirdYearDemoWorkspace(state);
  const depId=code;
  const programId=code+"-PROGRAM-V";
  const classId=spec.classId;
@@ -607,14 +670,14 @@ function createSeededDemoWorkspace(organization){
   state.courses.push(course);
   state.facultySubjects.push({id:code+"-MAP-"+(index+1),facultyId,courseId,expertiseType:"verified",notes:"Synthetic demonstration mapping"});
  });
- state.__demoSeedVersion=1;
+ state.__demoSeedVersion=2;
  state.schedule=[];
  const result=rebuildConflictFreeSchedule(state,false);
  const previous=db;
  db=state;
  const score=scheduleScore(state).score;
  db=previous;
- state.versions=[{id:"DEMO-DRAFT-"+code,name:"Generated demo draft · "+code,status:"Draft",note:"Synthetic sample data for product demonstration. Not an approved university timetable.",at:now(),score,schedule:copy(state.schedule)}];
+ state.versions=[{id:"DEMO-PUBLISHED-"+code,name:"Demo Release · "+code,status:"Published",demoOnly:true,note:"Synthetic demonstration release for presentation only. Not an official university timetable or proof of Dean approval.",at:now(),score,schedule:copy(state.schedule),snapshot:{settings:copy(state.settings),classes:copy(state.classes),courses:copy(state.courses),faculty:copy(state.faculty),rooms:copy(state.rooms)},approval:{method:"demo_only",confirmedBy:"DEMO ONLY",confirmedAt:now()}}];
  state.activityLog=[{id:"DEMO-SEED-"+code,action:"Demo dataset generated",details:state.classes.length+" class · "+state.courses.length+" courses · "+state.faculty.length+" sample faculty · "+state.schedule.length+" timetable rows · "+result.missing.length+" unscheduled activities",at:now()}];
  state.__demoSeedUnscheduled=result.missing.length;
  return normalizeState(state);
@@ -626,7 +689,7 @@ function seedAllDemoSchoolWorkspaces(){
    const raw=localStorage.getItem(key);
    if(raw){
     const saved=normalizeState(JSON.parse(raw));
-    if(saved.__demoSeedVersion===1||saved.classes.length||saved.courses.length)return;
+    if(saved.__demoSeedVersion>=2)return;
    }
    const org={id:"demo-"+spec.code,code:spec.code,name:"Joy University",school:spec.school,timezone:"Asia/Kolkata",status:"Active"};
    localStorage.setItem(key,JSON.stringify(createSeededDemoWorkspace(org)));
