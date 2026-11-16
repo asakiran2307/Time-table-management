@@ -10,8 +10,8 @@
   if(!result.ok||!result.organization)throw new Error("This account is not assigned to a school workspace.");
   return result;
  }
- async function getRole(){const result=await request("/api/auth");return result.authenticated?result:null;}
- async function signOut(){try{await request("/api/auth",{method:"POST",body:JSON.stringify({action:"logout"})})}finally{location.href="/";}}
+ async function getRole(){try{const raw=sessionStorage.getItem("ju-timetable-demo-session");if(raw){const d=JSON.parse(raw);if(d&&d.demo===true&&d.organization&&d.user)return d;}}catch{}const result=await request("/api/auth");return result.authenticated?result:null;}
+ async function signOut(){try{sessionStorage.removeItem("ju-timetable-demo-session");if(!sessionStorage.getItem("ju-timetable-demo-session")){try{await request("/api/auth",{method:"POST",body:JSON.stringify({action:"logout"})})}catch{}}}finally{location.href="/";}}
  async function require(role){
   if(location.hash.startsWith("#shared="))return {shared:true,type:"PUBLIC_VIEW"};
   try{const r=await getRole();if(!r||r.type!==role){await signOut();return null;}return r;}
